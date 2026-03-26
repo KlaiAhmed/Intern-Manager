@@ -140,23 +140,22 @@
 
 ### Stack Technique
 - **Framework :** React (avec hooks fonctionnels uniquement, pas de classes)
-- **Routing :** React Router v6
-- **State Management :** React Context API ou Zustand (léger, privilégier la simplicité pour le MVP)
-- **HTTP Client :** Axios avec un intercepteur pour injecter le JWT dans les headers
-- **UI Library :** À définir (Tailwind CSS recommandé pour la rapidité du MVP)
-- **Gestion des formulaires :** React Hook Form + Zod pour la validation côté client
+- **Routing :** React Router (architecture prête à évoluer vers les modules métier)
+- **State Management :** React Context API (thème, langue, rôle actif) avec persistance locale
+- **Internationalisation :** EN / FR / AR avec support RTL natif pour l'arabe
+- **Theming :** Système clair/sombre/système via tokens CSS centralisés
+- **SEO Frontend :** Métadonnées de page (title, description, canonical) gérées côté client
+- **UI :** Design system maison (primitives réutilisables : Button, Card, Badge, Section)
 
 ### Conventions de Code Frontend
 ```
 client/
 ├── src/
-│   ├── api/            → Fichiers de services Axios (un fichier par domaine ex: internships.api.js)
-│   ├── components/     → Composants réutilisables (Button, Modal, Table...)
-│   ├── pages/          → Une page = une route (ex: LoginPage, DashboardPage)
-│   ├── context/        → Contextes React (AuthContext, etc.)
-│   ├── hooks/          → Hooks personnalisés (useAuth, useInternships...)
-│   ├── utils/          → Fonctions utilitaires pures
-│   └── App.tsx         → Routeur principal avec protection des routes par rôle
+│   ├── app/            → Point d'entrée applicatif (routes + providers globaux)
+│   ├── features/       → Modules fonctionnels (ex: home)
+│   ├── shared/         → UI primitives, layout, i18n, thème, SEO, types, utils
+│   ├── index.css       → Tokens et styles globaux (responsive + accessibilité)
+│   └── main.tsx        → Bootstrap React + injection des providers
 ```
 
 ### Règles Frontend Importantes
@@ -331,6 +330,12 @@ InternProfiles
 |------|--------|--------------|
 | Init | Agent IA | Création du README initial basé sur les documents de spécification |
 | 2026-03-26 | Agent IA (Copilot) | Initialisation du scaffold: frontend React + TypeScript (Vite), backend .NET minimal, ajout des fichiers `.env` et `.env.example` pour `client/` et `api/` |
+| 2026-03-26 | Agent IA (Copilot) | Refonte frontend production-ready: architecture modulaire (`app/features/shared`), homepage SaaS complète, i18n EN/FR/AR avec RTL, thème clair/sombre/système, SEO de landing, composants UI réutilisables, lazy loading sections non critiques, validation lint + build OK |
+| 2026-03-26 | Agent IA (Copilot) | Correction des erreurs de configuration dans `client/` : assainissement de `tsconfig.node.json`, validation locale TypeScript, lint et build Vite confirmés sans erreur bloquante |
+| 2026-03-26 | Agent IA (Copilot) | Application ciblée des correctifs TypeScript Node: activation de `types: ["node"]`, ajout de `typeRoots` local et nettoyage des options de lint non essentielles dans `client/tsconfig.node.json`, avec validation `tsc -p` et build OK |
+| 2026-03-26 | Agent IA (Copilot) | Conversion des switchers navbar (rôle, langue, thème) en sélection par menu déroulant natif tout en conservant le rendu visuel actuel des boutons à icônes |
+| 2026-03-26 | Agent IA (Copilot) | Harmonisation visuelle des menus déroulants navbar via un composant dropdown custom stylé pour correspondre exactement au design des boutons icônes |
+| 2026-03-26 | Agent IA (Copilot) | Correction du bug d'affichage: fermeture automatique des menus déroulants navbar (rôle/langue/thème) lorsque la navbar se masque au scroll |
 
 > **L'agent doit ajouter une ligne ici après chaque modification significative du projet.**
 
