@@ -1,17 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { AppShell } from '../../shared/layout/AppShell'
 import { HomePage } from '../../features/home/pages/HomePage'
-
-function NotFoundPage() {
-  return (
-    <main className="container narrow-flow" id="main-content" tabIndex={-1}>
-      <section className="surface-card">
-        <h1>Page not found</h1>
-        <p>The page you requested does not exist.</p>
-      </section>
-    </main>
-  )
-}
+import { LoginPage } from '../../features/auth/pages/LoginPage'
+import { SignInPage } from '../../features/auth/pages/SignInPage'
+import { NotFoundPage } from '../../shared/errors/NotFoundPage'
+import { AppErrorPage } from '../../shared/errors/AppErrorPage'
 
 export function AppRouter() {
   return (
@@ -24,8 +17,11 @@ export function AppRouter() {
           </AppShell>
         }
       />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signin" element={<SignInPage />} />
       <Route path="/404" element={<NotFoundPage />} />
-      <Route path="*" element={<Navigate replace to="/404" />} />
+      <Route path="/error" element={<AppErrorPage onRetry={() => window.location.reload()} />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
 import { useRolePreference } from '../../../shared/state/RolePreferenceContext'
 import { Card } from '../../../shared/ui/Card'
+import { RoleSwitcher } from '../../../shared/ui/RoleSwitcher'
 import { Section } from '../../../shared/ui/Section'
 import type { UserRole } from '../../../shared/types/role'
 import type { TranslationKey } from '../../../shared/i18n/I18nContext'
@@ -22,6 +23,9 @@ export function RoleValueSection() {
 
   return (
     <Section id="roles" title={t('roles.title')} subtitle={t('roles.subtitle')}>
+      <div className="roles-selector-row">
+        <RoleSwitcher />
+      </div>
       <div className="cards-grid cards-grid-2">
         <Card>
           <h3>{t(selectedRoleContent.title)}</h3>

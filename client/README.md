@@ -1,73 +1,132 @@
-# React + TypeScript + Vite
+# Axia Intern Manager - Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend web du projet Axia Intern Manager, construit avec React, TypeScript et Vite.
 
-Currently, two official plugins are available:
+## Apercu
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Le client fournit:
+- une landing page produit,
+- un parcours d'authentification (`/login`, `/signin`),
+- un socle transverse (theme, i18n, role preference, layout, composants UI reutilisables).
 
-## React Compiler
+## Stack technique
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript 5
+- Vite 8
+- React Router 7
+- ESLint 9
 
-## Expanding the ESLint configuration
+## Demarrage rapide
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequis
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js 20+
+- npm 10+
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Lancer en developpement
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### Build production
+
+```bash
+npm run build
+```
+
+### Preview du build
+
+```bash
+npm run preview
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+## Scripts disponibles
+
+- `npm run dev`: lance le serveur Vite en mode developpement
+- `npm run build`: verification TypeScript (`tsc -b`) puis build Vite
+- `npm run preview`: sert localement le build de production
+- `npm run lint`: execute ESLint sur le projet
+
+## Structure du projet
+
+```text
+client/
+|- public/
+|- src/
+|  |- app/
+|  |  |- App.tsx
+|  |  |- providers/RootProviders.tsx
+|  |  |- routes/AppRouter.tsx
+|  |- features/
+|  |  |- auth/
+|  |  |- home/
+|  |- shared/
+|  |  |- i18n/
+|  |  |- layout/
+|  |  |- seo/
+|  |  |- state/
+|  |  |- theme/
+|  |  |- ui/
+|  |  |- utils/
+|  |- main.tsx
+|  |- index.css
+|- package.json
+```
+
+## Routage
+
+Routes principales:
+- `/`: homepage (dans le shell applicatif)
+- `/login`: connexion
+- `/signin`: inscription
+- `/404`: page non trouvee
+
+## Providers globaux
+
+L'application est montee avec les providers suivants (ordre stable):
+1. Theme provider
+2. I18n provider
+3. Role preference provider
+4. Browser router
+
+Ce montage est defini dans `src/app/providers/RootProviders.tsx`.
+
+## Bonnes pratiques de contribution
+
+- Garder une architecture feature-first (`src/features`) pour le metier.
+- Centraliser le code transversal dans `src/shared`.
+- Maintenir les composants UI atomiques et reutilisables.
+- Eviter la logique metier dans les composants de presentation.
+- Toujours ajouter des etats UX explicites pour les actions asynchrones (loading/erreur/succes).
+- Preserver l'accessibilite (focus visible, labels, navigation clavier).
+
+## Qualite et validation attendues
+
+Avant de proposer un changement:
+1. `npm run lint`
+2. `npm run build`
+3. verification manuelle rapide des routes impactees
+
+## Depannage rapide
+
+- Erreurs de typage: verifier `tsconfig.app.json` et `tsconfig.node.json`, puis relancer `npm run build`.
+- Styles non appliques: verifier les imports CSS dans les composants/pages concernes.
+- Route inaccessible: controler `src/app/routes/AppRouter.tsx`.
+
+## License
+
+Projet interne Axia. Usage reserve a l'equipe produit/developpement.

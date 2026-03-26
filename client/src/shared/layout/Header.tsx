@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../i18n/I18nContext'
 import { LanguageSwitcher } from '../ui/LanguageSwitcher'
-import { RoleSwitcher } from '../ui/RoleSwitcher'
 import { ThemeSwitcher } from '../ui/ThemeSwitcher'
 import { Button } from '../ui/Button'
 import { classNames } from '../utils/classNames'
@@ -15,6 +15,7 @@ const navigationItems = [
 
 export function Header() {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false)
@@ -112,10 +113,9 @@ export function Header() {
           </nav>
 
           <div className="header-controls">
-            <RoleSwitcher shouldClose={!isHeaderVisible} />
             <LanguageSwitcher shouldClose={!isHeaderVisible} />
             <ThemeSwitcher shouldClose={!isHeaderVisible} />
-            <Button className="header-signin" size="sm">
+            <Button className="header-signin" size="sm" onClick={() => navigate('/login')}>
               {t('nav.login')}
             </Button>
           </div>

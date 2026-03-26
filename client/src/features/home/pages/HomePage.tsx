@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useLayoutEffect } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
 import { usePageMetadata } from '../../../shared/seo/usePageMetadata'
 import { HeroSection } from '../sections/HeroSection'
@@ -11,6 +11,13 @@ const ExtendedSections = lazy(() => import('../sections/ExtendedSections'))
 
 export function HomePage() {
   const { t } = useI18n()
+
+  useLayoutEffect(() => {
+    if (!window.location.hash) {
+      window.scrollTo(0, 0)
+    }
+  }, [])
+
   useHomeScrollReveal()
 
   usePageMetadata({

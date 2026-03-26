@@ -28,6 +28,7 @@ export function IconDropdown<T extends string>({
   shouldClose = false,
 }: IconDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isOpenUpward, setIsOpenUpward] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -68,12 +69,55 @@ export function IconDropdown<T extends string>({
     }
   }, [])
 
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    // Ouvre le menu vers le haut si l'espace sous le trigger est trop petit.
+    const updateMenuDirection = (): void => {
+      if (!containerRef.current) {
+        return
+      }
+
+      const estimatedMenuHeight = options.length * 36 + 20
+      const rect = containerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      setIsOpenUpward(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow)
+    }
+
+    updateMenuDirection()
+    window.addEventListener('resize', updateMenuDirection)
+
+    return () => {
+      window.removeEventListener('resize', updateMenuDirection)
+    }
+  }, [isOpen, options.length])
+
   return (
-    <div ref={containerRef} className={classNames('icon-control-dropdown', isOpen && 'is-open')}>
+    <div
+      ref={containerRef}
+      className={classNames('icon-control-dropdown', isOpen && 'is-open', isOpenUpward && 'open-up')}
+    >
       <button
         type="button"
         className="icon-control"
-        onClick={() => setIsOpen((prevState) => !prevState)}
+        onClick={() => {
+          setIsOpen((prevState) => {
+            if (!prevState && containerRef.current) {
+              const estimatedMenuHeight = options.length * 36 + 20
+              const rect = containerRef.current.getBoundingClientRect()
+              const spaceBelow = window.innerHeight - rect.bottom
+              const spaceAbove = rect.top
+
+              setIsOpenUpward(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow)
+            }
+
+            return !prevState
+          })
+        }}
         aria-label={ariaLabel}
         title={title}
         aria-haspopup="listbox"

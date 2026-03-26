@@ -312,6 +312,11 @@ h4 {
   backdrop-filter: blur(10px);
 }
 
+.icon-control-dropdown.open-up .icon-control-menu {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
+}
+
 .icon-control-option {
   appearance: none;
   border: 1px solid transparent;
@@ -372,6 +377,12 @@ h4 {
 
 .header-signin {
   margin-inline-start: var(--space-1);
+}
+
+.roles-selector-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-4);
 }
 
 .mobile-menu-button {
@@ -735,6 +746,10 @@ h4 {
   .header-signin {
     width: 100%;
     margin-inline-start: 0;
+  }
+
+  .roles-selector-row {
+    justify-content: flex-start;
   }
 
   .cards-grid-2,

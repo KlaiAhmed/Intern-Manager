@@ -1,5 +1,5 @@
 export const storageKeys = {
-  locale: 'smartaxia.locale',
-  themeMode: 'smartaxia.themeMode',
-  role: 'smartaxia.activeRole',
+  locale: 'axia.locale',
+  themeMode: 'axia.themeMode',
+  role: 'axia.activeRole',
 } as const
