@@ -80,11 +80,11 @@ export function Header() {
       )}
     >
       <div className="container header-content">
-        <a className="brand" href="/" aria-label="Smart Axia Intern Manager">
+        <a className="brand" href="/" aria-label="Axia Intern Manager">
           <span className="brand-mark" aria-hidden="true">
             SA
           </span>
-          <span className="brand-text">Smart Axia Intern Manager</span>
+          <span className="brand-text">Axia Intern Manager</span>
         </a>
 
         <button

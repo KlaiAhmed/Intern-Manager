@@ -15,9 +15,9 @@ export function HeroSection() {
   return (
     <Section className="hero-section">
       <div className="hero-grid container">
-        <div className="hero-copy">
+        <div className="hero-copy reveal-on-scroll">
           <Badge>{t('hero.badge')}</Badge>
-          <p className="hero-kicker">Smart Axia</p>
+          <p className="hero-kicker">Axia</p>
           <h2 className="hero-title">{t('hero.title')}</h2>
           <p className="hero-description">{t('hero.description')}</p>
           <div className="hero-actions">
@@ -26,10 +26,10 @@ export function HeroSection() {
           </div>
         </div>
 
-        <aside className="hero-panel" aria-label="Platform impact metrics">
+        <aside className="hero-panel reveal-on-scroll" aria-label="Platform impact metrics">
           <ul className="hero-stats-list">
             {heroStats.map((stat) => (
-              <li key={stat.key} className="surface-card hero-stat-item">
+              <li key={stat.key} className="surface-card hero-stat-item reveal-on-scroll">
                 <strong>{stat.value}</strong>
                 <span>{t(stat.key)}</span>
               </li>

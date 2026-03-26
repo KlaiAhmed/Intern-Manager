@@ -336,6 +336,7 @@ InternProfiles
 | 2026-03-26 | Agent IA (Copilot) | Conversion des switchers navbar (rôle, langue, thème) en sélection par menu déroulant natif tout en conservant le rendu visuel actuel des boutons à icônes |
 | 2026-03-26 | Agent IA (Copilot) | Harmonisation visuelle des menus déroulants navbar via un composant dropdown custom stylé pour correspondre exactement au design des boutons icônes |
 | 2026-03-26 | Agent IA (Copilot) | Correction du bug d'affichage: fermeture automatique des menus déroulants navbar (rôle/langue/thème) lorsque la navbar se masque au scroll |
+| 2026-03-26 | Agent IA (Copilot) | Ajout d'animations de révélation au scroll fluides sur la homepage (IntersectionObserver + support reduced motion), activation du smooth scroll des ancres, renommage branding « Smart Axia » vers « Axia » et mise à jour des CTA EN vers « Login / Sign in » |
 
 > **L'agent doit ajouter une ligne ici après chaque modification significative du projet.**
 

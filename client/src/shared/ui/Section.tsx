@@ -11,7 +11,7 @@ interface SectionProps {
 
 export function Section({ id, title, subtitle, titleAction, className, children }: PropsWithChildren<SectionProps>) {
   return (
-    <section id={id} className={classNames('section', className)} aria-labelledby={title ? `${id ?? 'section'}-title` : undefined}>
+    <section id={id} className={classNames('section', 'reveal-on-scroll', className)} aria-labelledby={title ? `${id ?? 'section'}-title` : undefined}>
       <div className="container">
         {(title || subtitle || titleAction) && (
           <header className="section-header">

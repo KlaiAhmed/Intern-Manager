@@ -25,7 +25,7 @@ export const frTranslations = {
   'role.hr': 'RH / Formation',
   'hero.badge': 'Plateforme de gestion du cycle de stage',
   'hero.title': 'Pilotez chaque parcours de stage avec precision.',
-  'hero.description': 'Smart Axia Intern Manager centralise l affectation des missions, le suivi quotidien, l evaluation et l archivage dans un espace unique.',
+  'hero.description': 'Axia Intern Manager centralise l affectation des missions, le suivi quotidien, l evaluation et l archivage dans un espace unique.',
   'hero.primaryCta': 'Acceder a la plateforme',
   'hero.secondaryCta': 'Se connecter',
   'hero.statTeams': 'Departements equipes',

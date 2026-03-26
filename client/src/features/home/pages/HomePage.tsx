@@ -5,22 +5,24 @@ import { HeroSection } from '../sections/HeroSection'
 import { BenefitsSection } from '../sections/BenefitsSection'
 import { RoleValueSection } from '../sections/RoleValueSection'
 import { LifecycleSection } from '../sections/LifecycleSection'
+import { useHomeScrollReveal } from '../hooks/useHomeScrollReveal'
 
 const ExtendedSections = lazy(() => import('../sections/ExtendedSections'))
 
 export function HomePage() {
   const { t } = useI18n()
+  useHomeScrollReveal()
 
   usePageMetadata({
-    title: 'Smart Axia Intern Manager | Internship Lifecycle Platform',
+    title: 'Axia Intern Manager | Internship Lifecycle Platform',
     description:
-      'Smart Axia Intern Manager is an enterprise platform for mission assignment, progress tracking, evaluations, AI matching, and BI analytics.',
+      'Axia Intern Manager is an enterprise platform for mission assignment, progress tracking, evaluations, AI matching, and BI analytics.',
     path: '/',
   })
 
   return (
     <main id="main-content" tabIndex={-1}>
-      <h1 className="sr-only">Smart Axia Intern Manager</h1>
+      <h1 className="sr-only">Axia Intern Manager</h1>
       <HeroSection />
       <BenefitsSection />
       <RoleValueSection />

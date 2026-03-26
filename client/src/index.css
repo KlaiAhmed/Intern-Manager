@@ -67,6 +67,10 @@ body,
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -115,6 +119,39 @@ h4 {
 
 .section {
   padding-block: clamp(2.5rem, 6vw, 4.5rem);
+  scroll-margin-top: 6.5rem;
+}
+
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity 560ms var(--ease-standard),
+    transform 560ms var(--ease-standard);
+  transition-delay: calc(var(--reveal-index, 0) * 55ms);
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.cards-grid > .reveal-on-scroll:nth-child(1),
+.hero-stats-list > .reveal-on-scroll:nth-child(1),
+.lifecycle-list > li:nth-child(1) .reveal-on-scroll {
+  --reveal-index: 0;
+}
+
+.cards-grid > .reveal-on-scroll:nth-child(2),
+.hero-stats-list > .reveal-on-scroll:nth-child(2),
+.lifecycle-list > li:nth-child(2) .reveal-on-scroll {
+  --reveal-index: 1;
+}
+
+.cards-grid > .reveal-on-scroll:nth-child(3),
+.hero-stats-list > .reveal-on-scroll:nth-child(3),
+.lifecycle-list > li:nth-child(3) .reveal-on-scroll {
+  --reveal-index: 2;
 }
 
 .section-header {
@@ -625,6 +662,13 @@ h4 {
 
   .button:hover {
     transform: none;
+  }
+
+  .reveal-on-scroll,
+  .reveal-on-scroll.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 

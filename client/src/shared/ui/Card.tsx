@@ -9,7 +9,7 @@ export function Card({ as = 'article', className, children, ...restProps }: Prop
   const Component = as
 
   return (
-    <Component {...restProps} className={classNames('surface-card', className)}>
+    <Component {...restProps} className={classNames('surface-card', 'reveal-on-scroll', className)}>
       {children}
     </Component>
   )

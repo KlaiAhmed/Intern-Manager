@@ -25,7 +25,7 @@ export const arTranslations = {
   'role.hr': 'الموارد البشرية / التدريب',
   'hero.badge': 'منصة ادارة دورة التدريب',
   'hero.title': 'ادارة رحلة التدريب بالكامل بثقة.',
-  'hero.description': 'Smart Axia Intern Manager يوحد اسناد المهام والمتابعة اليومية والتقييم والارشفة في مساحة واحدة موثوقة.',
+  'hero.description': 'Axia Intern Manager يوحد اسناد المهام والمتابعة اليومية والتقييم والارشفة في مساحة واحدة موثوقة.',
   'hero.primaryCta': 'الدخول الى المنصة',
   'hero.secondaryCta': 'تسجيل الدخول',
   'hero.statTeams': 'الادارات المنضمة',

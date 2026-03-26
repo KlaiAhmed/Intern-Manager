@@ -8,7 +8,7 @@ export function Footer() {
       <div className="container footer-content">
         <p>{t('footer.tagline')}</p>
         <p>
-          © {new Date().getFullYear()} Smart Axia. {t('footer.rights')}
+          © {new Date().getFullYear()} Axia. {t('footer.rights')}
         </p>
       </div>
     </footer>
