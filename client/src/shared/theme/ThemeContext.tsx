@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { storageKeys } from '../constants/storageKeys'
 
@@ -15,6 +15,19 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
+function getPersistedThemeMode(): ThemeMode | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const persistedMode = window.localStorage.getItem(storageKeys.themeMode)
+  if (persistedMode && themeModes.includes(persistedMode as ThemeMode)) {
+    return persistedMode as ThemeMode
+  }
+
+  return null
+}
+
 function detectSystemTheme(): ResolvedTheme {
   if (typeof window === 'undefined') {
     return 'light'
@@ -24,16 +37,7 @@ function detectSystemTheme(): ResolvedTheme {
 }
 
 function detectInitialThemeMode(): ThemeMode {
-  if (typeof window === 'undefined') {
-    return 'system'
-  }
-
-  const persistedMode = window.localStorage.getItem(storageKeys.themeMode)
-  if (persistedMode && themeModes.includes(persistedMode as ThemeMode)) {
-    return persistedMode as ThemeMode
-  }
-
-  return 'system'
+  return getPersistedThemeMode() ?? 'system'
 }
 
 /**
@@ -42,6 +46,12 @@ function detectInitialThemeMode(): ThemeMode {
 export function ThemeProvider({ children }: PropsWithChildren) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => detectInitialThemeMode())
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => detectSystemTheme())
+  const [hasExplicitThemeChoice, setHasExplicitThemeChoice] = useState<boolean>(() => getPersistedThemeMode() !== null)
+
+  const setThemeModeAndPersist = useCallback((nextTheme: ThemeMode): void => {
+    setThemeMode(nextTheme)
+    setHasExplicitThemeChoice(true)
+  }, [])
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -57,18 +67,20 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const resolvedTheme = themeMode === 'system' ? systemTheme : themeMode
 
   useEffect(() => {
-    window.localStorage.setItem(storageKeys.themeMode, themeMode)
+    if (hasExplicitThemeChoice) {
+      window.localStorage.setItem(storageKeys.themeMode, themeMode)
+    }
     document.documentElement.dataset.theme = resolvedTheme
     document.documentElement.style.colorScheme = resolvedTheme
-  }, [themeMode, resolvedTheme])
+  }, [hasExplicitThemeChoice, themeMode, resolvedTheme])
 
   const contextValue = useMemo<ThemeContextValue>(() => {
     return {
       themeMode,
       resolvedTheme,
-      setThemeMode,
+      setThemeMode: setThemeModeAndPersist,
     }
-  }, [themeMode, resolvedTheme])
+  }, [resolvedTheme, setThemeModeAndPersist, themeMode])
 
   return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>
 }

@@ -110,6 +110,8 @@ Exclure pour l'instant:
 | 2026-03-26 | Agent IA (Copilot) | Creation des pages 404 et erreur globale cote client (fallback React Error Boundary, routes `/404` et `/error`, style moderne coherent + i18n EN/FR/AR) |
 | 2026-03-26 | Agent IA (Copilot) | Ajustement UX ecran `/signin` pour limiter le depassement vertical (fit viewport desktop) + correction des menus dropdown role qui s'ouvrent vers le haut quand l'espace bas est insuffisant |
 | 2026-03-26 | Agent IA (Copilot) | Ajustements UX ecran `/login`: suppression du bouton SSO, libelle CTA principal force a `Login`, et masquage du panneau branding sur mobile pour n'afficher que le formulaire |
+| 2026-03-27 | Agent IA (Copilot) | Detection i18n basee sur l'ordre des langues navigateur (`navigator.languages`) avec fallback anglais, tout en preservant la langue explicitement choisie par l'utilisateur |
+| 2026-03-27 | Agent IA (Copilot) | Theme par defaut force a `system` sans persistance initiale; la preference est enregistree uniquement apres un choix explicite utilisateur |
 
 ---
 

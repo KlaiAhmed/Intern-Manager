@@ -27,6 +27,16 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
+function normalizeLocale(localeCandidate: string): SupportedLocale | null {
+  const shortLocale = localeCandidate.slice(0, 2).toLowerCase()
+
+  if (supportedLocales.includes(shortLocale as SupportedLocale)) {
+    return shortLocale as SupportedLocale
+  }
+
+  return null
+}
+
 function detectInitialLocale(): SupportedLocale {
   if (typeof window === 'undefined') {
     return 'en'
@@ -37,9 +47,17 @@ function detectInitialLocale(): SupportedLocale {
     return persistedLocale as SupportedLocale
   }
 
-  const browserLocale = window.navigator.language.slice(0, 2).toLowerCase()
-  if (supportedLocales.includes(browserLocale as SupportedLocale)) {
-    return browserLocale as SupportedLocale
+  const browserLocales = [
+    ...(window.navigator.languages ?? []),
+    window.navigator.language,
+  ].filter(Boolean)
+
+  for (const localeCandidate of browserLocales) {
+    const normalizedLocale = normalizeLocale(localeCandidate)
+
+    if (normalizedLocale) {
+      return normalizedLocale
+    }
   }
 
   return 'en'
