@@ -139,6 +139,11 @@ Exclure pour l'instant:
 | 2026-03-28 | Agent IA (Copilot) | Correction login SuperAdmin: remplacement du store auth stub en memoire par un store base SQL (`DbAuthUserStore`) pour authentifier les comptes reels seedes (email + mot de passe) |
 | 2026-03-28 | Agent IA (Copilot) | Route `POST /auth/login` alignee sur `email/password` (DTO, controller, service et store), avec harmonisation des claims auth sur l email |
 | 2026-03-28 | Agent IA (Copilot) | Mise a jour de la section Project Structure du README backend en structure dossier uniquement, avec descriptions courtes par dossier |
+| 2026-03-28 | Agent IA (Copilot) | Ajout d une policy CORS backend configurable (`CLIENT_ORIGIN`) avec `AllowCredentials`, activation via `UseCors(...)`, et mise a jour des fichiers `.env`/`.env.example` pour autoriser le client Vite (`http://localhost:5173`) |
+| 2026-03-28 | Agent IA (Copilot) | Initialisation auth client rendue intelligente via signal cookie CSRF (skip `/auth/me` sans cookie), lock de deduplication refresh (`refreshPromise`) pour eviter les appels concurrents, chargement bloquant au bootstrap (`isAuthLoading`), et alignement API de l expiration `csrf_token` sur la duree du refresh token |
+| 2026-03-28 | Agent IA (Copilot) | Simplification config frontend auth: suppression de `VITE_AUTH_LOGIN_PATH` (non necessaire) et appel login via suffixe fixe `/auth/login` combine avec `VITE_API_BASE_URL` |
+| 2026-03-28 | Agent IA (Copilot) | Simplification complete des routes frontend auth: suppression de `VITE_AUTH_ME_PATH`, `VITE_AUTH_REFRESH_PATH` et `VITE_AUTH_LOGOUT_PATH`; tous les appels auth utilisent des suffixes fixes (`/auth/*`) concaténés a `VITE_API_BASE_URL` |
+| 2026-03-28 | Agent IA (Copilot) | Suppression de `VITE_AUTH_CSRF_COOKIE_NAME` cote client et adoption d une valeur par defaut `csrf_token` dans l utilitaire frontend |
 
 ---
 

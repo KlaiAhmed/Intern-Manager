@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../shared/i18n/I18nContext'
 import { availableRoles, type UserRole } from '../../../shared/types/role'
 import { classNames } from '../../../shared/utils/classNames'
 import { LanguageSwitcher } from '../../../shared/ui/LanguageSwitcher'
 import { ThemeSwitcher } from '../../../shared/ui/ThemeSwitcher'
 import { usePageMetadata } from '../../../shared/seo/usePageMetadata'
+import { useAuth } from '../../../shared/state/AuthContext'
+import { ApiRequestError } from '../../../shared/api/authApi'
 import styles from './AuthScreen.module.css'
 
 type AuthVariant = 'login' | 'signup'
@@ -55,6 +57,8 @@ type RoleTranslationKey = `role.${UserRole}`
  */
 export function AuthScreen({ variant }: AuthScreenProps) {
   const { t } = useI18n()
+  const navigate = useNavigate()
+  const { login } = useAuth()
   const roleMenuRef = useRef<HTMLDivElement | null>(null)
   const [values, setValues] = useState<FormValues>({
     email: '',
@@ -76,6 +80,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
   const [isRoleMenuUpward, setIsRoleMenuUpward] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const isSignUpVariant = variant === 'signup'
   const pageTitle = isSignUpVariant ? t('auth.meta.signinTitle') : t('auth.meta.loginTitle')
@@ -226,8 +231,16 @@ export function AuthScreen({ variant }: AuthScreenProps) {
   const validateForm = (): FormErrors => {
     const nextErrors: FormErrors = {}
 
-    nextErrors.email = validateLoginField('email', values.email)
-    nextErrors.password = validateLoginField('password', values.password)
+    const emailError = validateLoginField('email', values.email)
+    const passwordError = validateLoginField('password', values.password)
+
+    if (emailError) {
+      nextErrors.email = emailError
+    }
+
+    if (passwordError) {
+      nextErrors.password = passwordError
+    }
 
     return nextErrors
   }
@@ -238,24 +251,45 @@ export function AuthScreen({ variant }: AuthScreenProps) {
   const validateRegisterForm = (): RegisterErrors => {
     const nextErrors: RegisterErrors = {}
 
-    nextErrors.firstName = validateRegisterField('firstName', registerValues.firstName, registerValues)
-    nextErrors.lastName = validateRegisterField('lastName', registerValues.lastName, registerValues)
-    nextErrors.email = validateRegisterField('email', registerValues.email, registerValues)
-    nextErrors.password = validateRegisterField('password', registerValues.password, registerValues)
-    nextErrors.confirmPassword = validateRegisterField(
+    const firstNameError = validateRegisterField('firstName', registerValues.firstName, registerValues)
+    const lastNameError = validateRegisterField('lastName', registerValues.lastName, registerValues)
+    const emailError = validateRegisterField('email', registerValues.email, registerValues)
+    const passwordError = validateRegisterField('password', registerValues.password, registerValues)
+    const confirmPasswordError = validateRegisterField(
       'confirmPassword',
       registerValues.confirmPassword,
       registerValues,
     )
 
+    if (firstNameError) {
+      nextErrors.firstName = firstNameError
+    }
+
+    if (lastNameError) {
+      nextErrors.lastName = lastNameError
+    }
+
+    if (emailError) {
+      nextErrors.email = emailError
+    }
+
+    if (passwordError) {
+      nextErrors.password = passwordError
+    }
+
+    if (confirmPasswordError) {
+      nextErrors.confirmPassword = confirmPasswordError
+    }
+
     return nextErrors
   }
 
   /**
-   * Simule un appel API de connexion pour valider les interactions UI avant le backend reel.
+   * Soumet le formulaire de connexion vers l'API backend puis redirige vers l'accueil en cas de succes.
    */
   const handleLogin = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
+    setSubmitError(null)
 
     const nextErrors = validateForm()
     setErrors(nextErrors)
@@ -264,21 +298,28 @@ export function AuthScreen({ variant }: AuthScreenProps) {
       return
     }
 
-    const payload = {
-      email: values.email.trim(),
-      password: values.password,
-      rememberMe: values.rememberMe,
-      mode: variant,
-    }
-
     setIsLoading(true)
 
-    await new Promise<void>((resolve) => {
-      window.setTimeout(() => resolve(), 1000)
-    })
-
-    console.log('Mock login payload:', payload)
-    setIsLoading(false)
+    try {
+      await login(values.email.trim(), values.password)
+      navigate('/', { replace: true })
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 401) {
+          setSubmitError(t('auth.error.invalidCredentials'))
+        } else {
+          setSubmitError(error.message || t('auth.error.unexpected'))
+        }
+      } else if (error instanceof TypeError) {
+        setSubmitError(t('auth.error.network'))
+      } else if (error instanceof Error && error.message === 'AUTH_PROFILE_UNAVAILABLE') {
+        setSubmitError(t('auth.error.profileUnavailable'))
+      } else {
+        setSubmitError(t('auth.error.unexpected'))
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   /**
@@ -773,6 +814,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                       ...previous,
                       email: validateLoginField('email', nextEmail),
                     }))
+                    setSubmitError(null)
                   }}
                   className={classNames(styles.input, errors.email && styles.inputError)}
                   placeholder={t('auth.placeholder.email')}
@@ -804,6 +846,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                       ...previous,
                       password: validateLoginField('password', nextPassword),
                     }))
+                    setSubmitError(null)
                   }}
                   className={classNames(styles.input, errors.password && styles.inputError)}
                   placeholder={t('auth.placeholder.loginPassword')}
@@ -865,6 +908,12 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                   submitLabel
                 )}
               </button>
+
+              {submitError ? (
+                <p className={styles.errorText} role="alert">
+                  {submitError}
+                </p>
+              ) : null}
 
             </form>
 

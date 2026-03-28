@@ -109,6 +109,7 @@ Create `api/.env` from `api/.env.example`:
 # Application
 ASPNETCORE_ENVIRONMENT=Development
 SERVER_PORT=5184
+CLIENT_ORIGIN=http://localhost:5173
 
 # JWT Configuration
 JWT__KEY=dev_only_replace_me_with_32_plus_bytes_key_2026
@@ -133,6 +134,7 @@ SUPERADMIN_LASTNAME=Admin
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `SERVER_PORT` | No | `5184` | HTTP port for Kestrel server |
+| `CLIENT_ORIGIN` | No | `http://localhost:5173` | Allowed frontend origin(s) for CORS (comma-separated) |
 | `JWT__KEY` | **Yes** | — | Signing key (minimum 32 bytes) |
 | `JWT__ISSUER` | Yes | — | JWT issuer claim |
 | `JWT__AUDIENCE` | Yes | — | JWT audience claim |
@@ -247,7 +249,7 @@ On startup, `DbSeeder` performs:
 |-------|----------|---------|
 | Access Token (JWT) | 15 minutes | `access_token` cookie |
 | Refresh Token | 7 days | `refresh_token` cookie |
-| CSRF Token | — | `csrf_token` cookie |
+| CSRF Token | same as refresh token | `csrf_token` cookie |
 
 ### Cookie Configuration
 

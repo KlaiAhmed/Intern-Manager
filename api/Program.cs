@@ -11,10 +11,13 @@ using Microsoft.EntityFrameworkCore;
 EnvLoader.LoadFromProjectRoot();
 
 var builder = WebApplication.CreateBuilder(args);
+const string clientCorsPolicyName = "ClientCorsPolicy";
 
 var serverPort = builder.Configuration["SERVER_PORT"];
 var serverUrl = BuildServerUrl(serverPort);
 builder.WebHost.UseUrls(serverUrl);
+
+var corsOrigins = BuildCorsOrigins(builder.Configuration["CLIENT_ORIGIN"]);
 
 var databasePath = builder.Configuration["DATABASE_PATH"];
 var sqlServerInstance = builder.Configuration["SQLSERVER_INSTANCE"];
@@ -22,6 +25,18 @@ var connectionString = BuildSqlServerConnectionString(databasePath, sqlServerIns
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(clientCorsPolicyName, policyBuilder =>
+    {
+        policyBuilder
+            .WithOrigins(corsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
 builder.Services.AddControllers();
 builder.Services.AddAuth(builder.Configuration);
@@ -58,6 +73,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors(clientCorsPolicyName);
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -105,4 +121,30 @@ static string BuildServerUrl(string? serverPort)
     }
 
     return $"http://localhost:{port}";
+}
+
+/// <summary>
+/// Construit la liste des origines autorisées pour CORS à partir de la configuration.
+/// </summary>
+/// <param name="configuredOrigin">Origines autorisées séparées par virgule (optionnel).</param>
+/// <returns>Tableau des origines autorisées pour la policy CORS.</returns>
+static string[] BuildCorsOrigins(string? configuredOrigin)
+{
+    const string defaultOrigin = "http://localhost:5173";
+
+    if (string.IsNullOrWhiteSpace(configuredOrigin))
+    {
+        return [defaultOrigin];
+    }
+
+    var origins = configuredOrigin
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(origin => origin.TrimEnd('/'))
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    return origins.Length > 0
+        ? origins
+        : [defaultOrigin];
 }

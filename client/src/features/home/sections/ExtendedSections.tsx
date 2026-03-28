@@ -1,4 +1,5 @@
 import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useAuth } from '../../../shared/state/AuthContext'
 import { Button } from '../../../shared/ui/Button'
 import { Card } from '../../../shared/ui/Card'
 import { Section } from '../../../shared/ui/Section'
@@ -11,6 +12,7 @@ const proofCards = [
 
 export default function ExtendedSections() {
   const { t } = useI18n()
+  const { isLoggedIn } = useAuth()
 
   return (
     <>
@@ -79,10 +81,12 @@ export default function ExtendedSections() {
         <div className="surface-card final-cta-card">
           <h2>{t('cta.title')}</h2>
           <p>{t('cta.text')}</p>
-          <div className="hero-actions">
-            <Button>{t('cta.primary')}</Button>
-            <Button variant="secondary">{t('cta.secondary')}</Button>
-          </div>
+          {!isLoggedIn ? (
+            <div className="hero-actions">
+              <Button>{t('cta.primary')}</Button>
+              <Button variant="secondary">{t('cta.secondary')}</Button>
+            </div>
+          ) : null}
         </div>
       </Section>
     </>

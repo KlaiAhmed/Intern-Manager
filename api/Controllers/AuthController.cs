@@ -164,7 +164,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
             Secure = true,
             SameSite = SameSiteMode.Strict,
             Path = "/",
-            Expires = session.AccessTokenExpiresAtUtc
+            Expires = session.RefreshTokenExpiresAtUtc
         });
     }
 

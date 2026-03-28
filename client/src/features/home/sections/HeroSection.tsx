@@ -2,6 +2,7 @@ import { Badge } from '../../../shared/ui/Badge'
 import { Button } from '../../../shared/ui/Button'
 import { Section } from '../../../shared/ui/Section'
 import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useAuth } from '../../../shared/state/AuthContext'
 
 const heroStats = [
   { key: 'hero.statTeams', value: '24+' },
@@ -11,6 +12,7 @@ const heroStats = [
 
 export function HeroSection() {
   const { t } = useI18n()
+  const { isLoggedIn } = useAuth()
 
   return (
     <Section className="hero-section">
@@ -20,10 +22,12 @@ export function HeroSection() {
           <p className="hero-kicker">Axia</p>
           <h2 className="hero-title">{t('hero.title')}</h2>
           <p className="hero-description">{t('hero.description')}</p>
-          <div className="hero-actions">
-            <Button>{t('hero.primaryCta')}</Button>
-            <Button variant="secondary">{t('nav.login')}</Button>
-          </div>
+          {!isLoggedIn ? (
+            <div className="hero-actions">
+              <Button>{t('hero.primaryCta')}</Button>
+              <Button variant="secondary">{t('nav.login')}</Button>
+            </div>
+          ) : null}
         </div>
 
         <aside className="hero-panel reveal-on-scroll" aria-label="Platform impact metrics">
