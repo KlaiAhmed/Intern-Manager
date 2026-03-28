@@ -99,15 +99,12 @@ Exclure pour l'instant:
 
 | Date | Auteur | Modification |
 |------|--------|--------------|
-| Init | Agent IA | Creation du README initial |
-| 2026-03-26 | Agent IA (Copilot) | Ajustement UX ecran `/signin` pour limiter le depassement vertical (fit viewport desktop) + correction des menus dropdown role qui s'ouvrent vers le haut quand l'espace bas est insuffisant |
-| 2026-03-26 | Agent IA (Copilot) | Ajustements UX ecran `/login`: suppression du bouton SSO, libelle CTA principal force a `Login`, et masquage du panneau branding sur mobile pour n'afficher que le formulaire |
-| 2026-03-27 | Agent IA (Copilot) | Detection i18n basee sur l'ordre des langues navigateur (`navigator.languages`) avec fallback anglais, tout en preservant la langue explicitement choisie par l'utilisateur |
-| 2026-03-27 | Agent IA (Copilot) | Theme par defaut force a `system` sans persistance initiale; la preference est enregistree uniquement apres un choix explicite utilisateur |
-| 2026-03-28 | Agent IA (Copilot) | Suppression du role `hr` (HR/Training) cote client: retrait des options UI, des mappings de sections role, et des cles de traduction associees |
-| 2026-03-28 | Agent IA (Copilot) | Mise en place des fondations backend: `AppDbContext` EF Core SQL Server, entite `User` + enums role/statut, chargement `.env`, creation auto base au demarrage et seed asynchrone `SuperAdmin` via `DbSeeder` avec hash bcrypt |
 | 2026-03-28 | Agent IA (Copilot) | Ajout du README backend `api/README.md` avec description concise de la structure, de la logique de demarrage, de la stack, des variables d environnement et des commandes d execution |
 | 2026-03-28 | Agent IA (Copilot) | Migration backend vers cible `.NET 10` (`net10.0`) et alignement EF Core 10 pour compatibilite avec runtime ASP.NET Core 10 installe |
+| 2026-03-28 | Agent IA (Copilot) | Implementation complete du module d authentification JWT cookie-based: `AuthController` (`/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`), `AuthService` avec rotation atomique des refresh tokens (hash SHA-256 cote serveur), filtre global CSRF Double Submit (`X-CSRF-Token` vs claim `csrf`), et branchement via `AddAuth(...)` + `UseAuthentication()` |
+| 2026-03-28 | Agent IA (Copilot) | Correction erreur de demarrage auth: mise a jour de `JWT__KEY` dans `.env`/`.env.example` avec une valeur >= 32 octets et alignement de la documentation backend sur cette contrainte |
+| 2026-03-28 | Agent IA (Copilot) | Correction login SuperAdmin: remplacement du store auth stub en memoire par un store base SQL (`DbAuthUserStore`) pour authentifier les comptes reels seedes (email + mot de passe) |
+| 2026-03-28 | Agent IA (Copilot) | Route `POST /auth/login` alignee sur `email/password` (DTO, controller, service et store), avec harmonisation des claims auth sur l email |
 
 ---
 

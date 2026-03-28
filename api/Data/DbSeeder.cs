@@ -1,5 +1,6 @@
 using InternManager.Api.Models;
 using InternManager.Api.Models.Enums;
+using InternManager.Api.Services.Auth;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Data;
@@ -36,7 +37,7 @@ public static class DbSeeder
             FirstName = firstName,
             LastName = lastName,
             Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            PasswordHash = PasswordHasher.HashPassword(password),
             Role = UserRole.SuperAdmin,
             Status = UserStatus.Active
         };
