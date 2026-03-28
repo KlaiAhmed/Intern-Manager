@@ -9,7 +9,7 @@ import { ThemeSwitcher } from '../../../shared/ui/ThemeSwitcher'
 import { usePageMetadata } from '../../../shared/seo/usePageMetadata'
 import styles from './AuthScreen.module.css'
 
-type AuthVariant = 'login' | 'signin'
+type AuthVariant = 'login' | 'signup'
 
 interface AuthScreenProps {
   variant: AuthVariant
@@ -47,7 +47,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type LoginFieldName = 'email' | 'password'
 type RegisterFieldName = 'firstName' | 'lastName' | 'email' | 'password' | 'confirmPassword'
-type RoleTranslationKey = 'role.admin' | 'role.supervisor' | 'role.intern' | 'role.manager' | 'role.hr'
+type RoleTranslationKey = `role.${UserRole}`
 
 /**
  * Ecran d'authentification responsive qui affiche soit le formulaire de connexion,
@@ -77,16 +77,16 @@ export function AuthScreen({ variant }: AuthScreenProps) {
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
   const [isRoleMenuUpward, setIsRoleMenuUpward] = useState(false)
 
-  const isSignInVariant = variant === 'signin'
-  const pageTitle = isSignInVariant ? t('auth.meta.signinTitle') : t('auth.meta.loginTitle')
-  const heading = isSignInVariant ? t('auth.heading.signin') : t('auth.heading.login')
+  const isSignUpVariant = variant === 'signup'
+  const pageTitle = isSignUpVariant ? t('auth.meta.signinTitle') : t('auth.meta.loginTitle')
+  const heading = isSignUpVariant ? t('auth.heading.signin') : t('auth.heading.login')
   const description = t('auth.description.shared')
-  const submitLabel = isSignInVariant ? t('auth.action.createAccount') : t('auth.action.login')
+  const submitLabel = isSignUpVariant ? t('auth.action.createAccount') : t('auth.action.login')
 
   usePageMetadata({
     title: pageTitle,
     description: t('auth.meta.description'),
-    path: isSignInVariant ? '/signin' : '/login',
+    path: isSignUpVariant ? '/signup' : '/login',
   })
 
   useEffect(() => {
@@ -312,7 +312,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
     setIsLoading(false)
   }
 
-  if (isSignInVariant) {
+  if (isSignUpVariant) {
     return (
       <main className={styles.signInPage}>
         <section className={styles.signInSection}>
@@ -869,9 +869,9 @@ export function AuthScreen({ variant }: AuthScreenProps) {
             </form>
 
             <p className={styles.bottomText}>
-              {isSignInVariant ? t('auth.link.alreadyHaveAccount') : t('auth.link.needAccount')}{' '}
-              <Link className={styles.linkPrimary} to={isSignInVariant ? '/login' : '/signin'}>
-                {isSignInVariant ? t('auth.action.login') : t('auth.action.signIn')}
+              {isSignUpVariant ? t('auth.link.alreadyHaveAccount') : t('auth.link.needAccount')}{' '}
+              <Link className={styles.linkPrimary} to={isSignUpVariant ? '/login' : '/signup'}>
+                {isSignUpVariant ? t('auth.action.login') : t('auth.action.createAccount')}
               </Link>
             </p>
           </div>

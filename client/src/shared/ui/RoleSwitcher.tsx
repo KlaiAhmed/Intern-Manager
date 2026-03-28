@@ -10,12 +10,10 @@ type RoleSwitcherProps = {
 export function RoleSwitcher({ shouldClose = false }: RoleSwitcherProps) {
   const { activeRole, setActiveRole } = useRolePreference()
   const { t } = useI18n()
-  const activeRoleLabel = t(
-    `role.${activeRole}` as 'role.admin' | 'role.supervisor' | 'role.intern' | 'role.manager' | 'role.hr',
-  )
+  const activeRoleLabel = t(`role.${activeRole}` as `role.${UserRole}`)
   const options = availableRoles.map((role) => ({
     value: role,
-    label: t(`role.${role}` as 'role.admin' | 'role.supervisor' | 'role.intern' | 'role.manager' | 'role.hr'),
+    label: t(`role.${role}` as `role.${UserRole}`),
   }))
 
   return (

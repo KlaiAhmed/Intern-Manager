@@ -2,7 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { AppShell } from '../../shared/layout/AppShell'
 import { HomePage } from '../../features/home/pages/HomePage'
 import { LoginPage } from '../../features/auth/pages/LoginPage'
-import { SignInPage } from '../../features/auth/pages/SignInPage'
+import { SignUpPage } from '../../features/auth/pages/SignUpPage'
 import { NotFoundPage } from '../../shared/errors/NotFoundPage'
 import { AppErrorPage } from '../../shared/errors/AppErrorPage'
 
@@ -18,7 +18,7 @@ export function AppRouter() {
         }
       />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/signin" element={<SignInPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
       <Route path="/404" element={<NotFoundPage />} />
       <Route path="/error" element={<AppErrorPage onRetry={() => window.location.reload()} />} />
       <Route path="*" element={<NotFoundPage />} />

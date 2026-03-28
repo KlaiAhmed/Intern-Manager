@@ -1,3 +1,3 @@
-export const availableRoles = ['admin', 'supervisor', 'intern', 'manager', 'hr'] as const
+export const availableRoles = ['supervisor', 'intern', 'manager'] as const
 
 export type UserRole = (typeof availableRoles)[number]

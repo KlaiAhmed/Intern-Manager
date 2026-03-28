@@ -8,11 +8,9 @@ import type { UserRole } from '../../../shared/types/role'
 import type { TranslationKey } from '../../../shared/i18n/I18nContext'
 
 const roleContentKeys: Record<UserRole, { title: TranslationKey; description: TranslationKey }> = {
-  admin: { title: 'roles.adminTitle', description: 'roles.adminText' },
   supervisor: { title: 'roles.supervisorTitle', description: 'roles.supervisorText' },
   intern: { title: 'roles.internTitle', description: 'roles.internText' },
   manager: { title: 'roles.managerTitle', description: 'roles.managerText' },
-  hr: { title: 'roles.hrTitle', description: 'roles.hrText' },
 }
 
 export function RoleValueSection() {
@@ -33,7 +31,7 @@ export function RoleValueSection() {
         </Card>
         <Card className="surface-card-emphasis" as="div" aria-live="polite">
           <h3>{t('role.label')}</h3>
-          <p>{t(`role.${activeRole}` as 'role.admin' | 'role.supervisor' | 'role.intern' | 'role.manager' | 'role.hr')}</p>
+          <p>{t(`role.${activeRole}` as `role.${UserRole}`)}</p>
         </Card>
       </div>
     </Section>

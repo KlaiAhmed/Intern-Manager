@@ -100,18 +100,14 @@ Exclure pour l'instant:
 | Date | Auteur | Modification |
 |------|--------|--------------|
 | Init | Agent IA | Creation du README initial |
-| 2026-03-26 | Agent IA (Copilot) | Mise en place du scaffold frontend React + backend .NET minimal |
-| 2026-03-26 | Agent IA (Copilot) | Refonte frontend modulaire (app/features/shared), i18n EN/FR/AR+RTL, theming, SEO, home page complete |
-| 2026-03-26 | Agent IA (Copilot) | Ajout routes auth `/login` et `/signin` avec validations UI et parcours utilisateur |
-| 2026-03-26 | Agent IA (Copilot) | Migration hors Tailwind pour auth vers module CSS dedie |
-| 2026-03-26 | Agent IA (Copilot) | Harmonisation UI navbar et dropdowns (role/langue/theme) + corrections UX |
-| 2026-03-26 | Agent IA (Copilot) | Nettoyage/condensation du present AGENT_README pour supprimer doublons et sections verbeuses |
-| 2026-03-26 | Agent IA (Copilot) | Internationalisation complete des ecrans `/login` et `/signin` (suppression des textes hardcodes, validations et labels relies au dictionnaire i18n EN/FR/AR) |
-| 2026-03-26 | Agent IA (Copilot) | Creation des pages 404 et erreur globale cote client (fallback React Error Boundary, routes `/404` et `/error`, style moderne coherent + i18n EN/FR/AR) |
 | 2026-03-26 | Agent IA (Copilot) | Ajustement UX ecran `/signin` pour limiter le depassement vertical (fit viewport desktop) + correction des menus dropdown role qui s'ouvrent vers le haut quand l'espace bas est insuffisant |
 | 2026-03-26 | Agent IA (Copilot) | Ajustements UX ecran `/login`: suppression du bouton SSO, libelle CTA principal force a `Login`, et masquage du panneau branding sur mobile pour n'afficher que le formulaire |
 | 2026-03-27 | Agent IA (Copilot) | Detection i18n basee sur l'ordre des langues navigateur (`navigator.languages`) avec fallback anglais, tout en preservant la langue explicitement choisie par l'utilisateur |
 | 2026-03-27 | Agent IA (Copilot) | Theme par defaut force a `system` sans persistance initiale; la preference est enregistree uniquement apres un choix explicite utilisateur |
+| 2026-03-28 | Agent IA (Copilot) | Suppression du role `hr` (HR/Training) cote client: retrait des options UI, des mappings de sections role, et des cles de traduction associees |
+| 2026-03-28 | Agent IA (Copilot) | Mise en place des fondations backend: `AppDbContext` EF Core SQL Server, entite `User` + enums role/statut, chargement `.env`, creation auto base au demarrage et seed asynchrone `SuperAdmin` via `DbSeeder` avec hash bcrypt |
+| 2026-03-28 | Agent IA (Copilot) | Ajout du README backend `api/README.md` avec description concise de la structure, de la logique de demarrage, de la stack, des variables d environnement et des commandes d execution |
+| 2026-03-28 | Agent IA (Copilot) | Migration backend vers cible `.NET 10` (`net10.0`) et alignement EF Core 10 pour compatibilite avec runtime ASP.NET Core 10 installe |
 
 ---
 
