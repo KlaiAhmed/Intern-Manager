@@ -1,12 +1,12 @@
-# SmartAxia Intern Manager API
+# AXIA Intern Manager API
 
-Backend API for the SmartAxia Intern Manager application.
+Backend API for the AXIA Intern Manager application.
 
 ---
 
 ## Table of Contents
 
-- [SmartAxia Intern Manager API](#smartaxia-intern-manager-api)
+- [AXIA Intern Manager API](#axia-intern-manager-api)
   - [Table of Contents](#table-of-contents)
   - [Tech Stack](#tech-stack)
   - [Prerequisites](#prerequisites)
@@ -112,8 +112,8 @@ SERVER_PORT=5184
 
 # JWT Configuration
 JWT__KEY=dev_only_replace_me_with_32_plus_bytes_key_2026
-JWT__ISSUER=SmartAxiaInternManager
-JWT__AUDIENCE=SmartAxiaInternManagerClient
+JWT__ISSUER=AXIAInternManager
+JWT__AUDIENCE=AXIAInternManagerClient
 JWT__ACCESSTOKENMINUTES=15
 JWT__REFRESHTOKENDAYS=7
 
@@ -140,7 +140,7 @@ SUPERADMIN_LASTNAME=Admin
 | `SQLSERVER_INSTANCE` | No | `.\SQLEXPRESS` | SQL Server instance name |
 | `SUPERADMIN_*` | Yes | — | Credentials for initial admin account |
 
-> **Note:** `DATABASE_PATH=app.db` creates a database named `SmartAxiaInternManager_app`.
+> **Note:** `DATABASE_PATH=app.db` creates a database named `AXIAInternManager_app`.
 
 ---
 
@@ -190,7 +190,7 @@ graph TD
 
 **Connection String Format:**
 - Server: `.\SQLEXPRESS` (or `SQLSERVER_INSTANCE`)
-- Database: `SmartAxiaInternManager_<DATABASE_PATH without extension>`
+- Database: `AXIAInternManager_<DATABASE_PATH without extension>`
 
 > **Note:** Database creation and seeding errors are logged but don't stop the server.
 

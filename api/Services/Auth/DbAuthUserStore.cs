@@ -1,11 +1,28 @@
+/// <summary>
+/// 📁 Emplacement : api/Services/Auth/DbAuthUserStore.cs
+/// 🎯 Rôle       : Implémente la lecture des utilisateurs d authentification depuis la base SQL.
+/// 📦 Contient   : [DbAuthUserStore]
+/// </summary>
 using InternManager.Api.Data;
 using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Services.Auth;
 
+/// <summary>
+/// Implémentation de <see cref="IAuthUserStore"/> basée sur <see cref="AppDbContext"/>.
+/// </summary>
+/// <param name="scopeFactory">Fabrique de scope pour créer un contexte de base de données par opération.</param>
 public sealed class DbAuthUserStore(IServiceScopeFactory scopeFactory) : IAuthUserStore
 {
+    /// <summary>
+    /// Recherche un utilisateur actif par adresse email.
+    /// </summary>
+    /// <param name="email">Adresse email à rechercher.</param>
+    /// <param name="cancellationToken">Jeton pour annuler la requête base de données.</param>
+    /// <returns>
+    /// Un <see cref="AuthUserRecord"/> si un utilisateur actif est trouvé, sinon <see langword="null"/>.
+    /// </returns>
     public async Task<AuthUserRecord?> FindByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -34,6 +51,14 @@ public sealed class DbAuthUserStore(IServiceScopeFactory scopeFactory) : IAuthUs
                 user.Role.ToString());
     }
 
+    /// <summary>
+    /// Recherche un utilisateur actif par identifiant unique.
+    /// </summary>
+    /// <param name="userId">Identifiant de l utilisateur à rechercher.</param>
+    /// <param name="cancellationToken">Jeton pour annuler la requête base de données.</param>
+    /// <returns>
+    /// Un <see cref="AuthUserRecord"/> si un utilisateur actif est trouvé, sinon <see langword="null"/>.
+    /// </returns>
     public async Task<AuthUserRecord?> FindByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         using var scope = scopeFactory.CreateScope();

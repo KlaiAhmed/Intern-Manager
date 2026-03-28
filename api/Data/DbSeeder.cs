@@ -1,3 +1,8 @@
+/// <summary>
+/// 📁 Emplacement : api/Data/DbSeeder.cs
+/// 🎯 Rôle       : Initialise les données minimales nécessaires au démarrage, notamment le compte SuperAdmin.
+/// 📦 Contient   : [DbSeeder]
+/// </summary>
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Auth;
@@ -5,8 +10,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Data;
 
+/// <summary>
+/// Regroupe les opérations d amorçage de données exécutées au démarrage de l application.
+/// </summary>
 public static class DbSeeder
 {
+    /// <summary>
+    /// Vérifie la présence d un compte SuperAdmin et le crée si nécessaire.
+    /// </summary>
+    /// <param name="services">Fournisseur de services racine pour créer un scope d exécution.</param>
+    /// <returns>Une tâche asynchrone représentant la fin de l opération d amorçage.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Levée quand une variable d environnement obligatoire `SUPERADMIN_*` est absente.
+    /// </exception>
     public static async Task SeedSuperAdminAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
@@ -48,6 +64,13 @@ public static class DbSeeder
         logger.LogInformation("SuperAdmin created successfully.");
     }
 
+    /// <summary>
+    /// Lit une valeur de configuration obligatoire et échoue clairement si elle manque.
+    /// </summary>
+    /// <param name="configuration">Source de configuration applicative.</param>
+    /// <param name="key">Nom de la clé à lire dans la configuration.</param>
+    /// <returns>La valeur non vide associée à la clé demandée.</returns>
+    /// <exception cref="InvalidOperationException">Levée si la clé est absente ou vide.</exception>
     private static string GetRequiredValue(IConfiguration configuration, string key)
     {
         var value = configuration[key];

@@ -1,3 +1,8 @@
+/// <summary>
+/// 📁 Emplacement : api/Extensions/AuthExtensions.cs
+/// 🎯 Rôle       : Centralise l enregistrement de l authentification JWT, de l autorisation et du filtre CSRF.
+/// 📦 Contient   : [AuthExtensions]
+/// </summary>
 using System.Security.Claims;
 using System.Text;
 using InternManager.Api.Common.Options;
@@ -9,8 +14,18 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace InternManager.Api.Extensions;
 
+/// <summary>
+/// Propose des méthodes d extension pour configurer la sécurité auth dans le conteneur d injection de dépendances.
+/// </summary>
 public static class AuthExtensions
 {
+    /// <summary>
+    /// Ajoute et configure les services d authentification, d autorisation et de protection CSRF.
+    /// </summary>
+    /// <param name="services">Collection de services à enrichir.</param>
+    /// <param name="configuration">Configuration applicative contenant la section JWT.</param>
+    /// <returns>La même collection <see cref="IServiceCollection"/> pour chaînage de configuration.</returns>
+    /// <exception cref="InvalidOperationException">Levée si la configuration JWT est invalide ou incomplète.</exception>
     public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
     {
         var jwtOptions = configuration
@@ -70,6 +85,11 @@ public static class AuthExtensions
         return services;
     }
 
+    /// <summary>
+    /// Vérifie que les options JWT obligatoires sont présentes et cohérentes.
+    /// </summary>
+    /// <param name="jwtOptions">Options JWT à valider.</param>
+    /// <exception cref="InvalidOperationException">Levée quand une option requise est absente ou invalide.</exception>
     private static void ValidateJwtOptions(JwtOptions jwtOptions)
     {
         if (string.IsNullOrWhiteSpace(jwtOptions.Key))

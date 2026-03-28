@@ -1,7 +1,23 @@
+/// <summary>
+/// 📁 Emplacement : api/Common/Utilities/EnvLoader.cs
+/// 🎯 Rôle       : Charge les variables d environnement depuis un fichier .env trouvé dans la racine projet.
+/// 📦 Contient   : [EnvLoader]
+/// </summary>
 namespace InternManager.Api.Common.Utilities;
 
+/// <summary>
+/// Fournit des méthodes utilitaires pour lire un fichier `.env` et injecter ses valeurs dans l environnement du processus.
+/// </summary>
 public static class EnvLoader
 {
+    /// <summary>
+    /// Cherche un fichier `.env` en remontant les dossiers puis charge chaque variable trouvée.
+    /// </summary>
+    /// <remarks>
+    /// Les lignes vides, les commentaires (`#`) et les lignes sans séparateur `=` sont ignorés.
+    /// </remarks>
+    /// <exception cref="IOException">Peut survenir si le fichier `.env` existe mais ne peut pas être lu.</exception>
+    /// <exception cref="UnauthorizedAccessException">Peut survenir si le processus n a pas les droits d accès au fichier `.env`.</exception>
     public static void LoadFromProjectRoot()
     {
         var envPath = ResolveEnvPath();
@@ -34,6 +50,12 @@ public static class EnvLoader
         }
     }
 
+    /// <summary>
+    /// Remonte l arborescence des dossiers à partir du dossier courant pour localiser un fichier `.env`.
+    /// </summary>
+    /// <returns>
+    /// Le chemin complet du fichier `.env` si trouvé, sinon <see langword="null"/>.
+    /// </returns>
     private static string? ResolveEnvPath()
     {
         var directory = new DirectoryInfo(Directory.GetCurrentDirectory());

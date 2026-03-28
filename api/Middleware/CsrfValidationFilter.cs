@@ -1,3 +1,8 @@
+/// <summary>
+/// 📁 Emplacement : api/Middleware/CsrfValidationFilter.cs
+/// 🎯 Rôle       : Valide le jeton CSRF sur les requêtes HTTP qui modifient l état de l application.
+/// 📦 Contient   : [CsrfValidationFilter]
+/// </summary>
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,8 +12,14 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace InternManager.Api.Middleware;
 
+/// <summary>
+/// Filtre MVC qui applique une vérification Double Submit Token entre l en-tête `X-CSRF-Token` et le claim `csrf`.
+/// </summary>
 public sealed class CsrfValidationFilter : IAsyncActionFilter
 {
+    /// <summary>
+    /// Liste des verbes HTTP considérés comme modifiant l état serveur.
+    /// </summary>
     private static readonly HashSet<string> StateChangingMethods = new(StringComparer.OrdinalIgnoreCase)
     {
         HttpMethods.Post,
@@ -17,6 +28,12 @@ public sealed class CsrfValidationFilter : IAsyncActionFilter
         HttpMethods.Delete
     };
 
+    /// <summary>
+    /// Exécute la validation CSRF avant l action MVC pour les verbes sensibles.
+    /// </summary>
+    /// <param name="context">Contexte d exécution de l action en cours.</param>
+    /// <param name="next">Délégué permettant de poursuivre la pipeline MVC.</param>
+    /// <returns>Une tâche asynchrone représentant le flux de validation puis d exécution éventuelle.</returns>
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var request = context.HttpContext.Request;
@@ -64,6 +81,12 @@ public sealed class CsrfValidationFilter : IAsyncActionFilter
         await next();
     }
 
+    /// <summary>
+    /// Compare deux chaînes en temps constant pour limiter les attaques par mesure de temps.
+    /// </summary>
+    /// <param name="left">Première valeur à comparer.</param>
+    /// <param name="right">Seconde valeur à comparer.</param>
+    /// <returns><see langword="true"/> si les deux valeurs sont strictement égales ; sinon <see langword="false"/>.</returns>
     private static bool FixedTimeEquals(string left, string right)
     {
         var leftBytes = Encoding.UTF8.GetBytes(left);

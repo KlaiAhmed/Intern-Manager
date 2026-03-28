@@ -1,3 +1,8 @@
+/// <summary>
+/// 📁 Emplacement : api/Program.cs
+/// 🎯 Rôle       : Point d entrée de l API : configure les services, initialise la base et démarre le serveur HTTP.
+/// 📦 Contient   : [BuildSqlServerConnectionString, BuildServerUrl]
+/// </summary>
 using InternManager.Api.Data;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Extensions;
@@ -60,6 +65,12 @@ app.MapControllers();
 
 app.Run();
 
+/// <summary>
+/// Construit la chaîne de connexion SQL Server à partir des valeurs de configuration.
+/// </summary>
+/// <param name="databasePath">Nom logique de base fourni par la configuration.</param>
+/// <param name="sqlServerInstance">Nom de l instance SQL Server à utiliser.</param>
+/// <returns>Une chaîne de connexion SQL Server complète.</returns>
 static string BuildSqlServerConnectionString(string? databasePath, string? sqlServerInstance)
 {
     var effectivePath = string.IsNullOrWhiteSpace(databasePath)
@@ -79,6 +90,11 @@ static string BuildSqlServerConnectionString(string? databasePath, string? sqlSe
     return $"Server={effectiveSqlServerInstance};Database=SmartAxiaInternManager_{databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 }
 
+/// <summary>
+/// Construit l URL locale du serveur HTTP à partir du port configuré.
+/// </summary>
+/// <param name="serverPort">Valeur de port brute lue depuis la configuration.</param>
+/// <returns>URL locale au format `http://localhost:{port}`.</returns>
 static string BuildServerUrl(string? serverPort)
 {
     const int defaultPort = 5184;

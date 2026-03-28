@@ -1,3 +1,8 @@
+/// <summary>
+/// 📁 Emplacement : api/Controllers/AuthController.cs
+/// 🎯 Rôle       : Expose les endpoints HTTP d authentification (connexion, rafraîchissement, déconnexion, profil courant).
+/// 📦 Contient   : [AuthController]
+/// </summary>
 using System.Security.Claims;
 using InternManager.Api.Models.DTOs.Auth;
 using InternManager.Api.Services.Auth;
@@ -6,10 +11,26 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur API qui gère le cycle de session utilisateur en s appuyant sur <see cref="IAuthService"/>.
+/// </summary>
+/// <param name="authService">Service métier responsable de la création et de la révocation des sessions.</param>
 [ApiController]
 [Route("auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
+    /// <summary>
+    /// Authentifie un utilisateur avec son email et son mot de passe.
+    /// </summary>
+    /// <param name="request">Données de connexion reçues dans le corps de requête.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
+    /// <returns>
+    /// Une réponse `200 OK` si la session est créée, sinon `401 Unauthorized`.
+    /// </returns>
+    /// <remarks>
+    /// Appel : POST /auth/login
+    /// </remarks>
+    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
@@ -25,6 +46,17 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// Renouvelle la session à partir du cookie `refresh_token` et remet des cookies à jour.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
+    /// <returns>
+    /// Une réponse `200 OK` si le renouvellement réussit, sinon `401 Unauthorized`.
+    /// </returns>
+    /// <remarks>
+    /// Appel : POST /auth/refresh
+    /// </remarks>
+    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
@@ -42,6 +74,15 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// Déconnecte l utilisateur courant et supprime les cookies d authentification.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
+    /// <returns>Une réponse `204 No Content` quand la déconnexion est terminée.</returns>
+    /// <remarks>
+    /// Appel : POST /auth/logout
+    /// </remarks>
+    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
@@ -55,6 +96,13 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Retourne les claims de l utilisateur authentifié pour diagnostic côté client.
+    /// </summary>
+    /// <returns>Une réponse `200 OK` contenant la liste des claims présents dans le jeton.</returns>
+    /// <remarks>
+    /// Appel : GET /auth/me
+    /// </remarks>
     [Authorize]
     [HttpGet("me")]
     public IActionResult Me()
@@ -69,6 +117,13 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return Ok(claims);
     }
 
+    /// <summary>
+    /// Extrait l identifiant utilisateur depuis les claims standards ou personnalisés.
+    /// </summary>
+    /// <param name="user">Principal courant contenant les claims d identité.</param>
+    /// <returns>
+    /// Un identifiant <see cref="Guid"/> si la valeur est présente et valide, sinon <see langword="null"/>.
+    /// </returns>
     private static Guid? ResolveCurrentUserId(ClaimsPrincipal user)
     {
         var userIdClaim = user.FindFirstValue("userId") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -78,6 +133,11 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
             : null;
     }
 
+    /// <summary>
+    /// Ajoute les cookies d authentification et le cookie CSRF dans la réponse HTTP.
+    /// </summary>
+    /// <param name="response">Réponse HTTP sur laquelle écrire les cookies.</param>
+    /// <param name="session">Session contenant les jetons et les dates d expiration.</param>
     private static void AppendAuthCookies(HttpResponse response, AuthSessionTokens session)
     {
         response.Cookies.Append("access_token", session.AccessToken, new CookieOptions
@@ -108,6 +168,10 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Écrase les cookies d authentification avec une date expirée pour forcer leur suppression côté client.
+    /// </summary>
+    /// <param name="response">Réponse HTTP sur laquelle écrire les cookies expirés.</param>
     private static void ClearAuthCookies(HttpResponse response)
     {
         var expiredAt = DateTimeOffset.UtcNow.AddDays(-1);

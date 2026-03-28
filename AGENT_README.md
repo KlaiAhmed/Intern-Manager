@@ -50,17 +50,49 @@ Exclure pour l'instant:
 
 ```text
 /
-|- client/                 React + TypeScript + Vite
-|  |- src/
-|     |- app/              bootstrap, routes, providers
-|     |- features/         modules metier (home, auth)
-|     |- shared/           UI, layout, i18n, theme, seo, utils
-|- api/
-|  |- InternManager.Api/   ASP.NET Core Web API (.NET)
-|     |- Program.cs
-|     |- Controllers/
-|     |- appsettings*.json
-|- AGENT_README.md
+├── client/
+│    ├── public/
+│    ├── src/
+│    │  ├── app/
+│    │  │  ├── App.tsx
+│    │  │  ├── providers/RootProviders.tsx
+│    │  │  └── routes/AppRouter.tsx
+│    │  ├── features/
+│    │  │  ├── auth/
+│    │  │  └── home/
+│    │  ├── shared/
+│    │  │  ├── i18n/
+│    │  │  ├── layout/
+│    │  │  ├── seo/
+│    │  │  ├── state/
+│    │  │  ├── theme/
+│    │  │  ├── ui/
+│    │  │  └── utils/
+│    │  ├── main.tsx
+│    │  ├── index.css
+│    └── package.json
+└── api/
+│    ├── Common/                       # Shared app-wide building blocks
+│    │   ├── Enums/                    # Shared enumerations
+│    │   ├── Options/                  # Configuration option classes
+│    │   └── Utilities/                # Common helpers and utilities
+│    ├── Controllers/                  # HTTP API endpoints
+│    ├── Data/                         # Database context and seeding
+│    ├── Extensions/                   # DI and pipeline registration extensions
+│    ├── Middleware/                   # Custom request/response middleware logic
+│    ├── Models/                       # Data models used by the API
+│    │   ├── DTOs/                     # Request and response shapes
+│    │   └── Entities/                 # EF Core entity classes
+│    ├── Properties/                   # Local run and debug settings
+│    ├── Services/                     # Business logic services
+│    │    └── Auth/                    # Authentication services
+│    ├── .env                          # Local environment variables
+│    ├── .env.example                  # Environment template
+│    ├── appsettings.json
+│    ├── appsettings.Development.json
+│    ├── Program.cs                    # Application bootstrap
+│    ├── InternManager.Api.csproj
+│    └── README.md
 ```
 
 ## 6) Frontend - conventions essentielles
@@ -98,7 +130,8 @@ Exclure pour l'instant:
 ## 10) Journal des modifications
 
 | Date | Auteur | Modification |
-|------|--------|--------------|
+├──-----├──-------├──-------------|
+| 2026-03-28 | Agent IA (Copilot) | Ajout de commentaires XML en francais dans tous les fichiers C# du dossier `api/` (en-tete fichier, classes, interfaces, enums, proprietes, champs, methodes, endpoints HTTP avec verbes/routes, et exceptions explicites) |
 | 2026-03-28 | Agent IA (Copilot) | Ajout du README backend `api/README.md` avec description concise de la structure, de la logique de demarrage, de la stack, des variables d environnement et des commandes d execution |
 | 2026-03-28 | Agent IA (Copilot) | Migration backend vers cible `.NET 10` (`net10.0`) et alignement EF Core 10 pour compatibilite avec runtime ASP.NET Core 10 installe |
 | 2026-03-28 | Agent IA (Copilot) | Implementation complete du module d authentification JWT cookie-based: `AuthController` (`/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`), `AuthService` avec rotation atomique des refresh tokens (hash SHA-256 cote serveur), filtre global CSRF Double Submit (`X-CSRF-Token` vs claim `csrf`), et branchement via `AddAuth(...)` + `UseAuthentication()` |
