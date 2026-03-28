@@ -1,4 +1,4 @@
-using InternManager.Api.Models;
+using InternManager.Api.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Data;

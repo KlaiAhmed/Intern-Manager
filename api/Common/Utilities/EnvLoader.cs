@@ -1,4 +1,4 @@
-namespace InternManager.Api.Extensions;
+namespace InternManager.Api.Common.Utilities;
 
 public static class EnvLoader
 {

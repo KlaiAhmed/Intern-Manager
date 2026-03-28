@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace InternManager.Api.Filters;
+namespace InternManager.Api.Middleware;
 
 public sealed class CsrfValidationFilter : IAsyncActionFilter
 {

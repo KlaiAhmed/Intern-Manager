@@ -1,4 +1,4 @@
-namespace InternManager.Api.Models.Enums;
+namespace InternManager.Api.Common.Enums;
 
 public enum UserStatus
 {

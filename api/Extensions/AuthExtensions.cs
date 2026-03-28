@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using System.Text;
-using InternManager.Api.Auth;
-using InternManager.Api.Filters;
+using InternManager.Api.Common.Options;
+using InternManager.Api.Middleware;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;

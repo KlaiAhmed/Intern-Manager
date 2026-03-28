@@ -1,4 +1,4 @@
-namespace InternManager.Api.Auth;
+namespace InternManager.Api.Common.Options;
 
 public sealed class JwtOptions
 {

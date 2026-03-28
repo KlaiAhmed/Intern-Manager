@@ -1,4 +1,4 @@
-using InternManager.Api.Models.Enums;
+using InternManager.Api.Common.Enums;
 
 namespace InternManager.Api.Services.Auth;
 

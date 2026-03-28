@@ -6,15 +6,31 @@ Backend API for the SmartAxia Intern Manager application.
 
 ## Table of Contents
 
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [Project Structure](#project-structure)
-- [Startup Flow](#startup-flow)
-- [Database Schema](#database-schema)
-- [Authentication](#authentication)
-- [API Documentation](#api-documentation)
+- [SmartAxia Intern Manager API](#smartaxia-intern-manager-api)
+  - [Table of Contents](#table-of-contents)
+  - [Tech Stack](#tech-stack)
+  - [Prerequisites](#prerequisites)
+    - [Required](#required)
+    - [Optional](#optional)
+    - [Verify Installation](#verify-installation)
+  - [Getting Started](#getting-started)
+    - [1. Configure Environment](#1-configure-environment)
+    - [2. Install Dependencies \& Run](#2-install-dependencies--run)
+    - [3. Access the API](#3-access-the-api)
+  - [Environment Variables](#environment-variables)
+    - [Variable Reference](#variable-reference)
+  - [Project Structure](#project-structure)
+  - [Startup Flow](#startup-flow)
+  - [Database Schema](#database-schema)
+    - [Users Table](#users-table)
+    - [Enums](#enums)
+    - [SuperAdmin Seeding](#superadmin-seeding)
+  - [Authentication](#authentication)
+    - [Endpoints](#endpoints)
+    - [Token Details](#token-details)
+    - [Cookie Configuration](#cookie-configuration)
+    - [CSRF Protection](#csrf-protection)
+  - [API Documentation](#api-documentation)
 
 ---
 
@@ -132,24 +148,25 @@ SUPERADMIN_LASTNAME=Admin
 
 ```
 api/
-├── Controllers/           # API endpoints
-├── Data/
-│   ├── AppDbContext.cs    # EF Core DbContext
-│   └── DbSeeder.cs        # Database seeding logic
-├── Extensions/
-│   └── EnvLoader.cs       # Environment file loader
-├── Models/
-│   ├── User.cs
-│   └── Enums/
-│       ├── UserRole.cs
-│       └── UserStatus.cs
-├── Properties/
-│   └── launchSettings.json
-├── .env                   # Local environment variables
-├── .env.example           # Environment template
+├── Common/                       # Shared app-wide building blocks
+│   ├── Enums/                    # Shared enumerations
+│   ├── Options/                  # Configuration option classes
+│   └── Utilities/                # Common helpers and utilities
+├── Controllers/                  # HTTP API endpoints
+├── Data/                         # Database context and seeding
+├── Extensions/                   # DI and pipeline registration extensions
+├── Middleware/                   # Custom request/response middleware logic
+├── Models/                       # Data models used by the API
+│   ├── DTOs/                     # Request and response shapes
+│   └── Entities/                 # EF Core entity classes
+├── Properties/                   # Local run and debug settings
+├── Services/                     # Business logic services
+│    └── Auth/                    # Authentication services
+├── .env                          # Local environment variables
+├── .env.example                  # Environment template
 ├── appsettings.json
 ├── appsettings.Development.json
-├── Program.cs             # Application bootstrap
+├── Program.cs                    # Application bootstrap
 ├── InternManager.Api.csproj
 └── README.md
 ```

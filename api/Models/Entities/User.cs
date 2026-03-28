@@ -1,6 +1,6 @@
-using InternManager.Api.Models.Enums;
+using InternManager.Api.Common.Enums;
 
-namespace InternManager.Api.Models;
+namespace InternManager.Api.Models.Entities;
 
 public class User
 {

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace InternManager.Api.Contracts.Auth;
+namespace InternManager.Api.Models.DTOs.Auth;
 
 public sealed class LoginRequest
 {

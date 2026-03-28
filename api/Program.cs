@@ -1,4 +1,5 @@
 using InternManager.Api.Data;
+using InternManager.Api.Common.Utilities;
 using InternManager.Api.Extensions;
 using Microsoft.EntityFrameworkCore;
 

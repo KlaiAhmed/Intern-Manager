@@ -1,5 +1,5 @@
 using InternManager.Api.Data;
-using InternManager.Api.Models.Enums;
+using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Services.Auth;

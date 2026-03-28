@@ -105,6 +105,7 @@ Exclure pour l'instant:
 | 2026-03-28 | Agent IA (Copilot) | Correction erreur de demarrage auth: mise a jour de `JWT__KEY` dans `.env`/`.env.example` avec une valeur >= 32 octets et alignement de la documentation backend sur cette contrainte |
 | 2026-03-28 | Agent IA (Copilot) | Correction login SuperAdmin: remplacement du store auth stub en memoire par un store base SQL (`DbAuthUserStore`) pour authentifier les comptes reels seedes (email + mot de passe) |
 | 2026-03-28 | Agent IA (Copilot) | Route `POST /auth/login` alignee sur `email/password` (DTO, controller, service et store), avec harmonisation des claims auth sur l email |
+| 2026-03-28 | Agent IA (Copilot) | Mise a jour de la section Project Structure du README backend en structure dossier uniquement, avec descriptions courtes par dossier |
 
 ---
 

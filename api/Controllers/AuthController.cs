@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using InternManager.Api.Contracts.Auth;
+using InternManager.Api.Models.DTOs.Auth;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
