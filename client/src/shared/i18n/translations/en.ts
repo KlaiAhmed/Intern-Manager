@@ -73,6 +73,7 @@ export const enTranslations = {
   'auth.error.invalidCredentials': 'Invalid email or password.',
   'auth.error.network': 'Unable to reach the server. Please check your connection and try again.',
   'auth.error.unexpected': 'An unexpected error occurred. Please try again.',
+  'auth.error.emailAlreadyExists': 'An account already exists with this email.',
   'auth.error.profileUnavailable': 'Login succeeded, but your profile could not be loaded.',
   'auth.error.logoutFailed': 'Logout failed. Please try again.',
   'auth.nav.userMenu': 'User menu',

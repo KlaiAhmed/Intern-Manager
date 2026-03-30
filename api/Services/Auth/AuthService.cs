@@ -47,12 +47,13 @@ public sealed class AuthService(
     /// </summary>
     /// <param name="email">Adresse email fournie à la connexion.</param>
     /// <param name="password">Mot de passe en clair fourni à la connexion.</param>
+    /// <param name="rememberMe">Indique si la session doit être persistante (7 jours) ou éphémère (1 jour).</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
     /// <returns>
     /// Un <see cref="AuthSessionTokens"/> si les identifiants sont corrects, sinon <see langword="null"/>.
     /// </returns>
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
-    public async Task<AuthSessionTokens?> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+    public async Task<AuthSessionTokens?> LoginAsync(string email, string password, bool rememberMe, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
@@ -69,7 +70,7 @@ public sealed class AuthService(
         try
         {
             CleanupExpiredTokensNoLock(DateTime.UtcNow);
-            return IssueNewSessionNoLock(user, DateTime.UtcNow);
+            return IssueNewSessionNoLock(user, DateTime.UtcNow, rememberMe);
         }
         finally
         {
@@ -122,7 +123,7 @@ public sealed class AuthService(
             // Invalidation immediate pour empecher toute reutilisation de l ancien token.
             _refreshTokens.Remove(oldRefreshTokenHash);
 
-            return IssueNewSessionNoLock(user, now);
+            return IssueNewSessionNoLock(user, now, rememberMe: true);
         }
         finally
         {
@@ -174,11 +175,14 @@ public sealed class AuthService(
     /// </summary>
     /// <param name="user">Utilisateur authentifié pour lequel créer la session.</param>
     /// <param name="now">Date UTC de référence utilisée pour calculer les expirations.</param>
+    /// <param name="rememberMe">Indique si la session doit être persistante (7 jours) ou éphémère (1 jour).</param>
     /// <returns>Un objet <see cref="AuthSessionTokens"/> contenant les nouvelles valeurs de session.</returns>
-    private AuthSessionTokens IssueNewSessionNoLock(AuthUserRecord user, DateTime now)
+    private AuthSessionTokens IssueNewSessionNoLock(AuthUserRecord user, DateTime now, bool rememberMe = true)
     {
         var accessTokenExpiresAtUtc = now.AddMinutes(_jwtOptions.AccessTokenMinutes);
-        var refreshTokenExpiresAtUtc = now.AddDays(_jwtOptions.RefreshTokenDays);
+        // Si rememberMe est false, la session dure 1 jour, sinon elle dure selon la configuration (7 jours par défaut).
+        var refreshTokenDays = rememberMe ? _jwtOptions.RefreshTokenDays : 1;
+        var refreshTokenExpiresAtUtc = now.AddDays(refreshTokenDays);
         var csrfToken = GenerateOpaqueToken(32);
 
         var accessToken = GenerateAccessToken(user, csrfToken, accessTokenExpiresAtUtc, now);

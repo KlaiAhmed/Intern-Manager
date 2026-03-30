@@ -8,9 +8,22 @@ export interface AuthUser {
   role: string
 }
 
-interface AuthClaim {
-  type: string
-  value: string
+export interface SignupPayload {
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+  role: string
+}
+
+interface UserSummaryResponse {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  role: string
+  status: string
+  fullName: string
 }
 
 type JsonRecord = Record<string, unknown>
@@ -35,6 +48,10 @@ export class ApiRequestError extends Error {
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null
+}
+
+function asTrimmedString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function getFirstValidationMessage(errors: unknown): string | null {
@@ -113,54 +130,35 @@ async function ensureSuccess(response: Response): Promise<void> {
   throw new ApiRequestError(apiMessage ?? fallbackMessage, response.status)
 }
 
-function readFirstClaim(claims: AuthClaim[], claimTypes: string[]): string | null {
-  for (const claimType of claimTypes) {
-    const claim = claims.find((item) => item.type === claimType)
-    if (claim?.value) {
-      return claim.value
-    }
-  }
-
-  return null
-}
-
-function mapClaimsToUser(claims: AuthClaim[]): AuthUser | null {
-  const email = readFirstClaim(claims, [
-    'email',
-    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
-  ])
-
-  const name = readFirstClaim(claims, [
-    'name',
-    'username',
-    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
-  ])
-
-  const role = readFirstClaim(claims, [
-    'role',
-    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
-  ])
-
-  const id = readFirstClaim(claims, [
-    'userId',
-    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
-  ])
-
-  if (!email && !name) {
-    return null
-  }
+function mapUserSummaryToAuthUser(summary: UserSummaryResponse): AuthUser {
+  const fullName = summary.fullName.trim()
+  const firstName = summary.firstName.trim()
+  const lastName = summary.lastName.trim()
+  const fallbackName = `${firstName} ${lastName}`.trim()
 
   return {
-    id,
-    name: name ?? email ?? '',
-    email: email ?? '',
-    role: role ?? '',
+    id: summary.id || null,
+    name: fullName || fallbackName || summary.email,
+    email: summary.email,
+    role: summary.role,
   }
 }
 
 async function requestCurrentUser(): Promise<CurrentUserRequestResult> {
-  const response = await apiFetch('/auth/me', {
+  const csrfToken = getCsrfCookieToken()
+
+  if (!csrfToken) {
+    return {
+      status: 'unauthorized',
+      user: null,
+    }
+  }
+
+  const response = await apiFetch('/me/summary', {
     method: 'GET',
+    headers: {
+      'X-CSRF-Token': csrfToken,
+    },
   })
 
   if (response.status === 401) {
@@ -172,25 +170,37 @@ async function requestCurrentUser(): Promise<CurrentUserRequestResult> {
 
   await ensureSuccess(response)
 
-  const claimsPayload: unknown = await response.json()
-  if (!Array.isArray(claimsPayload)) {
+  const summaryPayload: unknown = await response.json()
+  if (!isJsonRecord(summaryPayload)) {
     return {
       status: 'ok',
       user: null,
     }
   }
 
-  const claims = claimsPayload.filter((claim): claim is AuthClaim => {
-    if (!isJsonRecord(claim)) {
-      return false
-    }
+  const email = asTrimmedString(summaryPayload.email)
+  const id = asTrimmedString(summaryPayload.id)
 
-    return typeof claim.type === 'string' && typeof claim.value === 'string'
-  })
+  if (!email) {
+    return {
+      status: 'ok',
+      user: null,
+    }
+  }
+
+  const summary: UserSummaryResponse = {
+    id,
+    firstName: asTrimmedString(summaryPayload.firstName),
+    lastName: asTrimmedString(summaryPayload.lastName),
+    email,
+    role: asTrimmedString(summaryPayload.role),
+    status: asTrimmedString(summaryPayload.status),
+    fullName: asTrimmedString(summaryPayload.fullName),
+  }
 
   return {
     status: 'ok',
-    user: mapClaimsToUser(claims),
+    user: mapUserSummaryToAuthUser(summary),
   }
 }
 
@@ -214,6 +224,11 @@ async function executeRefreshRequest(): Promise<boolean> {
 }
 
 export async function refreshAuthSession(): Promise<boolean> {
+  if (!getCsrfCookieToken()) {
+    return false
+  }
+
+  // Evite les appels concurrents a /auth/refresh quand plusieurs requetes echouent en meme temps.
   if (refreshPromise) {
     return refreshPromise
   }
@@ -232,6 +247,8 @@ export async function refreshAuthSession(): Promise<boolean> {
 }
 
 async function runAuthInitialization(): Promise<AuthUser | null> {
+  // Etape 1 : en absence de cookie CSRF, on considere l utilisateur deconnecte
+  // et on evite tout appel reseau (/me/summary et /auth/refresh).
   const csrfToken = getCsrfCookieToken()
 
   if (!csrfToken) {
@@ -239,17 +256,20 @@ async function runAuthInitialization(): Promise<AuthUser | null> {
   }
 
   try {
+    // Etape 2 : tentative de lecture du profil courant via /me/summary.
     const meResult = await requestCurrentUser()
 
     if (meResult.status === 'ok') {
       return meResult.user
     }
 
+    // Etape 3 : si /me/summary renvoie 401, on tente un refresh unique.
     const didRefreshSucceed = await refreshAuthSession()
     if (!didRefreshSucceed) {
       return null
     }
 
+    // Etape 4 : refresh reussi, on rejoue une seule fois /me/summary.
     const retryMeResult = await requestCurrentUser()
     return retryMeResult.status === 'ok' ? retryMeResult.user : null
   } catch {
@@ -258,6 +278,7 @@ async function runAuthInitialization(): Promise<AuthUser | null> {
 }
 
 export function initializeCurrentUser(): Promise<AuthUser | null> {
+  // Garantit un bootstrap unique meme si le provider est monte plusieurs fois (ex: React StrictMode).
   if (authInitializationPromise) {
     return authInitializationPromise
   }
@@ -269,13 +290,32 @@ export function initializeCurrentUser(): Promise<AuthUser | null> {
   return authInitializationPromise
 }
 
-export async function loginWithPassword(email: string, password: string): Promise<AuthUser> {
+export async function loginWithPassword(email: string, password: string, rememberMe: boolean = false): Promise<AuthUser> {
   const response = await apiFetch('/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, rememberMe }),
+  })
+
+  await ensureSuccess(response)
+
+  const user = await getCurrentUser()
+  if (!user) {
+    throw new Error('AUTH_PROFILE_UNAVAILABLE')
+  }
+
+  return user
+}
+
+export async function signupWithPassword(payload: SignupPayload): Promise<AuthUser> {
+  const response = await apiFetch('/auth/signup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
   })
 
   await ensureSuccess(response)

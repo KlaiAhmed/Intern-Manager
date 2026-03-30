@@ -73,6 +73,7 @@ export const arTranslations = {
   'auth.error.invalidCredentials': 'البريد الالكتروني او كلمة المرور غير صحيحة.',
   'auth.error.network': 'تعذر الوصول الى الخادم. تحقق من الاتصال ثم حاول مرة اخرى.',
   'auth.error.unexpected': 'حدث خطأ غير متوقع. يرجى المحاولة مرة اخرى.',
+  'auth.error.emailAlreadyExists': 'يوجد حساب بهذا البريد الالكتروني بالفعل.',
   'auth.error.profileUnavailable': 'تم تسجيل الدخول لكن تعذر تحميل ملف المستخدم.',
   'auth.error.logoutFailed': 'فشلت عملية تسجيل الخروج. يرجى المحاولة مرة اخرى.',
   'auth.nav.userMenu': 'قائمة المستخدم',

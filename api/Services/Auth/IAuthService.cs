@@ -19,7 +19,7 @@ public interface IAuthService
     /// <returns>
     /// Un <see cref="AuthSessionTokens"/> contenant les jetons de session, ou <see langword="null"/> si l authentification échoue.
     /// </returns>
-    Task<AuthSessionTokens?> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<AuthSessionTokens?> LoginAsync(string email, string password, bool rememberMe, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Valide un jeton de rafraîchissement puis émet une nouvelle session.

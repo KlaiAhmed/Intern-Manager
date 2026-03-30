@@ -73,6 +73,7 @@ export const frTranslations = {
   'auth.error.invalidCredentials': 'Email ou mot de passe invalide.',
   'auth.error.network': 'Impossible de joindre le serveur. Verifiez votre connexion puis reessayez.',
   'auth.error.unexpected': 'Une erreur inattendue est survenue. Veuillez reessayer.',
+  'auth.error.emailAlreadyExists': 'Un compte existe deja avec cet email.',
   'auth.error.profileUnavailable': 'Connexion reussie, mais le profil utilisateur est indisponible.',
   'auth.error.logoutFailed': 'La deconnexion a echoue. Veuillez reessayer.',
   'auth.nav.userMenu': 'Menu utilisateur',

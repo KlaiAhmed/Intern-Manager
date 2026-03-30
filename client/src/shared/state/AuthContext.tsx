@@ -4,14 +4,17 @@ import {
   initializeCurrentUser,
   loginWithPassword,
   logoutCurrentUser,
+  signupWithPassword,
   type AuthUser,
 } from '../api/authApi'
+import type { UserRole } from '../types/role'
 
 interface AuthContextValue {
   isLoggedIn: boolean
   isAuthLoading: boolean
   user: AuthUser | null
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
+  signup: (firstName: string, lastName: string, email: string, password: string, role: UserRole) => Promise<void>
   logout: () => Promise<void>
   refreshCurrentUser: () => Promise<AuthUser | null>
 }
@@ -31,8 +34,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return currentUser
   }
 
-  const login = async (email: string, password: string): Promise<void> => {
-    const currentUser = await loginWithPassword(email, password)
+  const login = async (email: string, password: string, rememberMe: boolean = false): Promise<void> => {
+    const currentUser = await loginWithPassword(email, password, rememberMe)
+    setUser(currentUser)
+  }
+
+  const signup = async (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+    role: UserRole,
+  ): Promise<void> => {
+    const currentUser = await signupWithPassword({
+      firstName,
+      lastName,
+      email,
+      password,
+      role,
+    })
+
     setUser(currentUser)
   }
 
@@ -79,6 +100,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthLoading,
       user,
       login,
+      signup,
       logout,
       refreshCurrentUser,
     }

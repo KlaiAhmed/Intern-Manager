@@ -24,4 +24,10 @@ public sealed class LoginRequest
     /// Mot de passe en clair transmis au serveur, qui sera vérifié via son empreinte stockée.
     /// </summary>
     public string Password { get; init; } = string.Empty;
+
+    [Required]
+    /// <summary>
+    /// Indique si l utilisateur souhaite une session persistante (7 jours) ou éphémère (1 jour).
+    /// </summary>
+    public bool RememberMe { get; init; }
 }

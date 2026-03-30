@@ -58,7 +58,7 @@ type RoleTranslationKey = `role.${UserRole}`
 export function AuthScreen({ variant }: AuthScreenProps) {
   const { t } = useI18n()
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, signup } = useAuth()
   const roleMenuRef = useRef<HTMLDivElement | null>(null)
   const [values, setValues] = useState<FormValues>({
     email: '',
@@ -78,6 +78,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
+  const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false)
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
   const [isRoleMenuUpward, setIsRoleMenuUpward] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -301,7 +302,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
     setIsLoading(true)
 
     try {
-      await login(values.email.trim(), values.password)
+      await login(values.email.trim(), values.password, values.rememberMe)
       navigate('/', { replace: true })
     } catch (error) {
       if (error instanceof ApiRequestError) {
@@ -323,10 +324,11 @@ export function AuthScreen({ variant }: AuthScreenProps) {
   }
 
   /**
-   * Simule la creation de compte en validant les champs, affichant un loader, puis en loggant le payload.
+   * Soumet le formulaire d'inscription vers l'API backend puis redirige vers l'accueil en cas de succes.
    */
   const handleRegister = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
+    setSubmitError(null)
 
     const nextErrors = validateRegisterForm()
     setRegisterErrors(nextErrors)
@@ -345,12 +347,26 @@ export function AuthScreen({ variant }: AuthScreenProps) {
 
     setIsLoading(true)
 
-    await new Promise<void>((resolve) => {
-      window.setTimeout(() => resolve(), 1000)
-    })
-
-    console.log('Mock register payload:', payload)
-    setIsLoading(false)
+    try {
+      await signup(payload.firstName, payload.lastName, payload.email, payload.password, payload.role)
+      navigate('/', { replace: true })
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 409) {
+          setSubmitError(t('auth.error.emailAlreadyExists'))
+        } else {
+          setSubmitError(error.message || t('auth.error.unexpected'))
+        }
+      } else if (error instanceof TypeError) {
+        setSubmitError(t('auth.error.network'))
+      } else if (error instanceof Error && error.message === 'AUTH_PROFILE_UNAVAILABLE') {
+        setSubmitError(t('auth.error.profileUnavailable'))
+      } else {
+        setSubmitError(t('auth.error.unexpected'))
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isSignUpVariant) {
@@ -395,6 +411,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                       const nextValues = { ...registerValues, firstName: nextFirstName }
 
                       setRegisterValues(nextValues)
+                      setSubmitError(null)
                       setRegisterErrors((previous) => ({
                         ...previous,
                         firstName: validateRegisterField('firstName', nextFirstName, nextValues),
@@ -427,6 +444,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                       const nextValues = { ...registerValues, lastName: nextLastName }
 
                       setRegisterValues(nextValues)
+                      setSubmitError(null)
                       setRegisterErrors((previous) => ({
                         ...previous,
                         lastName: validateRegisterField('lastName', nextLastName, nextValues),
@@ -460,6 +478,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                     const nextValues = { ...registerValues, email: nextEmail }
 
                     setRegisterValues(nextValues)
+                    setSubmitError(null)
                     setRegisterErrors((previous) => ({
                       ...previous,
                       email: validateRegisterField('email', nextEmail, nextValues),
@@ -493,6 +512,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                       const nextValues = { ...registerValues, password: nextPassword }
 
                       setRegisterValues(nextValues)
+                      setSubmitError(null)
                       setRegisterErrors((previous) => ({
                         ...previous,
                         password: validateRegisterField('password', nextPassword, nextValues),
@@ -565,6 +585,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                       const nextValues = { ...registerValues, confirmPassword: nextConfirmPassword }
 
                       setRegisterValues(nextValues)
+                      setSubmitError(null)
                       setRegisterErrors((previous) => ({
                         ...previous,
                         confirmPassword: validateRegisterField(
@@ -674,6 +695,7 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                             className={classNames(styles.customSelectOption, isSelected && styles.customSelectOptionActive)}
                             onClick={() => {
                               setRegisterValues((previous) => ({ ...previous, role }))
+                              setSubmitError(null)
                               setIsRoleMenuOpen(false)
                             }}
                           >
@@ -727,6 +749,12 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                   submitLabel
                 )}
               </button>
+
+              {submitError ? (
+                <p className={styles.errorText} role="alert">
+                  {submitError}
+                </p>
+              ) : null}
             </form>
 
             <p className={styles.bottomText}>
@@ -832,27 +860,62 @@ export function AuthScreen({ variant }: AuthScreenProps) {
                 <label className={styles.label} htmlFor="password">
                   {t('auth.login.password')}
                 </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={values.password}
-                  onChange={(event) => {
-                    const nextPassword = event.target.value
+                <div className={styles.relative}>
+                  <input
+                    id="password"
+                    name="password"
+                    type={isLoginPasswordVisible ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={values.password}
+                    onChange={(event) => {
+                      const nextPassword = event.target.value
 
-                    setValues((previous) => ({ ...previous, password: nextPassword }))
-                    setErrors((previous) => ({
-                      ...previous,
-                      password: validateLoginField('password', nextPassword),
-                    }))
-                    setSubmitError(null)
-                  }}
-                  className={classNames(styles.input, errors.password && styles.inputError)}
-                  placeholder={t('auth.placeholder.loginPassword')}
-                  aria-invalid={Boolean(errors.password)}
-                  aria-describedby={errors.password ? 'password-error' : undefined}
-                />
+                      setValues((previous) => ({ ...previous, password: nextPassword }))
+                      setErrors((previous) => ({
+                        ...previous,
+                        password: validateLoginField('password', nextPassword),
+                      }))
+                      setSubmitError(null)
+                    }}
+                    className={classNames(
+                      styles.input,
+                      styles.inputWithIcon,
+                      errors.password && styles.inputError,
+                    )}
+                    placeholder={t('auth.placeholder.loginPassword')}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? 'password-error' : undefined}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsLoginPasswordVisible((previous) => !previous)}
+                    className={styles.iconButton}
+                    aria-label={isLoginPasswordVisible ? t('auth.aria.hidePassword') : t('auth.aria.showPassword')}
+                  >
+                    {isLoginPasswordVisible ? (
+                      <svg viewBox="0 0 24 24" fill="none" className={styles.icon} aria-hidden="true">
+                        <path
+                          d="M3 3L21 21M10.58 10.58A2 2 0 0013.41 13.41M9.88 5.09A9.77 9.77 0 0112 4c5 0 9 4 10 8a11.8 11.8 0 01-3.32 5.07M6.1 6.1A11.76 11.76 0 002 12c1 4 5 8 10 8a9.77 9.77 0 005.33-1.66"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" className={styles.icon} aria-hidden="true">
+                        <path
+                          d="M2 12S6 4 12 4s10 8 10 8-4 8-10 8-10-8-10-8z"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {errors.password ? (
                   <p id="password-error" className={styles.errorText}>
                     {errors.password}

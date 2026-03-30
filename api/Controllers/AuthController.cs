@@ -4,10 +4,14 @@
 /// 📦 Contient   : [AuthController]
 /// </summary>
 using System.Security.Claims;
+using InternManager.Api.Common.Enums;
+using InternManager.Api.Data;
 using InternManager.Api.Models.DTOs.Auth;
+using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
@@ -17,7 +21,7 @@ namespace InternManager.Api.Controllers;
 /// <param name="authService">Service métier responsable de la création et de la révocation des sessions.</param>
 [ApiController]
 [Route("auth")]
-public sealed class AuthController(IAuthService authService) : ControllerBase
+public sealed class AuthController(IAuthService authService, AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
     /// Authentifie un utilisateur avec son email et son mot de passe.
@@ -35,7 +39,81 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var session = await authService.LoginAsync(request.Email, request.Password, cancellationToken);
+        var session = await authService.LoginAsync(request.Email, request.Password, request.RememberMe, cancellationToken);
+        if (session is null)
+        {
+            ClearAuthCookies(Response);
+            return Unauthorized();
+        }
+
+        AppendAuthCookies(Response, session);
+        return Ok();
+    }
+
+    /// <summary>
+    /// Crée un nouveau compte utilisateur puis ouvre une session authentifiée.
+    /// </summary>
+    /// <param name="request">Données d inscription reçues dans le corps de requête.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
+    /// <returns>
+    /// Une réponse `200 OK` si l inscription et la session réussissent,
+    /// `409 Conflict` si l email existe déjà,
+    /// ou `400 Bad Request` pour un rôle invalide.
+    /// </returns>
+    /// <remarks>
+    /// Appel : POST /auth/signup
+    /// </remarks>
+    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
+    [AllowAnonymous]
+    [HttpPost("signup")]
+    public async Task<IActionResult> Signup([FromBody] SignupRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var firstName = request.FirstName.Trim();
+        var lastName = request.LastName.Trim();
+        var password = request.Password;
+
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        {
+            return BadRequest(new { message = "FirstName and LastName are required." });
+        }
+
+        if (!TryResolveSignupRole(request.Role, out var requestedRole))
+        {
+            return BadRequest(new { message = "Selected role is not allowed for self-signup." });
+        }
+
+        var emailExists = await dbContext.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
+
+        if (emailExists)
+        {
+            return Conflict(new { message = "An account already exists with this email." });
+        }
+
+        var user = new User
+        {
+            FirstName = firstName,
+            LastName = lastName,
+            Email = normalizedEmail,
+            PasswordHash = PasswordHasher.HashPassword(password),
+            Role = requestedRole,
+            Status = UserStatus.Active
+        };
+
+        dbContext.Users.Add(user);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { message = "An account already exists with this email." });
+        }
+
+        var session = await authService.LoginAsync(normalizedEmail, password, rememberMe: true, cancellationToken);
         if (session is null)
         {
             ClearAuthCookies(Response);
@@ -134,6 +212,35 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     }
 
     /// <summary>
+    /// Valide et convertit le rôle demandé depuis le payload d inscription.
+    /// </summary>
+    /// <param name="rawRole">Valeur brute reçue du client.</param>
+    /// <param name="role">Rôle converti si valide.</param>
+    /// <returns><see langword="true"/> si le rôle est autorisé pour auto-inscription, sinon <see langword="false"/>.</returns>
+    private static bool TryResolveSignupRole(string rawRole, out UserRole role)
+    {
+        role = default;
+
+        if (string.IsNullOrWhiteSpace(rawRole))
+        {
+            return false;
+        }
+
+        if (!Enum.TryParse<UserRole>(rawRole.Trim(), true, out var parsedRole))
+        {
+            return false;
+        }
+
+        if (parsedRole is UserRole.Admin or UserRole.SuperAdmin)
+        {
+            return false;
+        }
+
+        role = parsedRole;
+        return true;
+    }
+
+    /// <summary>
     /// Ajoute les cookies d authentification et le cookie CSRF dans la réponse HTTP.
     /// </summary>
     /// <param name="response">Réponse HTTP sur laquelle écrire les cookies.</param>
@@ -144,7 +251,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = session.AccessTokenExpiresAtUtc
         });
@@ -153,7 +260,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = session.RefreshTokenExpiresAtUtc
         });
@@ -162,7 +269,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = false,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = session.RefreshTokenExpiresAtUtc
         });
@@ -180,7 +287,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = expiredAt
         });
@@ -189,7 +296,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = expiredAt
         });
@@ -198,7 +305,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = false,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = expiredAt
         });
