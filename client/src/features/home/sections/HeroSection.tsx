@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Badge } from '../../../shared/ui/Badge'
 import { Button } from '../../../shared/ui/Button'
 import { Section } from '../../../shared/ui/Section'
@@ -13,6 +14,7 @@ const heroStats = [
 export function HeroSection() {
   const { t } = useI18n()
   const { isLoggedIn } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <Section className="hero-section">
@@ -22,12 +24,11 @@ export function HeroSection() {
           <p className="hero-kicker">Axia</p>
           <h2 className="hero-title">{t('hero.title')}</h2>
           <p className="hero-description">{t('hero.description')}</p>
-          {!isLoggedIn ? (
-            <div className="hero-actions">
-              <Button>{t('hero.primaryCta')}</Button>
-              <Button variant="secondary">{t('nav.login')}</Button>
-            </div>
-          ) : null}
+          <div className="hero-actions">
+            <Button onClick={() => navigate(isLoggedIn ? '/profile' : '/signup')}>
+              {t('nav.getStarted')}
+            </Button>
+          </div>
         </div>
 
         <aside className="hero-panel reveal-on-scroll" aria-label="Platform impact metrics">

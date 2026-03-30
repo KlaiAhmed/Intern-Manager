@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../shared/i18n/I18nContext'
 import { useAuth } from '../../../shared/state/AuthContext'
 import { Button } from '../../../shared/ui/Button'
@@ -13,6 +14,7 @@ const proofCards = [
 export default function ExtendedSections() {
   const { t } = useI18n()
   const { isLoggedIn } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <>
@@ -81,12 +83,11 @@ export default function ExtendedSections() {
         <div className="surface-card final-cta-card">
           <h2>{t('cta.title')}</h2>
           <p>{t('cta.text')}</p>
-          {!isLoggedIn ? (
-            <div className="hero-actions">
-              <Button>{t('cta.primary')}</Button>
-              <Button variant="secondary">{t('cta.secondary')}</Button>
-            </div>
-          ) : null}
+          <div className="hero-actions">
+            <Button onClick={() => navigate(isLoggedIn ? '/profile' : '/signup')}>
+              {t('nav.getStarted')}
+            </Button>
+          </div>
         </div>
       </Section>
     </>

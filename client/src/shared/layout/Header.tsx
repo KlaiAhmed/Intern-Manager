@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiRequestError } from '../api/authApi'
-import { useI18n } from '../i18n/I18nContext'
+import { useI18n, type SupportedLocale } from '../i18n/I18nContext'
 import { useAuth } from '../state/AuthContext'
+import { themeModes, useTheme } from '../theme/ThemeContext'
 import { LanguageSwitcher } from '../ui/LanguageSwitcher'
 import { ThemeSwitcher } from '../ui/ThemeSwitcher'
 import { Button } from '../ui/Button'
@@ -15,20 +16,38 @@ const navigationItems = [
   { id: 'trust', labelKey: 'nav.security' },
 ] as const
 
+const languageOptions: Array<{ value: SupportedLocale; labelKey: 'language.en' | 'language.fr' | 'language.ar' }> = [
+  { value: 'en', labelKey: 'language.en' },
+  { value: 'fr', labelKey: 'language.fr' },
+  { value: 'ar', labelKey: 'language.ar' },
+]
+
+type MobileSubmenu = 'theme' | 'language' | null
+
 export function Header() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const { isLoggedIn, user, logout } = useAuth()
+  const { themeMode, setThemeMode } = useTheme()
+  const { locale, setLocale } = useI18n()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
+  const [mobileSubmenu, setMobileSubmenu] = useState<MobileSubmenu>(null)
   const lastScrollTopRef = useRef(0)
   const frameRef = useRef<number | null>(null)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
 
-  const closeMenu = (): void => setIsMobileMenuOpen(false)
+  const toggleMobileSubmenu = (submenu: MobileSubmenu): void => {
+    setMobileSubmenu((current) => (current === submenu ? null : submenu))
+  }
+
+  const closeMenu = (): void => {
+    setIsMobileMenuOpen(false)
+    setMobileSubmenu(null)
+  }
 
   useEffect(() => {
     const initialScrollTop = window.scrollY
@@ -168,7 +187,7 @@ export function Header() {
 
         <div className={classNames('header-panels', isMobileMenuOpen && 'is-open')}>
           <nav id="main-navigation" aria-label="Main navigation">
-            <ul className="main-nav-list">
+            <ul className="main-nav-list desktop-nav">
               {navigationItems.map((item) => (
                 <li key={item.id}>
                   <a href={`#${item.id}`} onClick={closeMenu}>
@@ -177,15 +196,138 @@ export function Header() {
                 </li>
               ))}
             </ul>
+
+            {/* Mobile menu items - shown only when hamburger menu is open */}
+            <ul className="mobile-menu-list">
+              {/* Theme submenu */}
+              <li>
+                <button
+                  type="button"
+                  className={classNames('mobile-submenu-trigger', mobileSubmenu === 'theme' && 'is-open')}
+                  onClick={() => toggleMobileSubmenu('theme')}
+                  aria-expanded={mobileSubmenu === 'theme'}
+                >
+                  <span className="mobile-submenu-label">{t('theme.label')}</span>
+                  <span className="mobile-submenu-chevron" aria-hidden="true">
+                    {mobileSubmenu === 'theme' ? '▾' : '▸'}
+                  </span>
+                </button>
+                {mobileSubmenu === 'theme' && (
+                  <ul className="mobile-submenu-items">
+                    {themeModes.map((mode) => (
+                      <li key={mode}>
+                        <button
+                          type="button"
+                          className={classNames('mobile-submenu-option', themeMode === mode && 'is-active')}
+                          onClick={() => {
+                            setThemeMode(mode)
+                          }}
+                        >
+                          {t(`theme.${mode}` as 'theme.light' | 'theme.dark' | 'theme.system')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+
+              {/* Language submenu */}
+              <li>
+                <button
+                  type="button"
+                  className={classNames('mobile-submenu-trigger', mobileSubmenu === 'language' && 'is-open')}
+                  onClick={() => toggleMobileSubmenu('language')}
+                  aria-expanded={mobileSubmenu === 'language'}
+                >
+                  <span className="mobile-submenu-label">{t('language.label')}</span>
+                  <span className="mobile-submenu-chevron" aria-hidden="true">
+                    {mobileSubmenu === 'language' ? '▾' : '▸'}
+                  </span>
+                </button>
+                {mobileSubmenu === 'language' && (
+                  <ul className="mobile-submenu-items">
+                    {languageOptions.map((option) => (
+                      <li key={option.value}>
+                        <button
+                          type="button"
+                          className={classNames('mobile-submenu-option', locale === option.value && 'is-active')}
+                          onClick={() => {
+                            setLocale(option.value)
+                          }}
+                        >
+                          {t(option.labelKey)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+
+              {/* User menu items - shown when logged in */}
+              {isLoggedIn && (
+                <>
+                  <li className="mobile-menu-divider" />
+                  <li>
+                    <button
+                      type="button"
+                      className="mobile-menu-dashboard"
+                      onClick={() => {
+                        closeMenu()
+                        navigate('/dashboard')
+                      }}
+                    >
+                      {t('nav.dashboard')}
+                    </button>
+                  </li>
+                  <li className="mobile-menu-user-info">
+                    <p className="mobile-menu-user-name">{userDisplayName}</p>
+                    <p className="mobile-menu-user-email">{userDisplayEmail}</p>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="mobile-menu-logout"
+                      onClick={() => void handleLogout()}
+                    >
+                      {t('auth.nav.logout')}
+                    </button>
+                  </li>
+                  {logoutError && (
+                    <li>
+                      <p className="mobile-menu-error" role="alert">{logoutError}</p>
+                    </li>
+                  )}
+                </>
+              )}
+            </ul>
           </nav>
 
           <div className="header-controls">
-            <LanguageSwitcher shouldClose={!isHeaderVisible} />
-            <ThemeSwitcher shouldClose={!isHeaderVisible} />
+            {!isMobileMenuOpen && (
+              <>
+                <LanguageSwitcher shouldClose={!isHeaderVisible} />
+                <ThemeSwitcher shouldClose={!isHeaderVisible} />
+              </>
+            )}
             {!isLoggedIn ? (
-              <Button className="header-signin" size="sm" onClick={() => navigate('/login')}>
-                {t('nav.login')}
-              </Button>
+              <>
+                <Button
+                  className="header-auth-button header-login"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => navigate('/login')}
+                >
+                  {t('nav.login')}
+                </Button>
+                <Button
+                  className="header-auth-button header-signup"
+                  size="sm"
+                  variant="primary"
+                  onClick={() => navigate('/signup')}
+                >
+                  {t('nav.signup')}
+                </Button>
+              </>
             ) : (
               <div
                 ref={userMenuRef}
@@ -219,6 +361,18 @@ export function Header() {
                     </div>
 
                     <div className="user-menu-divider" role="presentation" />
+
+                    <button
+                      type="button"
+                      className="icon-control-option"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsUserMenuOpen(false)
+                        navigate('/dashboard')
+                      }}
+                    >
+                      {t('nav.dashboard')}
+                    </button>
 
                     <button
                       type="button"
