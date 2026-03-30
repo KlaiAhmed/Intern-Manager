@@ -123,7 +123,7 @@ public sealed class AuthService(
             // Invalidation immediate pour empecher toute reutilisation de l ancien token.
             _refreshTokens.Remove(oldRefreshTokenHash);
 
-            return IssueNewSessionNoLock(user, now, rememberMe: true);
+            return IssueNewSessionNoLock(user, now, existingToken.RememberMe);
         }
         finally
         {
@@ -189,7 +189,7 @@ public sealed class AuthService(
         var refreshToken = GenerateOpaqueToken(64);
 
         var refreshTokenHash = HashOpaqueToken(refreshToken);
-        _refreshTokens[refreshTokenHash] = new RefreshTokenEntry(user.UserId, refreshTokenExpiresAtUtc);
+        _refreshTokens[refreshTokenHash] = new RefreshTokenEntry(user.UserId, refreshTokenExpiresAtUtc, rememberMe);
 
         return new AuthSessionTokens(
             accessToken,
@@ -279,5 +279,6 @@ public sealed class AuthService(
     /// </summary>
     /// <param name="UserId">Identifiant de l utilisateur propriétaire du token.</param>
     /// <param name="ExpiresAtUtc">Date UTC d expiration du token.</param>
-    private sealed record RefreshTokenEntry(Guid UserId, DateTime ExpiresAtUtc);
+    /// <param name="RememberMe">Indique si la session associée est persistante.</param>
+    private sealed record RefreshTokenEntry(Guid UserId, DateTime ExpiresAtUtc, bool RememberMe);
 }

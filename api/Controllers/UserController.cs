@@ -3,7 +3,7 @@
 /// 🎯 Rôle : Expose les endpoints HTTP liés au profil utilisateur courant.
 /// 📦 Contient : [UserController]
 /// </summary>
-using System.Security.Claims;
+using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.DTOs.User;
 using Microsoft.AspNetCore.Authorization;
@@ -35,7 +35,7 @@ public sealed class UserController(AppDbContext dbContext) : ControllerBase
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
     {
-        var userId = ResolveCurrentUserId(User);
+        var userId = UserContextHelper.ResolveCurrentUserId(User);
         if (userId is null)
         {
             return Unauthorized();
@@ -62,22 +62,5 @@ public sealed class UserController(AppDbContext dbContext) : ControllerBase
         }
 
         return Ok(user);
-    }
-
-    /// <summary>
-    /// Extrait l identifiant utilisateur depuis les claims standards ou personnalisés.
-    /// </summary>
-    /// <param name="user">Principal courant contenant les claims d identité.</param>
-    /// <returns>
-    /// Un identifiant <see cref="Guid"/> si la valeur est présente et valide, sinon <see langword="null"/>.
-    /// </returns>
-    private static Guid? ResolveCurrentUserId(ClaimsPrincipal user)
-    {
-        var userIdClaim = user.FindFirstValue("userId")
-            ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        return Guid.TryParse(userIdClaim, out var userId)
-            ? userId
-            : null;
     }
 }

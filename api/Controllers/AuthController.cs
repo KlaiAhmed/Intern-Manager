@@ -5,12 +5,14 @@
 /// </summary>
 using System.Security.Claims;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.DTOs.Auth;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -37,6 +39,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var session = await authService.LoginAsync(request.Email, request.Password, request.RememberMe, cancellationToken);
@@ -44,6 +47,28 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             ClearAuthCookies(Response);
             return Unauthorized();
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(
+                current => EF.Functions.Collate(current.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
+                cancellationToken);
+
+        if (user is not null)
+        {
+            user.LastLoginAt = DateTime.UtcNow;
+
+            dbContext.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = user.Id,
+                Actor = user.Email,
+                Action = "auth.login",
+                Entity = $"user:{user.Id}",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         AppendAuthCookies(Response, session);
@@ -66,6 +91,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
     [HttpPost("signup")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Signup([FromBody] SignupRequest request, CancellationToken cancellationToken)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
@@ -85,7 +111,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
 
         var emailExists = await dbContext.Users
             .AsNoTracking()
-            .AnyAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
+            .AnyAsync(u => EF.Functions.Collate(u.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail, cancellationToken);
 
         if (emailExists)
         {
@@ -137,6 +163,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
     [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refresh_token"];
@@ -166,7 +193,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refresh_token"];
-        var userId = ResolveCurrentUserId(User);
+        var userId = UserContextHelper.ResolveCurrentUserId(User);
 
         await authService.LogoutAsync(userId, refreshToken, cancellationToken);
 
@@ -185,30 +212,15 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     [HttpGet("me")]
     public IActionResult Me()
     {
-        var claims = User.Claims
-            .Select(claim => new
-            {
-                claim.Type,
-                claim.Value
-            });
+        var profile = new
+        {
+            userId = User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier),
+            email = User.FindFirstValue("email") ?? User.FindFirstValue(ClaimTypes.Email),
+            role = User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role),
+            username = User.FindFirstValue("username") ?? User.Identity?.Name
+        };
 
-        return Ok(claims);
-    }
-
-    /// <summary>
-    /// Extrait l identifiant utilisateur depuis les claims standards ou personnalisés.
-    /// </summary>
-    /// <param name="user">Principal courant contenant les claims d identité.</param>
-    /// <returns>
-    /// Un identifiant <see cref="Guid"/> si la valeur est présente et valide, sinon <see langword="null"/>.
-    /// </returns>
-    private static Guid? ResolveCurrentUserId(ClaimsPrincipal user)
-    {
-        var userIdClaim = user.FindFirstValue("userId") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        return Guid.TryParse(userIdClaim, out var userId)
-            ? userId
-            : null;
+        return Ok(profile);
     }
 
     /// <summary>
@@ -251,7 +263,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.Strict,
             Path = "/",
             Expires = session.AccessTokenExpiresAtUtc
         });
@@ -260,7 +272,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.Strict,
             Path = "/",
             Expires = session.RefreshTokenExpiresAtUtc
         });
@@ -269,7 +281,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             HttpOnly = false,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.Strict,
             Path = "/",
             Expires = session.RefreshTokenExpiresAtUtc
         });
@@ -287,7 +299,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.Strict,
             Path = "/",
             Expires = expiredAt
         });
@@ -296,7 +308,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.Strict,
             Path = "/",
             Expires = expiredAt
         });
@@ -305,7 +317,7 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         {
             HttpOnly = false,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.Strict,
             Path = "/",
             Expires = expiredAt
         });

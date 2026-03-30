@@ -48,6 +48,21 @@ public class User
     public UserStatus Status { get; set; }
 
     /// <summary>
+    /// Identifiant optionnel du departement associe a l utilisateur.
+    /// </summary>
+    public Guid? DepartmentId { get; set; }
+
+    /// <summary>
+    /// Navigation vers le departement associe, si present.
+    /// </summary>
+    public Department? Department { get; set; }
+
+    /// <summary>
+    /// Date UTC de la derniere connexion reussie.
+    /// </summary>
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
     /// Date de création du compte en temps universel (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; }

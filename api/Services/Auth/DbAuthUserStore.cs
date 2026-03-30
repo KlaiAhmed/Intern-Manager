@@ -30,7 +30,7 @@ public sealed class DbAuthUserStore(IServiceScopeFactory scopeFactory) : IAuthUs
             return null;
         }
 
-        var normalizedEmail = email.Trim();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
 
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -39,7 +39,7 @@ public sealed class DbAuthUserStore(IServiceScopeFactory scopeFactory) : IAuthUs
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 u => u.Status == UserStatus.Active &&
-                     u.Email.ToLower() == normalizedEmail.ToLower(),
+                     EF.Functions.Collate(u.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
                 cancellationToken);
 
         return user is null
