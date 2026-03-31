@@ -36,6 +36,7 @@ interface Deliverable {
 
 interface Evaluation {
   id: string
+  internId?: string
   internName: string
   type: 'mid_term' | 'end_of_internship'
 }
@@ -60,6 +61,14 @@ export function SupervisorDashboard() {
   const { t } = useI18n()
   const api = useDashboardApi()
   const navigate = useNavigate()
+
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+
+    return t('dashboard.error.load')
+  }
 
   // KPI states
   const [activeInternsCount, setActiveInternsCount] = useState<number | null>(null)
@@ -135,8 +144,8 @@ export function SupervisorDashboard() {
       setPendingValidationsCount(pending.count)
       setAvgProgress(avg.value)
       setOverdueCount(overdue.count)
-    } catch {
-      setKpisError(t('dashboard.error.load'))
+    } catch (error) {
+      setKpisError(getErrorMessage(error))
     } finally {
       setLoadingKpis(false)
     }
@@ -148,8 +157,8 @@ export function SupervisorDashboard() {
     try {
       const result = await api.get<{ data: Intern[] }>('/api/supervisor/me/interns')
       setInterns(result.data ?? [])
-    } catch {
-      setInternsError(t('dashboard.error.load'))
+    } catch (error) {
+      setInternsError(getErrorMessage(error))
     } finally {
       setLoadingInterns(false)
     }
@@ -161,8 +170,8 @@ export function SupervisorDashboard() {
     try {
       const result = await api.get<{ data: Mission[] }>('/api/missions?supervisorId=me')
       setMissions(result.data ?? [])
-    } catch {
-      setMissionsError(t('dashboard.error.load'))
+    } catch (error) {
+      setMissionsError(getErrorMessage(error))
     } finally {
       setLoadingMissions(false)
     }
@@ -174,8 +183,8 @@ export function SupervisorDashboard() {
     try {
       const result = await api.get<{ data: Deliverable[] }>('/api/deliverables?status=pending&supervisorId=me')
       setPendingDeliverables(result.data ?? [])
-    } catch {
-      setDeliverablesError(t('dashboard.error.load'))
+    } catch (error) {
+      setDeliverablesError(getErrorMessage(error))
     } finally {
       setLoadingDeliverables(false)
     }
@@ -187,8 +196,8 @@ export function SupervisorDashboard() {
     try {
       const result = await api.get<{ data: Evaluation[] }>('/api/evaluations/pending?supervisorId=me')
       setPendingEvaluations(result.data ?? [])
-    } catch {
-      setEvaluationsError(t('dashboard.error.load'))
+    } catch (error) {
+      setEvaluationsError(getErrorMessage(error))
     } finally {
       setLoadingEvaluations(false)
     }
@@ -200,8 +209,8 @@ export function SupervisorDashboard() {
     try {
       const result = await api.get<{ data: Meeting[] }>('/api/meetings?supervisorId=me')
       setMeetings(result.data ?? [])
-    } catch {
-      setMeetingsError(t('dashboard.error.load'))
+    } catch (error) {
+      setMeetingsError(getErrorMessage(error))
     } finally {
       setLoadingMeetings(false)
     }
@@ -209,10 +218,10 @@ export function SupervisorDashboard() {
 
   const loadSkills = async () => {
     try {
-      const result = await api.get<{ data: Skill[] }>('/api/settings/skills')
-      setSkills(result.data ?? [])
-    } catch {
-      console.error('Failed to load skills')
+      const result = await api.get<Skill[]>('/api/admin/settings/skills')
+      setSkills(result ?? [])
+    } catch (error) {
+      setMissionsError(getErrorMessage(error))
     }
   }
 
@@ -242,8 +251,8 @@ export function SupervisorDashboard() {
       setIsCreateMissionModalOpen(false)
       setMissionFormData({ title: '', description: '', skills: [], tools: '', level: 'junior', deliverables: '' })
       void loadMissions()
-    } catch {
-      setFormErrors({ submit: t('dashboard.error.load') })
+    } catch (error) {
+      setFormErrors({ submit: getErrorMessage(error) })
     }
   }
 
@@ -257,12 +266,16 @@ export function SupervisorDashboard() {
     }
 
     try {
-      await api.post('/api/meetings', meetingFormData)
+      await api.post('/api/meetings', {
+        internId: meetingFormData.internId,
+        date: meetingFormData.date,
+        notes: meetingFormData.note,
+      })
       setIsAddMeetingModalOpen(false)
       setMeetingFormData({ internId: '', date: '', note: '' })
       void loadMeetings()
-    } catch {
-      setFormErrors({ submit: t('dashboard.error.load') })
+    } catch (error) {
+      setFormErrors({ submit: getErrorMessage(error) })
     }
   }
 
@@ -282,8 +295,8 @@ export function SupervisorDashboard() {
       setSelectedDeliverable(null)
       setValidationComment('')
       void loadDeliverables()
-    } catch {
-      setFormErrors({ submit: t('dashboard.error.load') })
+    } catch (error) {
+      setFormErrors({ submit: getErrorMessage(error) })
     }
   }
 
@@ -292,9 +305,16 @@ export function SupervisorDashboard() {
 
     try {
       await api.post('/api/evaluations', {
-        internId: selectedEvaluation.id,
+        internId: selectedEvaluation.internId ?? selectedEvaluation.id,
         type: selectedEvaluation.type,
-        scores: evaluationScores,
+        scores: {
+          technical: evaluationScores.technical,
+          autonomy: evaluationScores.autonomy,
+          communication: evaluationScores.communication,
+          deadlineRespect: evaluationScores.deadlineRespect,
+          deliverableQuality: evaluationScores.deliverableQuality,
+        },
+        comments: evaluationScores.comments,
       })
       setIsEvaluationModalOpen(false)
       setSelectedEvaluation(null)
@@ -307,8 +327,8 @@ export function SupervisorDashboard() {
         comments: '',
       })
       void loadEvaluations()
-    } catch {
-      setFormErrors({ submit: t('dashboard.error.load') })
+    } catch (error) {
+      setFormErrors({ submit: getErrorMessage(error) })
     }
   }
 

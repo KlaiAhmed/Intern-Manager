@@ -69,6 +69,14 @@ export function InternDashboard() {
   const api = useDashboardApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+
+    return t('dashboard.error.load')
+  }
+
   // Data states
   const [internship, setInternship] = useState<Internship | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -110,8 +118,8 @@ export function InternDashboard() {
     try {
       const result = await api.get<Internship>('/api/intern/me/internship')
       setInternship(result)
-    } catch {
-      setInternshipError(t('dashboard.error.load'))
+    } catch (error) {
+      setInternshipError(getErrorMessage(error))
     } finally {
       setLoadingInternship(false)
     }
@@ -123,8 +131,8 @@ export function InternDashboard() {
     try {
       const result = await api.get<{ data: Task[] }>('/api/intern/me/tasks')
       setTasks(result.data ?? [])
-    } catch {
-      setTasksError(t('dashboard.error.load'))
+    } catch (error) {
+      setTasksError(getErrorMessage(error))
     } finally {
       setLoadingTasks(false)
     }
@@ -141,8 +149,8 @@ export function InternDashboard() {
         progressMap[d.id] = d.progress
       })
       setDeliverableProgress(progressMap)
-    } catch {
-      setDeliverablesError(t('dashboard.error.load'))
+    } catch (error) {
+      setDeliverablesError(getErrorMessage(error))
     } finally {
       setLoadingDeliverables(false)
     }
@@ -154,8 +162,8 @@ export function InternDashboard() {
     try {
       const result = await api.get<{ data: JournalEntry[] }>('/api/intern/me/journal?limit=5')
       setJournalEntries(result.data ?? [])
-    } catch {
-      setJournalError(t('dashboard.error.load'))
+    } catch (error) {
+      setJournalError(getErrorMessage(error))
     } finally {
       setLoadingJournal(false)
     }
@@ -167,8 +175,8 @@ export function InternDashboard() {
     try {
       const result = await api.get<{ data: Evaluation[] }>('/api/intern/me/evaluations')
       setEvaluations(result.data ?? [])
-    } catch {
-      setEvaluationsError(t('dashboard.error.load'))
+    } catch (error) {
+      setEvaluationsError(getErrorMessage(error))
     } finally {
       setLoadingEvaluations(false)
     }
@@ -178,10 +186,10 @@ export function InternDashboard() {
     setLoadingMeeting(true)
     setMeetingError(null)
     try {
-      const result = await api.get<Meeting | null>('/api/meetings?internId=me&upcoming=true')
-      setNextMeeting(result)
-    } catch {
-      setMeetingError(t('dashboard.error.load'))
+      const result = await api.get<{ data?: Meeting[] }>('/api/meetings?internId=me&upcoming=true&limit=1')
+      setNextMeeting(result.data?.[0] ?? null)
+    } catch (error) {
+      setMeetingError(getErrorMessage(error))
     } finally {
       setLoadingMeeting(false)
     }
@@ -200,8 +208,8 @@ export function InternDashboard() {
     try {
       await api.patch(`/api/tasks/${taskId}/complete`, {})
       void loadTasks()
-    } catch {
-      console.error('Failed to complete task')
+    } catch (error) {
+      setTasksError(getErrorMessage(error))
     }
   }
 
@@ -216,8 +224,8 @@ export function InternDashboard() {
       setJournalContent('')
       setFormError(null)
       void loadJournal()
-    } catch {
-      setFormError(t('dashboard.error.load'))
+    } catch (error) {
+      setFormError(getErrorMessage(error))
     }
   }
 
@@ -228,8 +236,8 @@ export function InternDashboard() {
       await api.postFormData(`/api/deliverables/${deliverableId}/submit`, formData)
       setSelectedDeliverableForUpload(null)
       void loadDeliverables()
-    } catch {
-      console.error('Failed to upload file')
+    } catch (error) {
+      setDeliverablesError(getErrorMessage(error))
     }
   }
 
@@ -243,8 +251,8 @@ export function InternDashboard() {
       await api.patch(`/api/intern/me/deliverables/${deliverableId}/progress`, {
         progress: deliverableProgress[deliverableId],
       })
-    } catch {
-      console.error('Failed to save progress')
+    } catch (error) {
+      setDeliverablesError(getErrorMessage(error))
     } finally {
       setSavingProgress((prev) => ({ ...prev, [deliverableId]: false }))
     }

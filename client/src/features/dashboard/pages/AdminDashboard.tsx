@@ -39,6 +39,14 @@ export function AdminDashboard() {
   const { t } = useI18n()
   const api = useDashboardApi()
 
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+
+    return t('dashboard.error.load')
+  }
+
   // KPI states
   const [internsCount, setInternsCount] = useState<number | null>(null)
   const [supervisorsCount, setSupervisorsCount] = useState<number | null>(null)
@@ -60,7 +68,7 @@ export function AdminDashboard() {
 
   // Modal state
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
-  const [userFormData, setUserFormData] = useState({ name: '', email: '', role: 'intern', department: '', status: 'active' })
+  const [userFormData, setUserFormData] = useState({ firstName: '', lastName: '', email: '', role: 'intern', department: '', status: 'active' })
   const [userFormErrors, setUserFormErrors] = useState<Record<string, string>>({})
 
   // Loading states
@@ -87,8 +95,8 @@ export function AdminDashboard() {
       setSupervisorsCount(supervisors.count)
       setActiveInternshipsCount(activeInternships.count)
       setPendingDeliverablesCount(pendingDeliverables.count)
-    } catch {
-      setKpisError(t('dashboard.error.load'))
+    } catch (error) {
+      setKpisError(getErrorMessage(error))
     } finally {
       setLoadingKpis(false)
     }
@@ -107,8 +115,8 @@ export function AdminDashboard() {
       setUsers(result.data ?? [])
       setUsersTotal(result.total ?? 0)
       setUsersPage(page)
-    } catch {
-      setUsersError(t('dashboard.error.load'))
+    } catch (error) {
+      setUsersError(getErrorMessage(error))
     } finally {
       setLoadingUsers(false)
     }
@@ -116,10 +124,10 @@ export function AdminDashboard() {
 
   const loadDepartments = async () => {
     try {
-      const result = await api.get<{ data: Department[] }>('/api/settings/departments')
-      setDepartments(result.data ?? [])
-    } catch {
-      console.error('Failed to load departments')
+      const result = await api.get<Department[]>('/api/admin/settings/departments')
+      setDepartments(result ?? [])
+    } catch (error) {
+      setUsersError(getErrorMessage(error))
     }
   }
 
@@ -127,10 +135,10 @@ export function AdminDashboard() {
     setLoadingAuditLogs(true)
     setAuditLogsError(null)
     try {
-      const result = await api.get<{ data: AuditLog[] }>('/api/audit-logs?limit=20')
+      const result = await api.get<{ data: AuditLog[] }>('/api/admin/audit-logs?limit=20')
       setAuditLogs(result.data ?? [])
-    } catch {
-      setAuditLogsError(t('dashboard.error.load'))
+    } catch (error) {
+      setAuditLogsError(getErrorMessage(error))
     } finally {
       setLoadingAuditLogs(false)
     }
@@ -155,7 +163,8 @@ export function AdminDashboard() {
 
   const validateUserForm = (): boolean => {
     const errors: Record<string, string> = {}
-    if (!userFormData.name.trim()) errors.name = t('dashboard.form.required')
+    if (!userFormData.firstName.trim()) errors.firstName = t('dashboard.form.required')
+    if (!userFormData.lastName.trim()) errors.lastName = t('dashboard.form.required')
     if (!userFormData.email.trim()) errors.email = t('dashboard.form.required')
     setUserFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -164,12 +173,19 @@ export function AdminDashboard() {
   const handleAddUser = async () => {
     if (!validateUserForm()) return
     try {
-      await api.post('/api/users', userFormData)
+      await api.post('/api/users', {
+        firstName: userFormData.firstName.trim(),
+        lastName: userFormData.lastName.trim(),
+        email: userFormData.email.trim(),
+        role: userFormData.role,
+        department: userFormData.department,
+        status: userFormData.status,
+      })
       setIsAddUserModalOpen(false)
-      setUserFormData({ name: '', email: '', role: 'intern', department: '', status: 'active' })
+      setUserFormData({ firstName: '', lastName: '', email: '', role: 'intern', department: '', status: 'active' })
       void loadUsers(usersPage)
-    } catch {
-      setUserFormErrors({ submit: t('dashboard.error.load') })
+    } catch (error) {
+      setUserFormErrors({ submit: getErrorMessage(error) })
     }
   }
 
@@ -181,8 +197,8 @@ export function AdminDashboard() {
     try {
       await api.patch(`/api/users/${userId}`, { status: 'archived' })
       void loadUsers(usersPage)
-    } catch {
-      console.error('Failed to archive user')
+    } catch (error) {
+      setUsersError(getErrorMessage(error))
     }
   }
 
@@ -190,8 +206,8 @@ export function AdminDashboard() {
     try {
       await api.patch(`/api/users/${userId}`, { status: 'active' })
       void loadUsers(usersPage)
-    } catch {
-      console.error('Failed to activate user')
+    } catch (error) {
+      setUsersError(getErrorMessage(error))
     }
   }
 
@@ -374,15 +390,26 @@ export function AdminDashboard() {
       <Modal isOpen={isAddUserModalOpen} onClose={() => setIsAddUserModalOpen(false)} title={t('dashboard.admin.addUser')}>
         <form className="modal-form" onSubmit={(e) => { e.preventDefault(); void handleAddUser() }}>
           <div className="form-field">
-            <label htmlFor="user-name">{t('dashboard.form.name')}</label>
+            <label htmlFor="user-first-name">First Name</label>
             <input
-              id="user-name"
+              id="user-first-name"
               type="text"
-              value={userFormData.name}
-              onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
-              className={userFormErrors.name ? 'input-error' : ''}
+              value={userFormData.firstName}
+              onChange={(e) => setUserFormData({ ...userFormData, firstName: e.target.value })}
+              className={userFormErrors.firstName ? 'input-error' : ''}
             />
-            {userFormErrors.name && <span className="field-error">{userFormErrors.name}</span>}
+            {userFormErrors.firstName && <span className="field-error">{userFormErrors.firstName}</span>}
+          </div>
+          <div className="form-field">
+            <label htmlFor="user-last-name">Last Name</label>
+            <input
+              id="user-last-name"
+              type="text"
+              value={userFormData.lastName}
+              onChange={(e) => setUserFormData({ ...userFormData, lastName: e.target.value })}
+              className={userFormErrors.lastName ? 'input-error' : ''}
+            />
+            {userFormErrors.lastName && <span className="field-error">{userFormErrors.lastName}</span>}
           </div>
           <div className="form-field">
             <label htmlFor="user-email">{t('dashboard.form.email')}</label>

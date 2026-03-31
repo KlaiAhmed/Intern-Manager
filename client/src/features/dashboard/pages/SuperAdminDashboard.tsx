@@ -32,9 +32,46 @@ interface AuditLog {
 export function SuperAdminDashboard() {
   const { t } = useI18n()
   const api = useDashboardApi()
+
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+
+    return t('dashboard.error.load')
+  }
+
+  const readNumericValue = (payload: unknown): number => {
+    if (typeof payload === 'number') {
+      return payload
+    }
+
+    if (typeof payload === 'object' && payload !== null) {
+      const record = payload as Record<string, unknown>
+      const count = record.count
+      if (typeof count === 'number') {
+        return count
+      }
+
+      const value = record.value
+      if (typeof value === 'number') {
+        return value
+      }
+    }
+
+    return 0
+  }
+
+  const readArrayData = <T,>(payload: { data?: T[] } | T[] | undefined): T[] => {
+    if (Array.isArray(payload)) {
+      return payload
+    }
+
+    return payload?.data ?? []
+  }
   
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false)
-  const [adminFormData, setAdminFormData] = useState({ name: '', email: '', password: '', status: 'active' })
+  const [adminFormData, setAdminFormData] = useState({ firstName: '', lastName: '', email: '', password: '', status: 'active' })
   const [adminFormErrors, setAdminFormErrors] = useState<Record<string, string>>({})
 
   // KPI states
@@ -73,17 +110,17 @@ export function SuperAdminDashboard() {
     setKpisError(null)
     try {
       const [activeInterns, supervisors, missions, admins] = await Promise.all([
-        api.get<{ count: number }>('/api/stats/interns/active'),
-        api.get<{ count: number }>('/api/stats/supervisors'),
-        api.get<{ count: number }>('/api/stats/missions'),
-        api.get<{ count: number }>('/api/stats/admins'),
+        api.get<{ count?: number } | number>('/api/stats/interns/active'),
+        api.get<{ count?: number } | number>('/api/stats/supervisors'),
+        api.get<{ count?: number } | number>('/api/stats/missions'),
+        api.get<{ count?: number } | number>('/api/stats/admins'),
       ])
-      setActiveInternsCount(activeInterns.count)
-      setSupervisorsCount(supervisors.count)
-      setMissionsCount(missions.count)
-      setAdminsCount(admins.count)
-    } catch {
-      setKpisError(t('dashboard.error.load'))
+      setActiveInternsCount(readNumericValue(activeInterns))
+      setSupervisorsCount(readNumericValue(supervisors))
+      setMissionsCount(readNumericValue(missions))
+      setAdminsCount(readNumericValue(admins))
+    } catch (error) {
+      setKpisError(getErrorMessage(error))
     } finally {
       setLoadingKpis(false)
     }
@@ -94,15 +131,15 @@ export function SuperAdminDashboard() {
     setChartsError(null)
     try {
       const [byDept, byStatus, byType] = await Promise.all([
-        api.get<{ data: Array<{ name: string; value: number }> }>('/api/stats/interns-by-department'),
-        api.get<{ data: Array<{ name: string; value: number }> }>('/api/stats/internships-by-status'),
-        api.get<{ data: Array<{ name: string; value: number }> }>('/api/stats/internships-by-type'),
+        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/interns-by-department'),
+        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/internships-by-status'),
+        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/internships-by-type'),
       ])
-      setInternsByDepartment(byDept.data ?? [])
-      setInternshipsByStatus(byStatus.data ?? [])
-      setInternshipsByType(byType.data ?? [])
-    } catch {
-      setChartsError(t('dashboard.error.load'))
+      setInternsByDepartment(readArrayData(byDept))
+      setInternshipsByStatus(readArrayData(byStatus))
+      setInternshipsByType(readArrayData(byType))
+    } catch (error) {
+      setChartsError(getErrorMessage(error))
     } finally {
       setLoadingCharts(false)
     }
@@ -116,8 +153,8 @@ export function SuperAdminDashboard() {
       setAdminUsers(result.data ?? [])
       setAdminUsersTotal(result.total ?? 0)
       setAdminUsersPage(page)
-    } catch {
-      setAdminsError(t('dashboard.error.load'))
+    } catch (error) {
+      setAdminsError(getErrorMessage(error))
     } finally {
       setLoadingAdmins(false)
     }
@@ -127,10 +164,10 @@ export function SuperAdminDashboard() {
     setLoadingAuditLogs(true)
     setAuditLogsError(null)
     try {
-      const result = await api.get<{ data: AuditLog[] }>('/api/audit-logs?limit=10')
+      const result = await api.get<{ data: AuditLog[] }>('/api/admin/audit-logs?limit=10')
       setAuditLogs(result.data ?? [])
-    } catch {
-      setAuditLogsError(t('dashboard.error.load'))
+    } catch (error) {
+      setAuditLogsError(getErrorMessage(error))
     } finally {
       setLoadingAuditLogs(false)
     }
@@ -145,7 +182,8 @@ export function SuperAdminDashboard() {
 
   const validateAdminForm = (): boolean => {
     const errors: Record<string, string> = {}
-    if (!adminFormData.name.trim()) errors.name = t('dashboard.form.required')
+    if (!adminFormData.firstName.trim()) errors.firstName = t('dashboard.form.required')
+    if (!adminFormData.lastName.trim()) errors.lastName = t('dashboard.form.required')
     if (!adminFormData.email.trim()) errors.email = t('dashboard.form.required')
     if (!adminFormData.password.trim()) errors.password = t('dashboard.form.required')
     setAdminFormErrors(errors)
@@ -155,12 +193,19 @@ export function SuperAdminDashboard() {
   const handleAddAdmin = async () => {
     if (!validateAdminForm()) return
     try {
-      await api.post('/api/users', { ...adminFormData, role: 'admin' })
+      await api.post('/api/users', {
+        firstName: adminFormData.firstName.trim(),
+        lastName: adminFormData.lastName.trim(),
+        email: adminFormData.email.trim(),
+        password: adminFormData.password,
+        status: adminFormData.status,
+        role: 'admin',
+      })
       setIsAddAdminModalOpen(false)
-      setAdminFormData({ name: '', email: '', password: '', status: 'active' })
+      setAdminFormData({ firstName: '', lastName: '', email: '', password: '', status: 'active' })
       void loadAdminUsers(adminUsersPage)
-    } catch {
-      setAdminFormErrors({ submit: t('dashboard.error.load') })
+    } catch (error) {
+      setAdminFormErrors({ submit: getErrorMessage(error) })
     }
   }
 
@@ -172,8 +217,8 @@ export function SuperAdminDashboard() {
     try {
       await api.patch(`/api/users/${adminId}`, { status: 'inactive' })
       void loadAdminUsers(adminUsersPage)
-    } catch {
-      console.error('Failed to deactivate admin')
+    } catch (error) {
+      setAdminsError(getErrorMessage(error))
     }
   }
 
@@ -327,15 +372,26 @@ export function SuperAdminDashboard() {
       <Modal isOpen={isAddAdminModalOpen} onClose={() => setIsAddAdminModalOpen(false)} title={t('dashboard.superAdmin.addAdmin')}>
         <form className="modal-form" onSubmit={(e) => { e.preventDefault(); void handleAddAdmin() }}>
           <div className="form-field">
-            <label htmlFor="admin-name">{t('dashboard.form.name')}</label>
+            <label htmlFor="admin-first-name">First Name</label>
             <input
-              id="admin-name"
+              id="admin-first-name"
               type="text"
-              value={adminFormData.name}
-              onChange={(e) => setAdminFormData({ ...adminFormData, name: e.target.value })}
-              className={adminFormErrors.name ? 'input-error' : ''}
+              value={adminFormData.firstName}
+              onChange={(e) => setAdminFormData({ ...adminFormData, firstName: e.target.value })}
+              className={adminFormErrors.firstName ? 'input-error' : ''}
             />
-            {adminFormErrors.name && <span className="field-error">{adminFormErrors.name}</span>}
+            {adminFormErrors.firstName && <span className="field-error">{adminFormErrors.firstName}</span>}
+          </div>
+          <div className="form-field">
+            <label htmlFor="admin-last-name">Last Name</label>
+            <input
+              id="admin-last-name"
+              type="text"
+              value={adminFormData.lastName}
+              onChange={(e) => setAdminFormData({ ...adminFormData, lastName: e.target.value })}
+              className={adminFormErrors.lastName ? 'input-error' : ''}
+            />
+            {adminFormErrors.lastName && <span className="field-error">{adminFormErrors.lastName}</span>}
           </div>
           <div className="form-field">
             <label htmlFor="admin-email">{t('dashboard.form.email')}</label>
