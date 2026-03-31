@@ -11,11 +11,32 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des missions du superviseur.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/missions")]
 [Authorize(Roles = "Supervisor")]
 public sealed class MissionsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
+    /// <summary>
+    /// Récupère la liste des missions du superviseur connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les missions créées par le superviseur.
+    /// Chaque mission peut être un modèle (sans stagiaire assigné) ou active (avec un stagiaire).
+    /// Les résultats sont triés par date de création, du plus récent au plus ancien.
+    /// </remarks>
+    /// <param name="supervisorId">Optionnel : filtre par identifiant de superviseur.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de missions.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMissions")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -85,6 +106,21 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Crée une nouvelle mission.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet de créer une mission avec un titre, une description, des compétences
+    /// et des livrables attendus. Si un stagiaire est assigné, la mission devient \"active\"
+    /// et le stagiaire reçoit une notification. Sinon, la mission est créée comme \"modèle\".
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations de la mission.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la mission créée.</returns>
+    /// <response code="201">Mission créée avec succès.</response>
+    /// <response code="400">Données invalides ou stagiaire non trouvé.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "CreateMission")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -230,6 +266,21 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         return CreatedAtAction(nameof(GetMissionById), new { id = mission.Id }, result);
     }
 
+    /// <summary>
+    /// Récupère les détails d une mission spécifique.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les informations d une mission : titre, description,
+    /// statut, stagiaire assigné, outils et niveau requis. Seul le créateur de la mission
+    /// peut y accéder.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la mission.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les détails complets de la mission.</returns>
+    /// <response code="200">Mission récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé (pas le propriétaire).</response>
+    /// <response code="404">Mission non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetMissionById")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -269,6 +320,22 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         });
     }
 
+    /// <summary>
+    /// Met à jour les informations d une mission.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet de modifier le titre, la description, les compétences,
+    /// les outils, le niveau ou le statut d une mission. Seuls les champs fournis
+    /// sont mis à jour. Un historique des modifications est conservé.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la mission à modifier.</param>
+    /// <param name="request">Objet contenant les champs à mettre à jour.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour de la mission.</returns>
+    /// <response code="200">Mission mise à jour avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Mission non trouvée.</response>
     [HttpPatch("{id:guid}", Name = "UpdateMission")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -398,6 +465,24 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         });
     }
 
+    /// <summary>
+    /// Assigne ou désassigne un stagiaire à une mission.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet d assigner un stagiaire à une mission existante.
+    /// Si aucun stagiaire n est fourni, la mission redevient un \"modèle\".
+    /// Les livrables et tâches associées sont automatiquement mis à jour.
+    /// Le stagiaire reçoit une notification de l assignation.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la mission.</param>
+    /// <param name="request">Objet contenant l identifiant du stagiaire (ou null).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour de la mission.</returns>
+    /// <response code="200">Assignation réussie.</response>
+    /// <response code="400">Stagiaire invalide.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Mission non trouvée.</response>
     [HttpPatch("{id:guid}/assign", Name = "AssignMissionIntern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -543,6 +628,22 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         });
     }
 
+    /// <summary>
+    /// Récupère l historique des modifications d une mission.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les modifications apportées à une mission
+    /// (titre, statut, assignation, etc.). Chaque entrée indique l ancienne valeur,
+    /// la nouvelle valeur, l auteur et la date.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la mission.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée des modifications.</returns>
+    /// <response code="200">Historique récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Mission non trouvée.</response>
     [HttpGet("{id:guid}/history", Name = "GetMissionHistory")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -595,6 +696,20 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Supprime une mission.
+    /// </summary>
+    /// <remarks>
+    /// Cette route supprime définitivement une mission et tous ses livrables associés.
+    /// Les tâches liées aux livrables sont également supprimées.
+    /// Cette action est irréversible.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la mission à supprimer.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Mission supprimée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Mission non trouvée.</response>
     [HttpDelete("{id:guid}", Name = "DeleteMission")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

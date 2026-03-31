@@ -10,11 +10,35 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des réunions.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/meetings")]
 [Authorize(Roles = "Supervisor,Intern")]
 public sealed class MeetingsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
+    /// <summary>
+    /// Récupère la liste des réunions.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les réunions selon le rôle de l utilisateur.
+    /// Les superviseurs voient toutes leurs réunions avec les stagiaires.
+    /// Les stagiaires voient uniquement leurs réunions planifiées.
+    /// Vous pouvez filtrer pour n afficher que les réunions à venir.
+    /// </remarks>
+    /// <param name="supervisorId">Optionnel : filtre par identifiant de superviseur.</param>
+    /// <param name="internId">Optionnel : filtre par identifiant de stagiaire.</param>
+    /// <param name="upcoming">Si vrai, retourne uniquement les réunions futures.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste de réunions.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMeetings")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -99,6 +123,23 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Planifie une nouvelle réunion.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de planifier une réunion avec un stagiaire.
+    /// La date doit être dans le futur. Il est impossible de créer une réunion
+    /// si une autre réunion existe déjà dans un créneau de 1 heure.
+    /// Le stagiaire reçoit une notification de la nouvelle réunion.
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations de la réunion (stagiaire, date, notes).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la réunion créée.</returns>
+    /// <response code="201">Réunion créée avec succès.</response>
+    /// <response code="400">Données invalides ou date dans le passé.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Conflit avec une réunion existante.</response>
     [HttpPost(Name = "CreateMeeting")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -203,6 +244,20 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
         return CreatedAtAction(nameof(GetMeetingById), new { id = meeting.Id }, result);
     }
 
+    /// <summary>
+    /// Récupère les détails d une réunion.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les informations d une réunion : date, notes,
+    /// nom du stagiaire et du superviseur. Seuls les participants peuvent y accéder.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la réunion.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les détails de la réunion.</returns>
+    /// <response code="200">Réunion récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Réunion non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetMeetingById")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -253,6 +308,24 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
         });
     }
 
+    /// <summary>
+    /// Met à jour les informations d une réunion.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de modifier la date ou les notes d une réunion.
+    /// La nouvelle date doit être dans le futur. Si la date est modifiée,
+    /// le système vérifie qu il n y a pas de conflit avec d autres réunions.
+    /// Le stagiaire reçoit une notification de la modification.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la réunion à modifier.</param>
+    /// <param name="request">Objet contenant les champs à mettre à jour.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour de la réunion.</returns>
+    /// <response code="200">Réunion mise à jour avec succès.</response>
+    /// <response code="400">Nouvelle date dans le passé.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Réunion non trouvée.</response>
+    /// <response code="409">Conflit avec une autre réunion.</response>
     [HttpPatch("{id:guid}", Name = "UpdateMeeting")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -357,6 +430,20 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
         });
     }
 
+    /// <summary>
+    /// Annule une réunion.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur d annuler une réunion planifiée.
+    /// Le stagiaire reçoit une notification d annulation.
+    /// Cette action est irréversible.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la réunion à annuler.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Réunion annulée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Réunion non trouvée.</response>
     [HttpDelete("{id:guid}", Name = "DeleteMeeting")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

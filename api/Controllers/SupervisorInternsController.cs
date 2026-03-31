@@ -1,3 +1,8 @@
+/// <summary>
+/// 📁 Emplacement : api/Controllers/SupervisorInternsController.cs
+/// 🎯 Rôle : Expose les stagiaires assignés au superviseur connecté.
+/// 📦 Contient : [SupervisorInternsController]
+/// </summary>
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -8,11 +13,32 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de consultation des stagiaires d un superviseur.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/supervisor/me")]
 [Authorize(Roles = "Supervisor")]
 public sealed class SupervisorInternsController(AppDbContext dbContext) : ControllerBase
 {
+    /// <summary>
+    /// Récupère la liste des stagiaires du superviseur connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne tous les stagiaires assignés au superviseur connecté.
+    /// Un stagiaire est considéré comme assigné s il a une mission, un livrable,
+    /// une évaluation ou une réunion avec ce superviseur.
+    /// Les résultats incluent le titre de la mission, la progression moyenne,
+    /// la date du dernier journal et un indicateur de retard.
+    /// </remarks>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de stagiaires.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("interns", Name = "ListMyInterns")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

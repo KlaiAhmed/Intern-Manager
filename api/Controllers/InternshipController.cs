@@ -7,11 +7,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de récupération des informations de stage du stagiaire.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/intern/me")]
 [Authorize(Roles = "Intern")]
 public sealed class InternshipController(AppDbContext dbContext) : ControllerBase
 {
+    /// <summary>
+    /// Récupère les informations de stage du stagiaire connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne un récapitulatif du stage du stagiaire : titre de la mission,
+    /// nom du superviseur, département, dates de début et de fin, statut et progression globale.
+    /// La progression est calculée à partir des livrables.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de stage.</returns>
+    /// <response code="200">Informations récupérées avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Stagiaire non trouvé.</response>
     [HttpGet("internship", Name = "GetMyInternship")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

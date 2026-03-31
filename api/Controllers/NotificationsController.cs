@@ -7,11 +7,30 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des notifications.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/notifications")]
 [Authorize]
 public sealed class NotificationsController(AppDbContext dbContext) : ControllerBase
 {
+    /// <summary>
+    /// Récupère les notifications de l utilisateur connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les notifications de l utilisateur. Vous pouvez filtrer
+    /// pour n afficher que les notifications non lues. Les résultats sont triés
+    /// par date de création, de la plus récente à la plus ancienne.
+    /// </remarks>
+    /// <param name="unreadOnly">Si vrai, retourne uniquement les notifications non lues.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de notifications.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
     [HttpGet(Name = "ListNotifications")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -62,6 +81,19 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Marque une notification comme lue.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet de marquer une notification spécifique comme lue.
+    /// Une fois marquée, la notification n apparaîtra plus dans les filtres \"non lues\".
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la notification.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la notification mise à jour.</returns>
+    /// <response code="200">Notification marquée comme lue.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Notification non trouvée.</response>
     [HttpPatch("{id:guid}/read", Name = "MarkNotificationRead")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

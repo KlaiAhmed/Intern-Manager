@@ -10,6 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion du profil stagiaire.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
 [ApiController]
 [Route("api/intern/me/profile")]
 [Authorize(Roles = "Intern")]
@@ -17,6 +22,19 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
 {
     private const long MaxCvUploadBytes = 5 * 1024 * 1024;
 
+    /// <summary>
+    /// Récupère le profil du stagiaire connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les informations du profil stagiaire de l utilisateur connecté.
+    /// Cela inclut l école, la spécialité, les compétences, l expérience et le CV.
+    /// Si le profil n existe pas encore, un profil vide est créé automatiquement.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du profil stagiaire.</returns>
+    /// <response code="200">Profil récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Stagiaire non trouvé.</response>
     [HttpGet(Name = "GetMyInternProfile")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -55,6 +73,19 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
         return Ok(ToProfileResponse(profile, skills));
     }
 
+    /// <summary>
+    /// Met à jour les informations du profil stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire de modifier son école, sa spécialité,
+    /// son expérience et ses compétences. Seuls les champs fournis sont mis à jour.
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations à mettre à jour.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le profil mis à jour.</returns>
+    /// <response code="200">Profil mis à jour avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
     [HttpPatch(Name = "UpdateMyInternProfile")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -107,6 +138,20 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
         return Ok(ToProfileResponse(profile, skills));
     }
 
+    /// <summary>
+    /// Remplace la liste des compétences du stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route remplace entièrement la liste des compétences associées au profil.
+    /// Les compétences doivent correspondre à des identifiants existants dans le référentiel.
+    /// Les anciennes compétences non présentes dans la nouvelle liste seront supprimées.
+    /// </remarks>
+    /// <param name="request">Objet contenant la liste des identifiants de compétences.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>La nouvelle liste de compétences.</returns>
+    /// <response code="200">Compétences mises à jour avec succès.</response>
+    /// <response code="400">Identifiants de compétences invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
     [HttpPut("skills", Name = "ReplaceMyInternSkills")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -196,6 +241,20 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
         return Ok(new { data = skills });
     }
 
+    /// <summary>
+    /// Télécharge le CV du stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire de télécharger son CV au format PDF.
+    /// Le fichier ne doit pas dépasser 5 Mo. L ancien CV est automatiquement
+    /// remplacé par le nouveau.
+    /// </remarks>
+    /// <param name="request">Objet contenant le fichier PDF à télécharger.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>L URL du fichier téléchargé.</returns>
+    /// <response code="200">CV téléchargé avec succès.</response>
+    /// <response code="400">Fichier invalide ou trop volumineux.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
     [HttpPost("cv", Name = "UploadMyInternCv")]
     [EnableRateLimiting("upload")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -265,6 +324,18 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
         return Ok(new { fileUrl = profile.CvFileUrl });
     }
 
+    /// <summary>
+    /// Télécharge le CV du stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet de récupérer le fichier CV précédemment téléchargé.
+    /// Le fichier est retourné en tant que pièce jointe PDF.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le fichier CV en format PDF.</returns>
+    /// <response code="200">Fichier retourné avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Aucun CV trouvé.</response>
     [HttpGet("cv", Name = "DownloadMyInternCv")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

@@ -30,17 +30,17 @@ public sealed class AuthController(
     AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
-    /// Authentifie un utilisateur avec son email et son mot de passe.
+    /// Connecte un utilisateur avec son email et son mot de passe.
     /// </summary>
-    /// <param name="request">Données de connexion reçues dans le corps de requête.</param>
-    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
-    /// <returns>
-    /// Une réponse `200 OK` si la session est créée, sinon `401 Unauthorized`.
-    /// </returns>
     /// <remarks>
-    /// Appel : POST /auth/login
+    /// Cette route vérifie les identifiants dans la base de données. Si tout est correct, elle crée une session
+    /// et place deux jetons (access et refresh) dans des cookies sécurisés. Le code de retour est 200.
     /// </remarks>
-    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
+    /// <param name="request">Objet contenant l email et le mot de passe de l utilisateur.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien en cas de succès (les cookies sont placés automatiquement).</returns>
+    /// <response code="200">Connexion réussie, les cookies de session sont créés.</response>
+    /// <response code="401">Email ou mot de passe incorrect.</response>
     [AllowAnonymous]
     [HttpPost("login", Name = "Login")]
     [EnableRateLimiting("auth")]
@@ -82,19 +82,19 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Crée un nouveau compte utilisateur puis ouvre une session authentifiée.
+    /// Crée un nouveau compte utilisateur et le connecte automatiquement.
     /// </summary>
-    /// <param name="request">Données d inscription reçues dans le corps de requête.</param>
-    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
-    /// <returns>
-    /// Une réponse `200 OK` si l inscription et la session réussissent,
-    /// `409 Conflict` si l email existe déjà,
-    /// ou `400 Bad Request` pour un rôle invalide.
-    /// </returns>
     /// <remarks>
-    /// Appel : POST /auth/signup
+    /// Cette route crée un utilisateur dans la base avec le rôle demandé. Seuls les rôles Intern, Supervisor
+    /// et Manager sont autorisés pour l auto-inscription. Ensuite, elle connecte l utilisateur
+    /// et place les cookies de session.
     /// </remarks>
-    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
+    /// <param name="request">Objet contenant les informations du nouveau compte (nom, email, mot de passe, rôle).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du compte créé.</returns>
+    /// <response code="201">Compte créé avec succès, l utilisateur est connecté.</response>
+    /// <response code="400">Données invalides ou rôle non autorisé.</response>
+    /// <response code="409">Un compte existe déjà avec cet email.</response>
     [AllowAnonymous]
     [HttpPost("signup", Name = "Signup")]
     [EnableRateLimiting("auth")]
@@ -164,8 +164,17 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Demande une reinitialisation de mot de passe sans divulguer si le compte existe.
+    /// Demande un lien de réinitialisation de mot de passe.
     /// </summary>
+    /// <remarks>
+    /// Cette route envoie un email avec un lien de réinitialisation si le compte existe.
+    /// Pour des raisons de sécurité, elle répond toujours 200 même si l email n existe pas,
+    /// afin de ne pas révéler quels comptes sont enregistrés.
+    /// </remarks>
+    /// <param name="request">Objet contenant l email du compte à réinitialiser.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Un message confirmant que le processus est lancé.</returns>
+    /// <response code="200">Message de confirmation (même si l email n existe pas).</response>
     [AllowAnonymous]
     [HttpPost("forgot-password", Name = "ForgotPassword")]
     [EnableRateLimiting("auth")]
@@ -183,8 +192,18 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Reinitialise le mot de passe avec un jeton one-shot limite dans le temps.
+    /// Réinitialise le mot de passe avec un jeton reçu par email.
     /// </summary>
+    /// <remarks>
+    /// Cette route prend le jeton envoyé par email et un nouveau mot de passe.
+    /// Le jeton ne peut être utilisé qu une seule fois et expire après un certain temps.
+    /// Après réinitialisation, l utilisateur est déconnecté de toutes ses sessions.
+    /// </remarks>
+    /// <param name="request">Objet contenant le jeton de réinitialisation et le nouveau mot de passe.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Un message confirmant le changement de mot de passe.</returns>
+    /// <response code="200">Mot de passe réinitialisé avec succès.</response>
+    /// <response code="400">Jeton invalide ou expiré.</response>
     [AllowAnonymous]
     [HttpPost("reset-password", Name = "ResetPassword")]
     [EnableRateLimiting("auth")]
@@ -210,16 +229,17 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Renouvelle la session à partir du cookie `refresh_token` et remet des cookies à jour.
+    /// Renouvelle la session de l utilisateur.
     /// </summary>
-    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
-    /// <returns>
-    /// Une réponse `200 OK` si le renouvellement réussit, sinon `401 Unauthorized`.
-    /// </returns>
     /// <remarks>
-    /// Appel : POST /auth/refresh
+    /// Cette route utilise le jeton de rafraîchissement stocké dans un cookie pour générer
+    /// un nouveau jeton d accès. Les cookies sont automatiquement mis à jour.
+    /// Cela permet de rester connecté sans avoir à se reconnecter.
     /// </remarks>
-    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (les cookies de session sont mis à jour).</returns>
+    /// <response code="200">Session renouvelée avec succès.</response>
+    /// <response code="401">Jeton de rafraîchissement invalide ou expiré.</response>
     [AllowAnonymous]
     [HttpPost("refresh", Name = "RefreshToken")]
     [EnableRateLimiting("auth")]
@@ -241,18 +261,19 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Déconnecte l utilisateur courant et supprime les cookies d authentification.
+    /// Déconnecte l utilisateur actuel.
     /// </summary>
-    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
-    /// <returns>Une réponse `204 No Content` quand la déconnexion est terminée.</returns>
     /// <remarks>
-    /// Appel : POST /auth/logout
+    /// Cette route invalide le jeton de rafraîchissement dans la base de données
+    /// et supprime les cookies de session. L utilisateur doit se reconnecter
+    /// pour accéder aux routes protégées.
     /// </remarks>
-    /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
-    [Authorize]
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="200">Déconnexion traitée (idempotent).</response>
+    [AllowAnonymous]
     [HttpPost("logout", Name = "Logout")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refresh_token"];
@@ -261,16 +282,20 @@ public sealed class AuthController(
         await authService.LogoutAsync(userId, refreshToken, cancellationToken);
 
         ClearAuthCookies(Response);
-        return NoContent();
+        return Ok();
     }
 
     /// <summary>
-    /// Retourne les claims de l utilisateur authentifié pour diagnostic côté client.
+    /// Récupère les informations de l utilisateur connecté.
     /// </summary>
-    /// <returns>Une réponse `200 OK` contenant la liste des claims présents dans le jeton.</returns>
     /// <remarks>
-    /// Appel : GET /auth/me
+    /// Cette route lit le jeton d accès pour identifier l utilisateur et retourne
+    /// ses informations de profil (identifiant, nom, email, rôle, statut).
+    /// Utile pour vérifier que la connexion fonctionne correctement.
     /// </remarks>
+    /// <returns>Les informations du profil de l utilisateur connecté.</returns>
+    /// <response code="200">Profil récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté ou jeton invalide.</response>
     [Authorize]
     [HttpGet("me", Name = "GetCurrentUser")]
     [ProducesResponseType(typeof(AuthMeResponse), StatusCodes.Status200OK)]

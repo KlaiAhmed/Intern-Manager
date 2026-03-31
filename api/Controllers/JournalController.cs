@@ -9,11 +9,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion du journal de bord du stagiaire.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/intern/me/journal")]
 [Authorize(Roles = "Intern")]
 public sealed class JournalController(AppDbContext dbContext) : ControllerBase
 {
+    /// <summary>
+    /// Récupère les entrées du journal de bord du stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les entrées du journal personnel du stagiaire connecté.
+    /// Les entrées sont triées par date de création, de la plus récente à la plus ancienne.
+    /// Vous pouvez limiter le nombre de résultats.
+    /// </remarks>
+    /// <param name="limit">Nombre maximum d entrées à retourner (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste d entrées de journal.</returns>
+    /// <response code="200">Entrées récupérées avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListJournalEntries")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -44,6 +62,21 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
         return Ok(new { data });
     }
 
+    /// <summary>
+    /// Crée une nouvelle entrée dans le journal de bord.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire d ajouter une entrée à son journal.
+    /// Le contenu textuel est obligatoire. L entrée est automatiquement datée
+    /// et associée au stagiaire connecté.
+    /// </remarks>
+    /// <param name="request">Objet contenant le contenu de l entrée.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>L entrée créée.</returns>
+    /// <response code="201">Entrée créée avec succès.</response>
+    /// <response code="400">Contenu manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "CreateJournalEntry")]
     [EnableRateLimiting("write-heavy")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -94,6 +127,19 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
         return CreatedAtAction(nameof(GetJournalEntryById), new { id = entry.Id }, result);
     }
 
+    /// <summary>
+    /// Récupère une entrée spécifique du journal.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne le détail d une entrée de journal par son identifiant.
+    /// Seul le propriétaire du journal peut accéder à ses entrées.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l entrée.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le contenu de l entrée.</returns>
+    /// <response code="200">Entrée récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Entrée non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetJournalEntryById")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -123,6 +169,21 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Met à jour le contenu d une entrée du journal.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire de modifier le contenu d une entrée existante.
+    /// Seul le contenu peut être modifié, la date de création reste inchangée.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l entrée à modifier.</param>
+    /// <param name="request">Objet contenant le nouveau contenu.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>L entrée mise à jour.</returns>
+    /// <response code="200">Entrée mise à jour avec succès.</response>
+    /// <response code="400">Contenu manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Entrée non trouvée.</response>
     [HttpPatch("{id:guid}", Name = "UpdateJournalEntry")]
     [EnableRateLimiting("write-heavy")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -171,6 +232,19 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Supprime une entrée du journal.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire de supprimer définitivement une entrée de son journal.
+    /// Cette action est irréversible.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l entrée à supprimer.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Entrée supprimée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Entrée non trouvée.</response>
     [HttpDelete("{id:guid}", Name = "DeleteJournalEntry")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

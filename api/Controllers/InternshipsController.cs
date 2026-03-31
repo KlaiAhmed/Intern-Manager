@@ -9,6 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des stages.
+/// </summary>
+/// <param name="service">Service de gestion des stages.</param>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/internships")]
 [Authorize]
@@ -17,6 +22,25 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     private readonly IInternshipsService _service = service;
     private readonly AppDbContext _dbContext = dbContext;
 
+    /// <summary>
+    /// Récupère la liste des stages.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne tous les stages avec des filtres optionnels.
+    /// Les superviseurs voient uniquement leurs propres stages.
+    /// Les gestionnaires et administrateurs voient tous les stages.
+    /// </remarks>
+    /// <param name="status">Filtre par statut du stage.</param>
+    /// <param name="department">Filtre par département.</param>
+    /// <param name="supervisorId">Filtre par identifiant de superviseur.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de stages.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Paramètres invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListInternships")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
     [ProducesResponseType(typeof(PagedResponse<InternshipResponse>), StatusCodes.Status200OK)]
@@ -58,6 +82,21 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         }
     }
 
+    /// <summary>
+    /// Récupère les détails d un stage.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les informations d un stage spécifique.
+    /// Seuls les administrateurs, gestionnaires, le superviseur responsable
+    /// et le stagiaire concerné peuvent accéder à ces informations.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du stage.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les détails du stage.</returns>
+    /// <response code="200">Stage récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Stage non trouvé.</response>
     [HttpGet("{id:guid}", Name = "GetInternshipById")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor,Intern")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status200OK)]
@@ -92,6 +131,22 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         return Ok(result);
     }
 
+    /// <summary>
+    /// Crée un nouveau stage.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet de créer un stage pour un stagiaire.
+    /// Les superviseurs peuvent uniquement créer des stages pour eux-mêmes.
+    /// L identifiant du superviseur est automatiquement défini pour les superviseurs.
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations du stage.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du stage créé.</returns>
+    /// <response code="201">Stage créé avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Conflit (stagiaire déjà en stage).</response>
     [HttpPost(Name = "CreateInternship")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status201Created)]
@@ -135,6 +190,24 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         }
     }
 
+    /// <summary>
+    /// Met à jour les informations d un stage.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet aux administrateurs et superviseurs de modifier un stage.
+    /// Les superviseurs peuvent uniquement modifier leurs propres stages.
+    /// Seuls les champs fournis sont mis à jour.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du stage.</param>
+    /// <param name="request">Objet contenant les champs à mettre à jour.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour du stage.</returns>
+    /// <response code="200">Stage mis à jour avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Stage non trouvé.</response>
+    /// <response code="409">Conflit lors de la mise à jour.</response>
     [HttpPatch("{id:guid}", Name = "UpdateInternship")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status200OK)]
@@ -191,6 +264,22 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         }
     }
 
+    /// <summary>
+    /// Supprime un stage.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet aux administrateurs et superviseurs de supprimer un stage.
+    /// Les superviseurs peuvent uniquement supprimer leurs propres stages.
+    /// Cette action est irréversible.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du stage à supprimer.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Stage supprimé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Stage non trouvé.</response>
+    /// <response code="409">Conflit lors de la suppression.</response>
     [HttpDelete("{id:guid}", Name = "DeleteInternship")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -235,6 +324,23 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         }
     }
 
+    /// <summary>
+    /// Récupère l historique des modifications d un stage.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les modifications apportées à un stage.
+    /// Seuls les administrateurs, gestionnaires, le superviseur responsable
+    /// et le stagiaire concerné peuvent y accéder.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du stage.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée des modifications.</returns>
+    /// <response code="200">Historique récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Stage non trouvé.</response>
     [HttpGet("{id:guid}/history", Name = "GetInternshipHistory")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]

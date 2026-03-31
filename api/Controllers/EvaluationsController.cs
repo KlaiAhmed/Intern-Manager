@@ -9,11 +9,35 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des évaluations.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/evaluations")]
 [Authorize]
 public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBase
 {
+    /// <summary>
+    /// Récupère la liste des évaluations.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les évaluations avec des filtres optionnels.
+    /// Seuls les administrateurs peuvent accéder à cette route.
+    /// Vous pouvez filtrer par statut, type, superviseur ou stagiaire.
+    /// </remarks>
+    /// <param name="status">Filtre par statut (pending, submitted).</param>
+    /// <param name="type">Filtre par type (mid-term, end).</param>
+    /// <param name="supervisorId">Filtre par identifiant de superviseur.</param>
+    /// <param name="internId">Filtre par identifiant de stagiaire.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée d évaluations.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Type invalide.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListEvaluations")]
     [Authorize(Roles = "Admin,SuperAdmin")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -101,6 +125,22 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Récupère les évaluations en attente du superviseur.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les évaluations que le superviseur doit encore remplir.
+    /// Seules les évaluations des stagiaires assignés au superviseur sont retournées.
+    /// Les résultats sont triés par date de création.
+    /// </remarks>
+    /// <param name="supervisorId">Optionnel : filtre par identifiant de superviseur.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée d évaluations en attente.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("pending", Name = "ListPendingEvaluations")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -159,6 +199,19 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         return Ok(new { data = pendingData, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Crée les évaluations en attente manquantes.
+    /// </summary>
+    /// <remarks>
+    /// Cette route génère automatiquement les évaluations manquantes pour les stagiaires
+    /// assignés au superviseur. Deux types d évaluation sont créés : mi-stage et fin de stage.
+    /// Les évaluations déjà existantes ne sont pas recréées.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Un message indiquant le nombre d évaluations créées.</returns>
+    /// <response code="200">Synchronisation réussie.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpPost("pending/sync", Name = "SyncPendingEvaluations")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
@@ -252,6 +305,22 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         });
     }
 
+    /// <summary>
+    /// Soumet une évaluation de stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de remplir une évaluation pour un stagiaire.
+    /// L évaluation comprend des notes de 0 à 10 sur différents critères techniques
+    /// (technique, autonomie, communication, respect des délais, qualité des livrables).
+    /// Un commentaire general peut être ajouté.
+    /// </remarks>
+    /// <param name="request">Objet contenant l identifiant du stagiaire, le type et les critères.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de l évaluation créée.</returns>
+    /// <response code="201">Évaluation soumise avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "SubmitEvaluation")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -348,6 +417,22 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         return CreatedAtAction(nameof(GetEvaluationById), new { id = evaluation.Id }, response);
     }
 
+    /// <summary>
+    /// Met à jour une évaluation existante.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de modifier une évaluation.
+    /// Vous pouvez changer le type, les critères, les commentaires ou le statut.
+    /// Seuls les champs fournis sont mis à jour.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l évaluation.</param>
+    /// <param name="request">Objet contenant les champs à mettre à jour.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour de l évaluation.</returns>
+    /// <response code="200">Évaluation mise à jour avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Évaluation non trouvée.</response>
     [HttpPatch("{id:guid}", Name = "UpdateEvaluation")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -455,6 +540,20 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         });
     }
 
+    /// <summary>
+    /// Récupère les détails d une évaluation.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les informations d une évaluation :
+    /// type, statut, notes sur chaque critère et commentaires.
+    /// Seul le superviseur propriétaire peut y accéder.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l évaluation.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les détails complets de l évaluation.</returns>
+    /// <response code="200">Évaluation récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Évaluation non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetEvaluationById")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -496,6 +595,19 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         });
     }
 
+    /// <summary>
+    /// Récupère les évaluations du stagiaire connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les évaluations soumises pour le stagiaire connecté.
+    /// Les évaluations en attente ne sont pas visibles par le stagiaire.
+    /// Les résultats sont triés par date de soumission.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste d évaluations avec les notes et commentaires.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/evaluations", Name = "ListMyEvaluations")]
     [Authorize(Roles = "Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]

@@ -26,8 +26,25 @@ namespace InternManager.Api.Controllers;
 public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
-    /// Retourne la liste paginée des utilisateurs selon des filtres optionnels.
+    /// Récupère la liste des utilisateurs avec des filtres optionnels.
     /// </summary>
+    /// <remarks>
+    /// Cette route retourne une liste paginée d utilisateurs. Vous pouvez filtrer par rôle, statut,
+    /// département ou faire une recherche par nom/email. Seuls les administrateurs peuvent y accéder.
+    /// Les résultats sont triés par date de création, du plus récent au plus ancien.
+    /// </remarks>
+    /// <param name="role">Filtre par rôle (ex: Intern, Supervisor, Admin).</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="status">Filtre par statut (active, archived).</param>
+    /// <param name="department">Filtre par département (identifiant ou \"all\").</param>
+    /// <param name="search">Texte à rechercher dans le nom, email ou département.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée d utilisateurs.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Paramètres de filtre invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé (rôle insuffisant).</response>
     [HttpGet(Name = "ListUsers")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -109,8 +126,21 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     }
 
     /// <summary>
-    /// Crée un nouvel utilisateur.
+    /// Crée un nouvel utilisateur dans le système.
     /// </summary>
+    /// <remarks>
+    /// Cette route crée un compte avec les informations fournies. L email doit être unique.
+    /// Si aucun mot de passe n est fourni, un mot de passe temporaire est généré automatiquement.
+    /// Les administrateurs ne peuvent pas créer de comptes SuperAdmin.
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations du nouvel utilisateur.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du compte créé.</returns>
+    /// <response code="201">Utilisateur créé avec succès.</response>
+    /// <response code="400">Données invalides ou incomplètes.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé (rôle insuffisant).</response>
+    /// <response code="409">Un compte existe déjà avec cet email.</response>
     [HttpPost(Name = "CreateUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -206,8 +236,24 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     }
 
     /// <summary>
-    /// Met à jour partiellement un utilisateur.
+    /// Met à jour les informations d un utilisateur.
     /// </summary>
+    /// <remarks>
+    /// Cette route permet de modifier certains champs d un compte existant.
+    /// Vous pouvez changer le nom, email, rôle, statut, mot de passe ou département.
+    /// Un utilisateur archivé ne peut être modifié que pour changer son statut.
+    /// Les administrateurs ne peuvent pas modifier les comptes SuperAdmin.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l utilisateur à modifier.</param>
+    /// <param name="request">Objet contenant les champs à mettre à jour.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour de l utilisateur.</returns>
+    /// <response code="200">Utilisateur mis à jour avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Utilisateur non trouvé.</response>
+    /// <response code="409">Conflit (email déjà utilisé ou utilisateur archivé).</response>
     [HttpPatch("{id:guid}", Name = "UpdateUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -349,14 +395,53 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
         return Ok(ToDashboardUser(user, resolvedDepartmentName));
     }
 
+    /// <summary>
+    /// Archive un compte utilisateur.
+    /// </summary>
+    /// <remarks>
+    /// Cette route place un compte en statut \"archivé\". Le compte ne peut plus se connecter
+    /// mais ses données sont conservées. Les administrateurs ne peuvent pas archiver
+    /// les comptes SuperAdmin. L archivage est une étape obligatoire avant la suppression.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l utilisateur à archiver.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de l utilisateur archivé.</returns>
+    /// <response code="200">Utilisateur archivé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Utilisateur non trouvé.</response>
     [HttpPatch("{id:guid}/archive", Name = "ArchiveUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ArchiveUser(Guid id, CancellationToken cancellationToken)
     {
+        var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!actorUserId.HasValue)
+        {
+            return Unauthorized(new { message = "Unable to resolve authenticated actor user id." });
+        }
+
+        var actorUser = await dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(current => current.Id == actorUserId.Value, cancellationToken);
+
+        if (actorUser is null)
+        {
+            return BadRequest(new { message = "Authenticated actor user does not exist." });
+        }
+
+        if (actorUser.Status != UserStatus.Active)
+        {
+            return BadRequest(new { message = "Authenticated actor user must be active to archive users." });
+        }
+
+        var actorName = UserContextHelper.ResolveCurrentActorName(User);
+
         var user = await dbContext.Users
             .Include(current => current.Department)
             .FirstOrDefaultAsync(current => current.Id == id, cancellationToken);
@@ -372,20 +457,49 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot archive SuperAdmin users." });
         }
 
-        if (user.Status != UserStatus.Archived)
+        if (user.Status == UserStatus.Archived)
         {
-            user.Status = UserStatus.Archived;
+            return Ok(ToDashboardUser(user, user.Department?.Name));
+        }
 
-            var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
-            var actorName = UserContextHelper.ResolveCurrentActorName(User);
+        await using var tx = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
             dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.archive", $"user:{user.Id}"));
-
             await dbContext.SaveChangesAsync(cancellationToken);
+
+            // Explicit self-archive handling: status update always occurs after audit insert.
+            user.Status = UserStatus.Archived;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
         }
 
         return Ok(ToDashboardUser(user, user.Department?.Name));
     }
 
+    /// <summary>
+    /// Supprime définitivement un utilisateur.
+    /// </summary>
+    /// <remarks>
+    /// Cette route supprime un compte de la base de données. Pour pouvoir supprimer un utilisateur,
+    /// il doit d abord être archivé et ne doit plus avoir de données liées (missions, évaluations, etc.).
+    /// Cette action est irréversible. Les administrateurs ne peuvent pas supprimer les comptes SuperAdmin.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l utilisateur à supprimer.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Utilisateur supprimé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Utilisateur non trouvé.</response>
+    /// <response code="409">Utilisateur non archivé ou données liées présentes.</response>
     [HttpDelete("{id:guid}", Name = "DeleteUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -436,6 +550,21 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Récupère les informations d un utilisateur spécifique.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les informations d un compte utilisateur
+    /// (nom, email, rôle, statut, département, dernière connexion).
+    /// Seuls les administrateurs peuvent accéder à cette route.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de l utilisateur à récupérer.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations complètes de l utilisateur.</returns>
+    /// <response code="200">Utilisateur récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Utilisateur non trouvé.</response>
     [HttpGet("{id:guid}", Name = "GetUserById")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -457,6 +586,18 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
         return Ok(ToDashboardUser(user, user.Department?.Name));
     }
 
+    /// <summary>
+    /// Récupère un résumé du profil de l utilisateur connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les informations de base de l utilisateur actuellement connecté
+    /// (identifiant, nom, email, rôle, statut). Elle est accessible à tous les utilisateurs connectés.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Un résumé du profil de l utilisateur connecté.</returns>
+    /// <response code="200">Résumé récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="404">Utilisateur non trouvé.</response>
     [HttpGet("me/summary", Name = "GetUserSummary")]
     [Authorize]
     [ProducesResponseType(typeof(UserSummaryResponse), StatusCodes.Status200OK)]

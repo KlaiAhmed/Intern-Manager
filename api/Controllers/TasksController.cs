@@ -10,11 +10,32 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des tâches.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/tasks")]
 [Authorize]
 public sealed class TasksController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
+    /// <summary>
+    /// Récupère la liste des tâches du stagiaire connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les tâches assignées au stagiaire.
+    /// Les tâches sont triées par statut (non terminées d abord) puis par date limite.
+    /// Chaque tâche peut être liée à un livrable.
+    /// </remarks>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de tâches.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Erreur de validation.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/tasks", Name = "ListMyTasks")]
     [Authorize(Roles = "Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -69,6 +90,19 @@ public sealed class TasksController(AppDbContext dbContext, INotificationService
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Synchronise les tâches avec les livrables.
+    /// </summary>
+    /// <remarks>
+    /// Cette route crée automatiquement des tâches pour les livrables qui n en ont pas encore.
+    /// Elle est utile après l assignation d un nouveau livrable par le superviseur.
+    /// Les tâches existantes ne sont pas modifiées.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Un message indiquant le nombre de tâches créées.</returns>
+    /// <response code="200">Synchronisation réussie.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpPost("/api/intern/me/tasks/sync", Name = "SyncMyTasks")]
     [Authorize(Roles = "Intern")]
     [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
@@ -109,6 +143,20 @@ public sealed class TasksController(AppDbContext dbContext, INotificationService
         });
     }
 
+    /// <summary>
+    /// Marque une tâche comme terminée.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire de marquer une tâche comme terminée.
+    /// Si la tâche est liée à un livrable, sa progression passe à 100%.
+    /// </remarks>
+    /// <param name="id">Identifiant unique de la tâche.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la tâche mise à jour.</returns>
+    /// <response code="200">Tâche marquée comme terminée.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Tâche non trouvée.</response>
     [HttpPatch("{id:guid}/complete", Name = "CompleteTask")]
     [Authorize(Roles = "Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -164,6 +212,21 @@ public sealed class TasksController(AppDbContext dbContext, INotificationService
         });
     }
 
+    /// <summary>
+    /// Assigne une nouvelle tâche à un stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de créer une tâche pour un stagiaire.
+    /// La tâche peut être liée à un livrable existant ou être indépendante.
+    /// Le stagiaire reçoit une notification lors de l assignation.
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations de la tâche (stagiaire, titre, date limite).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la tâche créée.</returns>
+    /// <response code="201">Tâche assignée avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "AssignTask")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status201Created)]

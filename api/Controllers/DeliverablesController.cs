@@ -11,6 +11,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des livrables.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
+/// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/deliverables")]
 [Authorize]
@@ -49,6 +55,23 @@ public sealed class DeliverablesController(
         "image/jpeg"
     };
 
+    /// <summary>
+    /// Récupère la liste des livrables du superviseur connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne tous les livrables créés pour les stagiaires du superviseur.
+    /// Vous pouvez filtrer par statut (pending, submitted, accepted, rejected).
+    /// Les résultats sont triés par date de soumission, du plus récent au plus ancien.
+    /// </remarks>
+    /// <param name="status">Filtre par statut (pending, submitted, accepted, rejected).</param>
+    /// <param name="supervisorId">Optionnel : filtre par identifiant de superviseur.</param>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de livrables.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListDeliverables")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -118,6 +141,21 @@ public sealed class DeliverablesController(
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Récupère la liste des livrables du stagiaire connecté.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne tous les livrables assignés au stagiaire.
+    /// Chaque livrable contient le titre, la date limite, le statut et la progression.
+    /// Les résultats sont triés par date limite puis par date de création.
+    /// </remarks>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée de livrables.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/deliverables", Name = "ListMyDeliverables")]
     [Authorize(Roles = "Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -163,6 +201,23 @@ public sealed class DeliverablesController(
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
+    /// <summary>
+    /// Télécharge le fichier d un livrable.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet de récupérer le fichier soumis pour un livrable.
+    /// Vous pouvez spécifier une version particulière ou obtenir la dernière par défaut.
+    /// Seuls le stagiaire assigné, le superviseur propriétaire et les administrateurs
+    /// peuvent accéder au fichier.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du livrable.</param>
+    /// <param name="version">Optionnel : numéro de version spécifique à télécharger.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le fichier demandé en téléchargement.</returns>
+    /// <response code="200">Fichier retourné avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Livrable ou fichier non trouvé.</response>
     [HttpGet("{id:guid}/file", Name = "DownloadDeliverableFile")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -244,6 +299,24 @@ public sealed class DeliverablesController(
         return PhysicalFile(absolutePath, contentType, downloadName, enableRangeProcessing: true);
     }
 
+    /// <summary>
+    /// Soumet un fichier pour un livrable.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire de soumettre un fichier pour un livrable.
+    /// Le fichier peut être en PDF, Word, Excel, PowerPoint, texte ou image.
+    /// La taille maximale est de 10 Mo. Chaque soumission crée une nouvelle version.
+    /// Le statut passe automatiquement à \"soumis\".
+    /// </remarks>
+    /// <param name="id">Identifiant unique du livrable.</param>
+    /// <param name="request">Objet contenant le fichier à soumettre.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du livrable soumis.</returns>
+    /// <response code="201">Fichier soumis avec succès.</response>
+    /// <response code="400">Fichier invalide ou trop volumineux.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Livrable non trouvé.</response>
     [HttpPost("{id:guid}/submit", Name = "SubmitDeliverable")]
     [Authorize(Roles = "Intern")]
     [EnableRateLimiting("upload")]
@@ -362,6 +435,23 @@ public sealed class DeliverablesController(
         return Created($"/api/deliverables/{deliverable.Id}", result);
     }
 
+    /// <summary>
+    /// Met à jour la progression d un livrable.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au stagiaire d indiquer son avancement sur un livrable.
+    /// La progression est un pourcentage entre 0 et 100. Si la progression atteint 100,
+    /// le livrable est automatiquement marqué comme terminé.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du livrable.</param>
+    /// <param name="request">Objet contenant le pourcentage de progression.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>La progression mise à jour.</returns>
+    /// <response code="200">Progression mise à jour avec succès.</response>
+    /// <response code="400">Valeur de progression invalide.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Livrable non trouvé.</response>
     [HttpPatch("/api/intern/me/deliverables/{id:guid}/progress", Name = "UpdateDeliverableProgress")]
     [Authorize(Roles = "Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -424,6 +514,25 @@ public sealed class DeliverablesController(
         });
     }
 
+    /// <summary>
+    /// Valide ou refuse un livrable soumis.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de valider (accepter) ou refuser un livrable
+    /// qui a été soumis par un stagiaire. Vous pouvez ajouter un commentaire.
+    /// Le stagiaire reçoit une notification du résultat.
+    /// Seuls les livrables avec le statut \"soumis\" peuvent être validés.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du livrable.</param>
+    /// <param name="request">Objet contenant le statut (accepted/rejected) et un commentaire.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le statut mis à jour du livrable.</returns>
+    /// <response code="200">Livrable validé avec succès.</response>
+    /// <response code="400">Statut invalide.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Livrable non trouvé.</response>
+    /// <response code="409">Livrable pas encore soumis.</response>
     [HttpPatch("{id:guid}/validate", Name = "ValidateDeliverable")]
     [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]

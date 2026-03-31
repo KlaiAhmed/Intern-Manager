@@ -12,11 +12,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
+/// <summary>
+/// Contrôleur de gestion des paramètres et référentiels admin.
+/// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/admin/settings")]
 [Authorize]
 public sealed class AdminSettingsController(AppDbContext dbContext) : ControllerBase
 {
+    /// <summary>
+    /// Récupère la liste des départements.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne tous les départements disponibles dans le système.
+    /// Ils sont utilisés pour classer les utilisateurs par service.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste de départements.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("departments", Name = "ListDepartments")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
@@ -27,6 +43,19 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemsAsync(dbContext.Departments, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère un département par son identifiant.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne les informations d un département spécifique.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du département.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du département.</returns>
+    /// <response code="200">Département récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Département non trouvé.</response>
     [HttpGet("departments/{id:guid}", Name = "GetDepartmentById")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
@@ -38,6 +67,20 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemByIdAsync(dbContext.Departments, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Crée un nouveau département.
+    /// </summary>
+    /// <remarks>
+    /// Cette route ajoute un département au référentiel. Le nom doit être unique.
+    /// </remarks>
+    /// <param name="request">Objet contenant le nom du département.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du département créé.</returns>
+    /// <response code="201">Département créé avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Un département avec ce nom existe déjà.</response>
     [HttpPost("departments", Name = "CreateDepartment")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -50,6 +93,22 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return CreateReferentialItemAsync(dbContext.Departments, request, nameof(GetDepartmentById), cancellationToken);
     }
 
+    /// <summary>
+    /// Met à jour un département.
+    /// </summary>
+    /// <remarks>
+    /// Cette route modifie le nom d un département existant.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du département.</param>
+    /// <param name="request">Objet contenant le nouveau nom.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour.</returns>
+    /// <response code="200">Département mis à jour avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Département non trouvé.</response>
+    /// <response code="409">Un département avec ce nom existe déjà.</response>
     [HttpPatch("departments/{id:guid}", Name = "UpdateDepartment")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -63,6 +122,21 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return UpdateReferentialItemAsync(dbContext.Departments, id, request, cancellationToken);
     }
 
+    /// <summary>
+    /// Supprime un département.
+    /// </summary>
+    /// <remarks>
+    /// Cette route supprime un département du référentiel. Le département
+    /// ne doit pas être utilisé par des utilisateurs.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du département.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Département supprimé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Département non trouvé.</response>
+    /// <response code="409">Département encore utilisé par des utilisateurs.</response>
     [HttpDelete("departments/{id:guid}", Name = "DeleteDepartment")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -75,6 +149,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return DeleteReferentialItemAsync(dbContext.Departments, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère la liste des écoles.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne toutes les écoles disponibles dans le système.
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste d écoles.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("schools", Name = "ListSchools")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
@@ -85,6 +170,16 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemsAsync(dbContext.Schools, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère une école par son identifiant.
+    /// </summary>
+    /// <param name="id">Identifiant unique de l école.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de l école.</returns>
+    /// <response code="200">École récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">École non trouvée.</response>
     [HttpGet("schools/{id:guid}", Name = "GetSchoolById")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
@@ -96,6 +191,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemByIdAsync(dbContext.Schools, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Crée une nouvelle école.
+    /// </summary>
+    /// <param name="request">Objet contenant le nom de l école.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de l école créée.</returns>
+    /// <response code="201">École créée avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Une école avec ce nom existe déjà.</response>
     [HttpPost("schools", Name = "CreateSchool")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -108,6 +214,19 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return CreateReferentialItemAsync(dbContext.Schools, request, nameof(GetSchoolById), cancellationToken);
     }
 
+    /// <summary>
+    /// Met à jour une école.
+    /// </summary>
+    /// <param name="id">Identifiant unique de l école.</param>
+    /// <param name="request">Objet contenant le nouveau nom.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour.</returns>
+    /// <response code="200">École mise à jour avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">École non trouvée.</response>
+    /// <response code="409">Une école avec ce nom existe déjà.</response>
     [HttpPatch("schools/{id:guid}", Name = "UpdateSchool")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -121,6 +240,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return UpdateReferentialItemAsync(dbContext.Schools, id, request, cancellationToken);
     }
 
+    /// <summary>
+    /// Supprime une école.
+    /// </summary>
+    /// <param name="id">Identifiant unique de l école.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">École supprimée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">École non trouvée.</response>
+    /// <response code="409">École encore utilisée.</response>
     [HttpDelete("schools/{id:guid}", Name = "DeleteSchool")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -133,6 +263,14 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return DeleteReferentialItemAsync(dbContext.Schools, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère la liste des types de stage.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste de types de stage.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("internship-types", Name = "ListInternshipTypes")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
@@ -143,6 +281,16 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemsAsync(dbContext.InternshipTypes, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère un type de stage par son identifiant.
+    /// </summary>
+    /// <param name="id">Identifiant unique du type de stage.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du type de stage.</returns>
+    /// <response code="200">Type de stage récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Type de stage non trouvé.</response>
     [HttpGet("internship-types/{id:guid}", Name = "GetInternshipTypeById")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
@@ -154,6 +302,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemByIdAsync(dbContext.InternshipTypes, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Crée un nouveau type de stage.
+    /// </summary>
+    /// <param name="request">Objet contenant le nom du type de stage.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du type de stage créé.</returns>
+    /// <response code="201">Type de stage créé avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Un type de stage avec ce nom existe déjà.</response>
     [HttpPost("internship-types", Name = "CreateInternshipType")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -166,6 +325,19 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return CreateReferentialItemAsync(dbContext.InternshipTypes, request, nameof(GetInternshipTypeById), cancellationToken);
     }
 
+    /// <summary>
+    /// Met à jour un type de stage.
+    /// </summary>
+    /// <param name="id">Identifiant unique du type de stage.</param>
+    /// <param name="request">Objet contenant le nouveau nom.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour.</returns>
+    /// <response code="200">Type de stage mis à jour avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Type de stage non trouvé.</response>
+    /// <response code="409">Un type de stage avec ce nom existe déjà.</response>
     [HttpPatch("internship-types/{id:guid}", Name = "UpdateInternshipType")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -179,6 +351,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return UpdateReferentialItemAsync(dbContext.InternshipTypes, id, request, cancellationToken);
     }
 
+    /// <summary>
+    /// Supprime un type de stage.
+    /// </summary>
+    /// <param name="id">Identifiant unique du type de stage.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Type de stage supprimé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Type de stage non trouvé.</response>
+    /// <response code="409">Type de stage encore utilisé.</response>
     [HttpDelete("internship-types/{id:guid}", Name = "DeleteInternshipType")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -191,6 +374,14 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return DeleteReferentialItemAsync(dbContext.InternshipTypes, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère la liste des compétences.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste de compétences.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("skills", Name = "ListSkills")]
     [Authorize(Roles = "Admin,Supervisor")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
@@ -201,6 +392,16 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemsAsync(dbContext.Skills, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère une compétence par son identifiant.
+    /// </summary>
+    /// <param name="id">Identifiant unique de la compétence.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la compétence.</returns>
+    /// <response code="200">Compétence récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Compétence non trouvée.</response>
     [HttpGet("skills/{id:guid}", Name = "GetSkillById")]
     [Authorize(Roles = "Admin,Supervisor")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
@@ -212,6 +413,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemByIdAsync(dbContext.Skills, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Crée une nouvelle compétence.
+    /// </summary>
+    /// <param name="request">Objet contenant le nom de la compétence.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations de la compétence créée.</returns>
+    /// <response code="201">Compétence créée avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Une compétence avec ce nom existe déjà.</response>
     [HttpPost("skills", Name = "CreateSkill")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -224,6 +436,19 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return CreateReferentialItemAsync(dbContext.Skills, request, nameof(GetSkillById), cancellationToken);
     }
 
+    /// <summary>
+    /// Met à jour une compétence.
+    /// </summary>
+    /// <param name="id">Identifiant unique de la compétence.</param>
+    /// <param name="request">Objet contenant le nouveau nom.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour.</returns>
+    /// <response code="200">Compétence mise à jour avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Compétence non trouvée.</response>
+    /// <response code="409">Une compétence avec ce nom existe déjà.</response>
     [HttpPatch("skills/{id:guid}", Name = "UpdateSkill")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -237,6 +462,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return UpdateReferentialItemAsync(dbContext.Skills, id, request, cancellationToken);
     }
 
+    /// <summary>
+    /// Supprime une compétence.
+    /// </summary>
+    /// <param name="id">Identifiant unique de la compétence.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Compétence supprimée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Compétence non trouvée.</response>
+    /// <response code="409">Compétence encore utilisée.</response>
     [HttpDelete("skills/{id:guid}", Name = "DeleteSkill")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -249,6 +485,14 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return DeleteReferentialItemAsync(dbContext.Skills, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère la liste des statuts utilisateur.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste de statuts.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet("statuses", Name = "ListStatuses")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
@@ -259,6 +503,16 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemsAsync(dbContext.UserStatusReferences, cancellationToken);
     }
 
+    /// <summary>
+    /// Récupère un statut par son identifiant.
+    /// </summary>
+    /// <param name="id">Identifiant unique du statut.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du statut.</returns>
+    /// <response code="200">Statut récupéré avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Statut non trouvé.</response>
     [HttpGet("statuses/{id:guid}", Name = "GetStatusById")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
@@ -270,6 +524,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return GetReferentialItemByIdAsync(dbContext.UserStatusReferences, id, cancellationToken);
     }
 
+    /// <summary>
+    /// Crée un nouveau statut utilisateur.
+    /// </summary>
+    /// <param name="request">Objet contenant le nom du statut.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du statut créé.</returns>
+    /// <response code="201">Statut créé avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="409">Un statut avec ce nom existe déjà.</response>
     [HttpPost("statuses", Name = "CreateStatus")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -282,6 +547,19 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return CreateReferentialItemAsync(dbContext.UserStatusReferences, request, nameof(GetStatusById), cancellationToken);
     }
 
+    /// <summary>
+    /// Met à jour un statut utilisateur.
+    /// </summary>
+    /// <param name="id">Identifiant unique du statut.</param>
+    /// <param name="request">Objet contenant le nouveau nom.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations mises à jour.</returns>
+    /// <response code="200">Statut mis à jour avec succès.</response>
+    /// <response code="400">Nom manquant.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Statut non trouvé.</response>
+    /// <response code="409">Un statut avec ce nom existe déjà.</response>
     [HttpPatch("statuses/{id:guid}", Name = "UpdateStatus")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -295,6 +573,17 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return UpdateReferentialItemAsync(dbContext.UserStatusReferences, id, request, cancellationToken);
     }
 
+    /// <summary>
+    /// Supprime un statut utilisateur.
+    /// </summary>
+    /// <param name="id">Identifiant unique du statut.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Rien (contenu vide).</returns>
+    /// <response code="204">Statut supprimé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Statut non trouvé.</response>
+    /// <response code="409">Statut encore utilisé.</response>
     [HttpDelete("statuses/{id:guid}", Name = "DeleteStatus")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

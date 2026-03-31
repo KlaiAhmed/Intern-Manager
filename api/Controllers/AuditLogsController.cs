@@ -14,14 +14,30 @@ namespace InternManager.Api.Controllers;
 /// <summary>
 /// Contrôleur de consultation des logs d audit.
 /// </summary>
+/// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/admin/audit-logs")]
 [Authorize(Roles = "SuperAdmin,Admin")]
 public sealed class AuditLogsController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
-    /// Retourne la liste des événements d audit récents.
+    /// Récupère la liste des événements d audit.
     /// </summary>
+    /// <remarks>
+    /// Cette route retourne les logs d audit du système. Vous pouvez filtrer
+    /// par auteur ou par type d action. Les résultats sont triés par date,
+    /// du plus récent au plus ancien. Seuls les administrateurs peuvent y accéder.
+    /// </remarks>
+    /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
+    /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
+    /// <param name="actor">Filtre par auteur de l action.</param>
+    /// <param name="action">Filtre par type d action.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste paginée d événements d audit.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Paramètres invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListAuditLogs")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
