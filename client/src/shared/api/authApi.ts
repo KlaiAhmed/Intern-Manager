@@ -18,12 +18,13 @@ export interface SignupPayload {
 
 interface UserSummaryResponse {
   id: string
-  firstName: string
-  lastName: string
-  email: string
-  role: string
-  status: string
-  fullName: string
+  fullName?: string
+  role?: string
+  department?: string
+  status?: string
+  email?: string
+  firstName?: string
+  lastName?: string
 }
 
 type JsonRecord = Record<string, unknown>
@@ -131,16 +132,18 @@ async function ensureSuccess(response: Response): Promise<void> {
 }
 
 function mapUserSummaryToAuthUser(summary: UserSummaryResponse): AuthUser {
-  const fullName = summary.fullName.trim()
-  const firstName = summary.firstName.trim()
-  const lastName = summary.lastName.trim()
+  const fullName = summary.fullName?.trim() ?? ''
+  const firstName = summary.firstName?.trim() ?? ''
+  const lastName = summary.lastName?.trim() ?? ''
   const fallbackName = `${firstName} ${lastName}`.trim()
+  const email = summary.email?.trim() ?? ''
+  const role = summary.role?.trim() ?? ''
 
   return {
     id: summary.id || null,
-    name: fullName || fallbackName || summary.email,
-    email: summary.email,
-    role: summary.role,
+    name: fullName || fallbackName || email || 'User',
+    email,
+    role,
   }
 }
 
@@ -154,7 +157,7 @@ async function requestCurrentUser(): Promise<CurrentUserRequestResult> {
     }
   }
 
-  const response = await apiFetch('/me/summary', {
+  const response = await apiFetch('/api/users/me/summary', {
     method: 'GET',
     headers: {
       'X-CSRF-Token': csrfToken,
@@ -178,24 +181,17 @@ async function requestCurrentUser(): Promise<CurrentUserRequestResult> {
     }
   }
 
-  const email = asTrimmedString(summaryPayload.email)
   const id = asTrimmedString(summaryPayload.id)
-
-  if (!email) {
-    return {
-      status: 'ok',
-      user: null,
-    }
-  }
 
   const summary: UserSummaryResponse = {
     id,
+    fullName: asTrimmedString(summaryPayload.fullName),
+    role: asTrimmedString(summaryPayload.role),
+    department: asTrimmedString(summaryPayload.department),
+    status: asTrimmedString(summaryPayload.status),
+    email: asTrimmedString(summaryPayload.email),
     firstName: asTrimmedString(summaryPayload.firstName),
     lastName: asTrimmedString(summaryPayload.lastName),
-    email,
-    role: asTrimmedString(summaryPayload.role),
-    status: asTrimmedString(summaryPayload.status),
-    fullName: asTrimmedString(summaryPayload.fullName),
   }
 
   return {
@@ -236,7 +232,8 @@ export async function refreshAuthSession(): Promise<boolean> {
   refreshPromise = (async () => {
     try {
       return await executeRefreshRequest()
-    } catch {
+    } catch (error) {
+      console.error('Failed to refresh auth session:', error)
       return false
     } finally {
       refreshPromise = null
@@ -248,7 +245,7 @@ export async function refreshAuthSession(): Promise<boolean> {
 
 async function runAuthInitialization(): Promise<AuthUser | null> {
   // Etape 1 : en absence de cookie CSRF, on considere l utilisateur deconnecte
-  // et on evite tout appel reseau (/me/summary et /auth/refresh).
+  // et on evite tout appel reseau (/api/users/me/summary et /auth/refresh).
   const csrfToken = getCsrfCookieToken()
 
   if (!csrfToken) {
@@ -256,23 +253,24 @@ async function runAuthInitialization(): Promise<AuthUser | null> {
   }
 
   try {
-    // Etape 2 : tentative de lecture du profil courant via /me/summary.
+    // Etape 2 : tentative de lecture du profil courant via /api/users/me/summary.
     const meResult = await requestCurrentUser()
 
     if (meResult.status === 'ok') {
       return meResult.user
     }
 
-    // Etape 3 : si /me/summary renvoie 401, on tente un refresh unique.
+    // Etape 3 : si /api/users/me/summary renvoie 401, on tente un refresh unique.
     const didRefreshSucceed = await refreshAuthSession()
     if (!didRefreshSucceed) {
       return null
     }
 
-    // Etape 4 : refresh reussi, on rejoue une seule fois /me/summary.
+    // Etape 4 : refresh reussi, on rejoue une seule fois /api/users/me/summary.
     const retryMeResult = await requestCurrentUser()
     return retryMeResult.status === 'ok' ? retryMeResult.user : null
-  } catch {
+  } catch (error) {
+    console.error('Failed to initialize current user:', error)
     return null
   }
 }

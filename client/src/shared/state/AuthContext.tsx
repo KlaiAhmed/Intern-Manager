@@ -7,6 +7,7 @@ import {
   signupWithPassword,
   type AuthUser,
 } from '../api/authApi'
+import { setApiAuthStateListener } from '../api/apiClient'
 import type { UserRole } from '../types/role'
 
 interface AuthContextValue {
@@ -61,6 +62,41 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await logoutCurrentUser()
     setUser(null)
   }
+
+  useEffect(() => {
+    let isDisposed = false
+
+    setApiAuthStateListener((state) => {
+      if (isDisposed) {
+        return
+      }
+
+      if (state === 'logged-out') {
+        setUser(null)
+        setIsAuthLoading(false)
+        return
+      }
+
+      void (async () => {
+        try {
+          const currentUser = await initializeCurrentUser()
+
+          if (!isDisposed) {
+            setUser(currentUser)
+          }
+        } catch {
+          if (!isDisposed) {
+            setUser(null)
+          }
+        }
+      })()
+    })
+
+    return () => {
+      isDisposed = true
+      setApiAuthStateListener(null)
+    }
+  }, [])
 
   useEffect(() => {
     let isCancelled = false

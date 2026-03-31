@@ -4,8 +4,13 @@
 /// 📦 Contient   : [BuildSqlServerConnectionString, BuildServerUrl]
 /// </summary>
 using InternManager.Api.Data;
+using InternManager.Api.Common.OpenApi;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Extensions;
+using InternManager.Api.Middleware;
+using InternManager.Api.Services;
+using InternManager.Api.Services.Interfaces;
+using InternManager.Api.Services.Internships;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -43,6 +48,9 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAuth(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IInternshipsService, InternshipsService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddProblemDetails();
 builder.Services.AddRateLimiter(options =>
 {
@@ -73,7 +81,23 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.CustomOperationIds(apiDescription =>
+    {
+        return apiDescription.ActionDescriptor.AttributeRouteInfo?.Name;
+    });
+
+    options.OperationFilter<CreatedResponseLocationHeaderOperationFilter>();
+
+    // Inclure les commentaires XML dans la documentation Swagger
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+});
 
 var app = builder.Build();
 
@@ -111,7 +135,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/uploads/deliverables") &&
+    if ((context.Request.Path.StartsWithSegments("/uploads/deliverables") ||
+         context.Request.Path.StartsWithSegments("/uploads/cv")) &&
         context.User?.Identity?.IsAuthenticated != true)
     {
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -120,6 +145,11 @@ app.Use(async (context, next) =>
 
     await next();
 });
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseMiddleware<DevelopmentLazyAuthBypassMiddleware>();
+}
 
 var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsRoot);
@@ -202,4 +232,8 @@ static string[] BuildCorsOrigins(string? configuredOrigin)
     return origins.Length > 0
         ? origins
         : [defaultOrigin];
+}
+
+public partial class Program
+{
 }
