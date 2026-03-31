@@ -37,6 +37,7 @@ public static class DbSeeder
         await EnsureSharedRouterSchemaAsync(dbContext);
         await EnsureSupervisorRouterSchemaAsync(dbContext);
         await EnsureInternRouterSchemaAsync(dbContext);
+        await EnsureExtendedFeatureSchemaAsync(dbContext);
 
         await SeedDefaultStatusReferencesAsync(dbContext, logger);
 
@@ -376,6 +377,214 @@ public static class DbSeeder
                 ADD CONSTRAINT [FK_InternTasks_Deliverables_DeliverableId]
                     FOREIGN KEY ([DeliverableId]) REFERENCES [dbo].[Deliverables]([Id]) ON DELETE SET NULL;
             END
+            """;
+
+        return dbContext.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    /// <summary>
+    /// Cree les tables additionnelles introduites par les evolutions fonctionnelles sur une base deja existante.
+    /// </summary>
+    private static Task EnsureExtendedFeatureSchemaAsync(AppDbContext dbContext)
+    {
+        const string sql = """
+            IF OBJECT_ID(N'[dbo].[PasswordResetTokens]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[PasswordResetTokens] (
+                    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [PK_PasswordResetTokens] PRIMARY KEY DEFAULT NEWID(),
+                    [UserId] UNIQUEIDENTIFIER NOT NULL,
+                    [TokenHash] NVARCHAR(128) NOT NULL,
+                    [ExpiresAt] DATETIME2 NOT NULL,
+                    [UsedAt] DATETIME2 NULL,
+                    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PasswordResetTokens_CreatedAt] DEFAULT GETUTCDATE()
+                );
+            END
+
+            IF OBJECT_ID(N'[dbo].[InternProfiles]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[InternProfiles] (
+                    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [PK_InternProfiles] PRIMARY KEY DEFAULT NEWID(),
+                    [InternId] UNIQUEIDENTIFIER NOT NULL,
+                    [School] NVARCHAR(200) NOT NULL CONSTRAINT [DF_InternProfiles_School] DEFAULT N'',
+                    [Specialty] NVARCHAR(200) NOT NULL CONSTRAINT [DF_InternProfiles_Specialty] DEFAULT N'',
+                    [CompetenciesJson] NVARCHAR(MAX) NOT NULL CONSTRAINT [DF_InternProfiles_CompetenciesJson] DEFAULT N'[]',
+                    [Experience] NVARCHAR(3000) NOT NULL CONSTRAINT [DF_InternProfiles_Experience] DEFAULT N'',
+                    [CvFileUrl] NVARCHAR(2048) NULL,
+                    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_InternProfiles_CreatedAt] DEFAULT GETUTCDATE(),
+                    [UpdatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_InternProfiles_UpdatedAt] DEFAULT GETUTCDATE()
+                );
+            END
+
+            IF OBJECT_ID(N'[dbo].[InternProfileSkills]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[InternProfileSkills] (
+                    [InternProfileId] UNIQUEIDENTIFIER NOT NULL,
+                    [SkillId] UNIQUEIDENTIFIER NOT NULL,
+                    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_InternProfileSkills_CreatedAt] DEFAULT GETUTCDATE(),
+                    CONSTRAINT [PK_InternProfileSkills] PRIMARY KEY ([InternProfileId], [SkillId])
+                );
+            END
+
+            IF OBJECT_ID(N'[dbo].[Notifications]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[Notifications] (
+                    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [PK_Notifications] PRIMARY KEY DEFAULT NEWID(),
+                    [UserId] UNIQUEIDENTIFIER NOT NULL,
+                    [Type] NVARCHAR(64) NOT NULL,
+                    [Title] NVARCHAR(200) NOT NULL CONSTRAINT [DF_Notifications_Title] DEFAULT N'',
+                    [Message] NVARCHAR(2000) NOT NULL,
+                    [RelatedEntity] NVARCHAR(300) NULL,
+                    [IsRead] BIT NOT NULL CONSTRAINT [DF_Notifications_IsRead] DEFAULT 0,
+                    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_Notifications_CreatedAt] DEFAULT GETUTCDATE(),
+                    [ReadAt] DATETIME2 NULL
+                );
+            END
+
+            IF OBJECT_ID(N'[dbo].[MissionHistoryEntries]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[MissionHistoryEntries] (
+                    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [PK_MissionHistoryEntries] PRIMARY KEY DEFAULT NEWID(),
+                    [MissionId] UNIQUEIDENTIFIER NOT NULL,
+                    [Field] NVARCHAR(120) NOT NULL,
+                    [OldValue] NVARCHAR(2000) NULL,
+                    [NewValue] NVARCHAR(2000) NULL,
+                    [ChangedByUserId] UNIQUEIDENTIFIER NULL,
+                    [ChangedBy] NVARCHAR(255) NOT NULL,
+                    [ChangedAt] DATETIME2 NOT NULL CONSTRAINT [DF_MissionHistoryEntries_ChangedAt] DEFAULT GETUTCDATE()
+                );
+            END
+
+            IF OBJECT_ID(N'[dbo].[DeliverableVersions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[DeliverableVersions] (
+                    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [PK_DeliverableVersions] PRIMARY KEY DEFAULT NEWID(),
+                    [DeliverableId] UNIQUEIDENTIFIER NOT NULL,
+                    [VersionNumber] INT NOT NULL,
+                    [FileUrl] NVARCHAR(2048) NOT NULL,
+                    [Status] NVARCHAR(32) NOT NULL CONSTRAINT [DF_DeliverableVersions_Status] DEFAULT N'submitted',
+                    [SupervisorComment] NVARCHAR(2000) NULL,
+                    [SubmittedAt] DATETIME2 NOT NULL CONSTRAINT [DF_DeliverableVersions_SubmittedAt] DEFAULT GETUTCDATE(),
+                    [ValidatedAt] DATETIME2 NULL
+                );
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PasswordResetTokens]') AND name = N'IX_PasswordResetTokens_TokenHash')
+            BEGIN
+                CREATE UNIQUE INDEX [IX_PasswordResetTokens_TokenHash] ON [dbo].[PasswordResetTokens]([TokenHash]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PasswordResetTokens]') AND name = N'IX_PasswordResetTokens_UserId_ExpiresAt')
+            BEGIN
+                CREATE INDEX [IX_PasswordResetTokens_UserId_ExpiresAt] ON [dbo].[PasswordResetTokens]([UserId], [ExpiresAt]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[InternProfiles]') AND name = N'IX_InternProfiles_InternId')
+            BEGIN
+                CREATE UNIQUE INDEX [IX_InternProfiles_InternId] ON [dbo].[InternProfiles]([InternId]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[Notifications]') AND name = N'IX_Notifications_UserId')
+            BEGIN
+                CREATE INDEX [IX_Notifications_UserId] ON [dbo].[Notifications]([UserId]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[Notifications]') AND name = N'IX_Notifications_UserId_IsRead_CreatedAt')
+            BEGIN
+                CREATE INDEX [IX_Notifications_UserId_IsRead_CreatedAt] ON [dbo].[Notifications]([UserId], [IsRead], [CreatedAt]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[MissionHistoryEntries]') AND name = N'IX_MissionHistoryEntries_MissionId')
+            BEGIN
+                CREATE INDEX [IX_MissionHistoryEntries_MissionId] ON [dbo].[MissionHistoryEntries]([MissionId]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[MissionHistoryEntries]') AND name = N'IX_MissionHistoryEntries_ChangedAt')
+            BEGIN
+                CREATE INDEX [IX_MissionHistoryEntries_ChangedAt] ON [dbo].[MissionHistoryEntries]([ChangedAt]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[DeliverableVersions]') AND name = N'IX_DeliverableVersions_DeliverableId')
+            BEGIN
+                CREATE INDEX [IX_DeliverableVersions_DeliverableId] ON [dbo].[DeliverableVersions]([DeliverableId]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[DeliverableVersions]') AND name = N'IX_DeliverableVersions_DeliverableId_VersionNumber')
+            BEGIN
+                CREATE UNIQUE INDEX [IX_DeliverableVersions_DeliverableId_VersionNumber] ON [dbo].[DeliverableVersions]([DeliverableId], [VersionNumber]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_PasswordResetTokens_Users_UserId')
+            BEGIN
+                ALTER TABLE [dbo].[PasswordResetTokens] WITH NOCHECK
+                ADD CONSTRAINT [FK_PasswordResetTokens_Users_UserId]
+                    FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]) ON DELETE CASCADE;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_InternProfiles_Users_InternId')
+            BEGIN
+                ALTER TABLE [dbo].[InternProfiles] WITH NOCHECK
+                ADD CONSTRAINT [FK_InternProfiles_Users_InternId]
+                    FOREIGN KEY ([InternId]) REFERENCES [dbo].[Users]([Id]) ON DELETE CASCADE;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_InternProfileSkills_InternProfiles_InternProfileId')
+            BEGIN
+                ALTER TABLE [dbo].[InternProfileSkills] WITH NOCHECK
+                ADD CONSTRAINT [FK_InternProfileSkills_InternProfiles_InternProfileId]
+                    FOREIGN KEY ([InternProfileId]) REFERENCES [dbo].[InternProfiles]([Id]) ON DELETE CASCADE;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_InternProfileSkills_Skills_SkillId')
+            BEGIN
+                ALTER TABLE [dbo].[InternProfileSkills] WITH NOCHECK
+                ADD CONSTRAINT [FK_InternProfileSkills_Skills_SkillId]
+                    FOREIGN KEY ([SkillId]) REFERENCES [dbo].[Skills]([Id]) ON DELETE NO ACTION;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Notifications_Users_UserId')
+            BEGIN
+                ALTER TABLE [dbo].[Notifications] WITH NOCHECK
+                ADD CONSTRAINT [FK_Notifications_Users_UserId]
+                    FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]) ON DELETE CASCADE;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_MissionHistoryEntries_Missions_MissionId')
+            BEGIN
+                ALTER TABLE [dbo].[MissionHistoryEntries] WITH NOCHECK
+                ADD CONSTRAINT [FK_MissionHistoryEntries_Missions_MissionId]
+                    FOREIGN KEY ([MissionId]) REFERENCES [dbo].[Missions]([Id]) ON DELETE CASCADE;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_MissionHistoryEntries_Users_ChangedByUserId')
+            BEGIN
+                ALTER TABLE [dbo].[MissionHistoryEntries] WITH NOCHECK
+                ADD CONSTRAINT [FK_MissionHistoryEntries_Users_ChangedByUserId]
+                    FOREIGN KEY ([ChangedByUserId]) REFERENCES [dbo].[Users]([Id]) ON DELETE SET NULL;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DeliverableVersions_Deliverables_DeliverableId')
+            BEGIN
+                ALTER TABLE [dbo].[DeliverableVersions] WITH NOCHECK
+                ADD CONSTRAINT [FK_DeliverableVersions_Deliverables_DeliverableId]
+                    FOREIGN KEY ([DeliverableId]) REFERENCES [dbo].[Deliverables]([Id]) ON DELETE CASCADE;
+            END
+
+            INSERT INTO [dbo].[DeliverableVersions] ([Id], [DeliverableId], [VersionNumber], [FileUrl], [Status], [SupervisorComment], [SubmittedAt], [ValidatedAt])
+            SELECT NEWID(),
+                   [d].[Id],
+                   CASE WHEN [d].[Version] < 1 THEN 1 ELSE [d].[Version] END,
+                   [d].[FileUrl],
+                   CASE WHEN LTRIM(RTRIM(ISNULL([d].[Status], N''))) = N'' THEN N'submitted' ELSE [d].[Status] END,
+                   [d].[SupervisorComment],
+                   ISNULL([d].[SubmittedDate], GETUTCDATE()),
+                   CASE WHEN [d].[Status] IN (N'accepted', N'rejected') THEN GETUTCDATE() ELSE NULL END
+            FROM [dbo].[Deliverables] AS [d]
+            WHERE LTRIM(RTRIM(ISNULL([d].[FileUrl], N''))) <> N''
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM [dbo].[DeliverableVersions] AS [dv]
+                  WHERE [dv].[DeliverableId] = [d].[Id]
+              );
             """;
 
         return dbContext.Database.ExecuteSqlRawAsync(sql);

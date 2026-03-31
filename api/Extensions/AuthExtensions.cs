@@ -38,6 +38,7 @@ public static class AuthExtensions
 
         services.AddSingleton<IAuthUserStore, DbAuthUserStore>();
         services.AddSingleton<IAuthService, AuthService>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
 
         services.AddScoped<CsrfValidationFilter>();
         services.Configure<MvcOptions>(options =>
