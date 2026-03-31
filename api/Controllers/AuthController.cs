@@ -9,6 +9,7 @@ using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.DTOs.Auth;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +24,10 @@ namespace InternManager.Api.Controllers;
 /// <param name="authService">Service métier responsable de la création et de la révocation des sessions.</param>
 [ApiController]
 [Route("auth")]
-public sealed class AuthController(IAuthService authService, AppDbContext dbContext) : ControllerBase
+public sealed class AuthController(
+    IAuthService authService,
+    IPasswordResetService passwordResetService,
+    AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
     /// Authentifie un utilisateur avec son email et son mot de passe.
@@ -38,8 +42,10 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// </remarks>
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
-    [HttpPost("login")]
+    [HttpPost("login", Name = "Login")]
     [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var session = await authService.LoginAsync(request.Email, request.Password, request.RememberMe, cancellationToken);
@@ -90,8 +96,12 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// </remarks>
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
-    [HttpPost("signup")]
+    [HttpPost("signup", Name = "Signup")]
     [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Signup([FromBody] SignupRequest request, CancellationToken cancellationToken)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
@@ -147,7 +157,56 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
         }
 
         AppendAuthCookies(Response, session);
-        return Ok();
+
+        var result = ToAuthMeResponse(user);
+
+        return Created("/auth/me", result);
+    }
+
+    /// <summary>
+    /// Demande une reinitialisation de mot de passe sans divulguer si le compte existe.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("forgot-password", Name = "ForgotPassword")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return Ok(new { message = "If the account exists, a reset link has been sent." });
+        }
+
+        await passwordResetService.CreateResetTokenAsync(request.Email, cancellationToken);
+
+        return Ok(new { message = "If the account exists, a reset link has been sent." });
+    }
+
+    /// <summary>
+    /// Reinitialise le mot de passe avec un jeton one-shot limite dans le temps.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("reset-password", Name = "ResetPassword")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new { message = "Invalid payload." });
+        }
+
+        var updatedUserId = await passwordResetService.ResetPasswordAsync(request.Token, request.NewPassword, cancellationToken);
+        if (!updatedUserId.HasValue)
+        {
+            return BadRequest(new { message = "Invalid or expired reset token." });
+        }
+
+        await authService.LogoutAsync(updatedUserId, refreshToken: null, cancellationToken);
+        ClearAuthCookies(Response);
+
+        return Ok(new { message = "Password has been reset successfully." });
     }
 
     /// <summary>
@@ -162,8 +221,10 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// </remarks>
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [AllowAnonymous]
-    [HttpPost("refresh")]
+    [HttpPost("refresh", Name = "RefreshToken")]
     [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refresh_token"];
@@ -189,7 +250,9 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// </remarks>
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     [Authorize]
-    [HttpPost("logout")]
+    [HttpPost("logout", Name = "Logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refresh_token"];
@@ -209,18 +272,43 @@ public sealed class AuthController(IAuthService authService, AppDbContext dbCont
     /// Appel : GET /auth/me
     /// </remarks>
     [Authorize]
-    [HttpGet("me")]
+    [HttpGet("me", Name = "GetCurrentUser")]
+    [ProducesResponseType(typeof(AuthMeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public IActionResult Me()
     {
-        var profile = new
+        var userIdClaim = User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
         {
-            userId = User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier),
-            email = User.FindFirstValue("email") ?? User.FindFirstValue(ClaimTypes.Email),
-            role = User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role),
-            username = User.FindFirstValue("username") ?? User.Identity?.Name
-        };
+            return Unauthorized();
+        }
+
+        var user = dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefault(current => current.Id == userId);
+
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var profile = ToAuthMeResponse(user);
 
         return Ok(profile);
+    }
+
+    private static AuthMeResponse ToAuthMeResponse(User user)
+    {
+        return new AuthMeResponse
+        {
+            Id = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            FullName = $"{user.FirstName} {user.LastName}".Trim(),
+            Email = user.Email,
+            Role = user.Role.ToString(),
+            Status = user.Status.ToString().ToLowerInvariant()
+        };
     }
 
     /// <summary>

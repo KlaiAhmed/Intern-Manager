@@ -2,6 +2,8 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
+using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,9 +13,12 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/meetings")]
 [Authorize(Roles = "Supervisor,Intern")]
-public sealed class MeetingsController(AppDbContext dbContext) : ControllerBase
+public sealed class MeetingsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
-    [HttpGet]
+    [HttpGet(Name = "ListMeetings")]
+    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMeetings(
         [FromQuery] string? supervisorId = null,
         [FromQuery] string? internId = null,
@@ -94,8 +99,13 @@ public sealed class MeetingsController(AppDbContext dbContext) : ControllerBase
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
-    [HttpPost]
+    [HttpPost(Name = "CreateMeeting")]
     [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateMeeting([FromBody] CreateMeetingRequest request, CancellationToken cancellationToken)
     {
         var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
@@ -152,9 +162,7 @@ public sealed class MeetingsController(AppDbContext dbContext) : ControllerBase
             return StatusCode(StatusCodes.Status409Conflict, new { message = "Meeting slot conflicts with an existing meeting." });
         }
 
-        var notes = !string.IsNullOrWhiteSpace(request.Notes)
-            ? request.Notes.Trim()
-            : request.Note.Trim();
+        var notes = request.Notes.Trim();
 
         var meeting = new Meeting
         {
@@ -177,13 +185,219 @@ public sealed class MeetingsController(AppDbContext dbContext) : ControllerBase
             Timestamp = DateTime.UtcNow
         });
 
+        notificationService.QueueNotification(
+            meeting.InternId,
+            "meeting.reminder",
+            "New meeting scheduled",
+            $"A meeting has been scheduled for {meeting.Date:u}.",
+            $"meeting:{meeting.Id}");
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, new
+        var result = new
         {
             id = meeting.Id,
             date = meeting.Date
+        };
+
+        return CreatedAtAction(nameof(GetMeetingById), new { id = meeting.Id }, result);
+    }
+
+    [HttpGet("{id:guid}", Name = "GetMeetingById")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMeetingById(Guid id, CancellationToken cancellationToken)
+    {
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var meeting = await dbContext.Meetings
+            .AsNoTracking()
+            .Include(item => item.Intern)
+            .Include(item => item.Supervisor)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (meeting is null)
+        {
+            return NotFound();
+        }
+
+        if (User.IsInRole("Intern") && meeting.InternId != currentUserId.Value)
+        {
+            return Forbid();
+        }
+
+        if (User.IsInRole("Supervisor") && meeting.SupervisorId != currentUserId.Value)
+        {
+            return Forbid();
+        }
+
+        return Ok(new
+        {
+            id = meeting.Id,
+            date = meeting.Date,
+            notes = meeting.Notes,
+            internId = meeting.InternId,
+            internName = meeting.Intern != null
+                ? $"{meeting.Intern.FirstName} {meeting.Intern.LastName}".Trim()
+                : string.Empty,
+            supervisorId = meeting.SupervisorId,
+            supervisorName = meeting.Supervisor != null
+                ? $"{meeting.Supervisor.FirstName} {meeting.Supervisor.LastName}".Trim()
+                : string.Empty
         });
+    }
+
+    [HttpPatch("{id:guid}", Name = "UpdateMeeting")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateMeeting(Guid id, [FromBody] UpdateMeetingRequest request, CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var meeting = await dbContext.Meetings
+            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == supervisorId.Value, cancellationToken);
+
+        if (meeting is null)
+        {
+            return NotFound(new { message = "Meeting not found." });
+        }
+
+        var hasChanges = false;
+
+        if (request.Date.HasValue)
+        {
+            var normalizedDate = request.Date.Value.Kind == DateTimeKind.Utc
+                ? request.Date.Value
+                : request.Date.Value.ToUniversalTime();
+
+            if (normalizedDate <= DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "Meeting date must be in the future." });
+            }
+
+            if (meeting.Date != normalizedDate)
+            {
+                var conflictWindowStart = normalizedDate.AddMinutes(-59);
+                var conflictWindowEnd = normalizedDate.AddMinutes(59);
+                var hasConflict = await dbContext.Meetings
+                    .AsNoTracking()
+                    .AnyAsync(item => item.Id != meeting.Id &&
+                                      item.SupervisorId == supervisorId.Value &&
+                                      item.Date >= conflictWindowStart &&
+                                      item.Date <= conflictWindowEnd,
+                              cancellationToken);
+
+                if (hasConflict)
+                {
+                    return StatusCode(StatusCodes.Status409Conflict, new { message = "Meeting slot conflicts with an existing meeting." });
+                }
+
+                meeting.Date = normalizedDate;
+                hasChanges = true;
+            }
+        }
+
+        if (request.Notes is not null)
+        {
+            var normalizedNotes = request.Notes.Trim();
+            if (!string.Equals(meeting.Notes, normalizedNotes, StringComparison.Ordinal))
+            {
+                meeting.Notes = normalizedNotes;
+                hasChanges = true;
+            }
+        }
+
+        if (!hasChanges)
+        {
+            return Ok(new
+            {
+                id = meeting.Id,
+                date = meeting.Date,
+                notes = meeting.Notes
+            });
+        }
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "meeting.update",
+            Entity = $"meeting:{meeting.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        notificationService.QueueNotification(
+            meeting.InternId,
+            "meeting.reminder",
+            "Meeting updated",
+            $"Your meeting has been updated for {meeting.Date:u}.",
+            $"meeting:{meeting.Id}");
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            id = meeting.Id,
+            date = meeting.Date,
+            notes = meeting.Notes
+        });
+    }
+
+    [HttpDelete("{id:guid}", Name = "DeleteMeeting")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteMeeting(Guid id, CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var meeting = await dbContext.Meetings
+            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == supervisorId.Value, cancellationToken);
+
+        if (meeting is null)
+        {
+            return NotFound(new { message = "Meeting not found." });
+        }
+
+        dbContext.Meetings.Remove(meeting);
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "meeting.delete",
+            Entity = $"meeting:{meeting.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        notificationService.QueueNotification(
+            meeting.InternId,
+            "meeting.cancelled",
+            "Meeting cancelled",
+            "A scheduled meeting has been cancelled by your supervisor.",
+            $"meeting:{meeting.Id}");
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return NoContent();
     }
 
     private async Task<HashSet<Guid>> ResolveAssignedInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
@@ -225,6 +439,11 @@ public sealed class CreateMeetingRequest
     public DateTime Date { get; init; }
 
     public string Notes { get; init; } = string.Empty;
+}
 
-    public string Note { get; init; } = string.Empty;
+public sealed class UpdateMeetingRequest
+{
+    public DateTime? Date { get; init; }
+
+    public string? Notes { get; init; }
 }

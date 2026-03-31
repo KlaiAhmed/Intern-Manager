@@ -2,6 +2,7 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +11,101 @@ namespace InternManager.Api.Controllers;
 
 [ApiController]
 [Route("api/evaluations")]
-[Authorize(Roles = "Supervisor")]
+[Authorize]
 public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBase
 {
-    [HttpGet("pending")]
+    [HttpGet(Name = "ListEvaluations")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListEvaluations(
+        [FromQuery] string? status = null,
+        [FromQuery] string? type = null,
+        [FromQuery] Guid? supervisorId = null,
+        [FromQuery] Guid? internId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var safePage = Math.Max(page, 1);
+        var safeLimit = Math.Clamp(limit, 1, 100);
+
+        var query = dbContext.Evaluations
+            .AsNoTracking()
+            .Include(item => item.Intern)
+            .Include(item => item.Supervisor)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var normalizedStatus = status.Trim().ToLowerInvariant();
+            query = query.Where(item => item.Status == normalizedStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            var normalizedType = NormalizeEvaluationType(type);
+            if (normalizedType is null)
+            {
+                return BadRequest(new { message = "type must be 'mid-term' or 'end'." });
+            }
+
+            query = query.Where(item => item.Type == normalizedType);
+        }
+
+        if (supervisorId.HasValue)
+        {
+            query = query.Where(item => item.SupervisorId == supervisorId.Value);
+        }
+
+        if (internId.HasValue)
+        {
+            query = query.Where(item => item.InternId == internId.Value);
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+
+        var data = await query
+            .OrderByDescending(item => item.SubmittedAt)
+            .ThenByDescending(item => item.CreatedAt)
+            .Skip((safePage - 1) * safeLimit)
+            .Take(safeLimit)
+            .Select(item => new
+            {
+                id = item.Id,
+                supervisorId = item.SupervisorId,
+                supervisorName = item.Supervisor != null
+                    ? $"{item.Supervisor.FirstName} {item.Supervisor.LastName}".Trim()
+                    : string.Empty,
+                internId = item.InternId,
+                internName = item.Intern != null
+                    ? $"{item.Intern.FirstName} {item.Intern.LastName}".Trim()
+                    : string.Empty,
+                type = item.Type,
+                status = item.Status,
+                submittedAt = item.SubmittedAt,
+                comments = item.Comments,
+                criteria = new
+                {
+                    technical = item.Technical,
+                    autonomy = item.Autonomy,
+                    communication = item.Communication,
+                    deadlineRespect = item.DeadlineRespect,
+                    deliverableQuality = item.DeliverableQuality
+                }
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new { data, total, page = safePage, limit = safeLimit });
+    }
+
+    [HttpGet("pending", Name = "ListPendingEvaluations")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetPendingEvaluations(
         [FromQuery] string? supervisorId = null,
         [FromQuery] int page = 1,
@@ -67,7 +159,11 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         return Ok(new { data = pendingData, total, page = safePage, limit = safeLimit });
     }
 
-    [HttpPost("pending/sync")]
+    [HttpPost("pending/sync", Name = "SyncPendingEvaluations")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> SyncPendingEvaluations(CancellationToken cancellationToken)
     {
         var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
@@ -79,7 +175,11 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         var assignedInternIds = await ResolveAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
         if (assignedInternIds.Count == 0)
         {
-            return Ok(new { created = 0 });
+            return Ok(new ActionResponse
+            {
+                Success = true,
+                Message = "No pending evaluations to create."
+            });
         }
 
         var existingEvaluations = await dbContext.Evaluations
@@ -138,13 +238,26 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             });
 
             await dbContext.SaveChangesAsync(cancellationToken);
-            return StatusCode(StatusCodes.Status201Created, new { created = createdCount });
+            return Ok(new ActionResponse
+            {
+                Success = true,
+                Message = $"Created {createdCount} pending evaluation(s)."
+            });
         }
 
-        return Ok(new { created = 0 });
+        return Ok(new ActionResponse
+        {
+            Success = true,
+            Message = "No pending evaluations to create."
+        });
     }
 
-    [HttpPost]
+    [HttpPost(Name = "SubmitEvaluation")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> SubmitEvaluation([FromBody] SubmitEvaluationRequest request, CancellationToken cancellationToken)
     {
         var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
@@ -164,10 +277,9 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             return BadRequest(new { message = "type must be 'mid-term' or 'end'." });
         }
 
-        var criteria = request.Criteria ?? request.Scores;
-        if (criteria is null)
+        if (!TryResolveCriteria(request.Criteria, request.Scores, out var criteria, out var criteriaError))
         {
-            return BadRequest(new { message = "criteria is required." });
+            return BadRequest(new { message = criteriaError });
         }
 
         var assignedInternIds = await ResolveAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
@@ -191,11 +303,8 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
                                          item.Type == normalizedType,
                                  cancellationToken);
 
-        var isCreated = false;
-
         if (evaluation is null)
         {
-            isCreated = true;
             evaluation = new Evaluation
             {
                 Id = Guid.NewGuid(),
@@ -236,9 +345,196 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             type = evaluation.Type
         };
 
-        return isCreated
-            ? StatusCode(StatusCodes.Status201Created, response)
-            : Ok(response);
+        return CreatedAtAction(nameof(GetEvaluationById), new { id = evaluation.Id }, response);
+    }
+
+    [HttpPatch("{id:guid}", Name = "UpdateEvaluation")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateEvaluation(Guid id, [FromBody] UpdateEvaluationRequest request, CancellationToken cancellationToken)
+    {
+        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentSupervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var evaluation = await dbContext.Evaluations
+            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
+
+        if (evaluation is null)
+        {
+            return NotFound(new { message = "Evaluation not found." });
+        }
+
+        var hasChanges = false;
+
+        if (request.Type is not null)
+        {
+            var normalizedType = NormalizeEvaluationType(request.Type);
+            if (normalizedType is null)
+            {
+                return BadRequest(new { message = "type must be 'mid-term' or 'end'." });
+            }
+
+            if (!string.Equals(evaluation.Type, normalizedType, StringComparison.OrdinalIgnoreCase))
+            {
+                evaluation.Type = normalizedType;
+                hasChanges = true;
+            }
+        }
+
+        if (request.Criteria is not null)
+        {
+            evaluation.Technical = ClampScore(request.Criteria.Technical);
+            evaluation.Autonomy = ClampScore(request.Criteria.Autonomy);
+            evaluation.Communication = ClampScore(request.Criteria.Communication);
+            evaluation.DeadlineRespect = ClampScore(request.Criteria.DeadlineRespect);
+            evaluation.DeliverableQuality = ClampScore(request.Criteria.DeliverableQuality);
+            hasChanges = true;
+        }
+
+        if (request.Comments is not null)
+        {
+            var normalizedComments = request.Comments.Trim();
+            if (!string.Equals(evaluation.Comments, normalizedComments, StringComparison.Ordinal))
+            {
+                evaluation.Comments = normalizedComments;
+                hasChanges = true;
+            }
+        }
+
+        if (request.Status is not null)
+        {
+            var normalizedStatus = request.Status.Trim().ToLowerInvariant();
+            if (normalizedStatus is not ("pending" or "submitted"))
+            {
+                return BadRequest(new { message = "status must be 'pending' or 'submitted'." });
+            }
+
+            if (!string.Equals(evaluation.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
+            {
+                evaluation.Status = normalizedStatus;
+                evaluation.SubmittedAt = normalizedStatus == "submitted" ? DateTime.UtcNow : null;
+                hasChanges = true;
+            }
+        }
+
+        if (!hasChanges)
+        {
+            return Ok(new
+            {
+                id = evaluation.Id,
+                internId = evaluation.InternId,
+                type = evaluation.Type,
+                status = evaluation.Status
+            });
+        }
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = currentSupervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "evaluation.update",
+            Entity = $"evaluation:{evaluation.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            id = evaluation.Id,
+            internId = evaluation.InternId,
+            type = evaluation.Type,
+            status = evaluation.Status,
+            submittedAt = evaluation.SubmittedAt
+        });
+    }
+
+    [HttpGet("{id:guid}", Name = "GetEvaluationById")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetEvaluationById(Guid id, CancellationToken cancellationToken)
+    {
+        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentSupervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var evaluation = await dbContext.Evaluations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
+
+        if (evaluation is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            id = evaluation.Id,
+            internId = evaluation.InternId,
+            type = evaluation.Type,
+            status = evaluation.Status,
+            submittedAt = evaluation.SubmittedAt,
+            comments = evaluation.Comments,
+            criteria = new
+            {
+                technical = evaluation.Technical,
+                autonomy = evaluation.Autonomy,
+                communication = evaluation.Communication,
+                deadlineRespect = evaluation.DeadlineRespect,
+                deliverableQuality = evaluation.DeliverableQuality
+            }
+        });
+    }
+
+    [HttpGet("/api/intern/me/evaluations", Name = "ListMyEvaluations")]
+    [Authorize(Roles = "Intern")]
+    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyEvaluations(CancellationToken cancellationToken)
+    {
+        var internId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!internId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var data = await dbContext.Evaluations
+            .AsNoTracking()
+            .Where(evaluation => evaluation.InternId == internId.Value && evaluation.Status == "submitted")
+            .Include(evaluation => evaluation.Supervisor)
+            .OrderByDescending(evaluation => evaluation.SubmittedAt)
+            .ThenByDescending(evaluation => evaluation.CreatedAt)
+            .Select(evaluation => new
+            {
+                id = evaluation.Id,
+                type = NormalizeTypeForIntern(evaluation.Type),
+                criteria = new
+                {
+                    technical = evaluation.Technical,
+                    autonomy = evaluation.Autonomy,
+                    communication = evaluation.Communication,
+                    deadlineRespect = evaluation.DeadlineRespect,
+                    deliverableQuality = evaluation.DeliverableQuality
+                },
+                comments = evaluation.Comments,
+                supervisorName = evaluation.Supervisor != null
+                    ? $"{evaluation.Supervisor.FirstName} {evaluation.Supervisor.LastName}".Trim()
+                    : string.Empty
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new { data });
     }
 
     private async Task<HashSet<Guid>> ResolveAssignedInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
@@ -277,6 +573,42 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         return Math.Clamp(value, 0, 10);
     }
 
+    private static bool TryResolveCriteria(
+        EvaluationCriteriaRequest? criteria,
+        EvaluationCriteriaRequest? scores,
+        out EvaluationCriteriaRequest resolvedCriteria,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+
+        if (criteria is null && scores is null)
+        {
+            resolvedCriteria = null!;
+            errorMessage = "criteria is required.";
+            return false;
+        }
+
+        if (criteria is not null && scores is not null &&
+            !AreCriteriaEquivalent(criteria, scores))
+        {
+            resolvedCriteria = null!;
+            errorMessage = "Provide either criteria or scores, not conflicting values for both.";
+            return false;
+        }
+
+        resolvedCriteria = criteria ?? scores!;
+        return true;
+    }
+
+    private static bool AreCriteriaEquivalent(EvaluationCriteriaRequest left, EvaluationCriteriaRequest right)
+    {
+        return left.Technical == right.Technical &&
+               left.Autonomy == right.Autonomy &&
+               left.Communication == right.Communication &&
+               left.DeadlineRespect == right.DeadlineRespect &&
+               left.DeliverableQuality == right.DeliverableQuality;
+    }
+
     private static string? NormalizeEvaluationType(string? rawType)
     {
         if (string.IsNullOrWhiteSpace(rawType))
@@ -293,9 +625,25 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         return normalized switch
         {
             "midterm" => "mid-term",
+            "midparcours" => "mid-term",
+            "midstage" => "mid-term",
             "end" => "end",
+            "endofstage" => "end",
+            "endstage" => "end",
             "endofinternship" => "end",
             _ => null
+        };
+    }
+
+    private static string NormalizeTypeForIntern(string rawType)
+    {
+        var normalizedType = rawType.Trim().ToLowerInvariant();
+
+        return normalizedType switch
+        {
+            "mid-term" => "mid_term",
+            "end" => "end_of_internship",
+            _ => normalizedType
         };
     }
 
@@ -309,9 +657,21 @@ public sealed class SubmitEvaluationRequest
 
     public EvaluationCriteriaRequest? Criteria { get; init; }
 
+    [Obsolete("Use criteria instead of scores.")]
     public EvaluationCriteriaRequest? Scores { get; init; }
 
     public string Comments { get; init; } = string.Empty;
+}
+
+public sealed class UpdateEvaluationRequest
+{
+    public string? Type { get; init; }
+
+    public EvaluationCriteriaRequest? Criteria { get; init; }
+
+    public string? Comments { get; init; }
+
+    public string? Status { get; init; }
 }
 
 public sealed class EvaluationCriteriaRequest

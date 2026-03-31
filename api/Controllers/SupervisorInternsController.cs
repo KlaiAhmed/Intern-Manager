@@ -1,6 +1,7 @@
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
+using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,11 +9,14 @@ using Microsoft.EntityFrameworkCore;
 namespace InternManager.Api.Controllers;
 
 [ApiController]
-[Route("api/supervisor/me/interns")]
+[Route("api/supervisor/me")]
 [Authorize(Roles = "Supervisor")]
 public sealed class SupervisorInternsController(AppDbContext dbContext) : ControllerBase
 {
-    [HttpGet]
+    [HttpGet("interns", Name = "ListMyInterns")]
+    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMyInterns(
         [FromQuery] int page = 1,
         [FromQuery] int limit = 20,

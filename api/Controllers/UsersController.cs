@@ -6,7 +6,9 @@
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
+using InternManager.Api.Models.DTOs.User;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,13 +22,18 @@ namespace InternManager.Api.Controllers;
 /// <param name="dbContext">Contexte EF Core pour manipuler les utilisateurs.</param>
 [ApiController]
 [Route("api/users")]
-[Authorize(Roles = "SuperAdmin,Admin")]
+[Authorize]
 public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
     /// Retourne la liste paginée des utilisateurs selon des filtres optionnels.
     /// </summary>
-    [HttpGet]
+    [HttpGet(Name = "ListUsers")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUsers(
         [FromQuery] string? role,
         [FromQuery] int page = 1,
@@ -104,17 +111,23 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <summary>
     /// Crée un nouvel utilisateur.
     /// </summary>
-    [HttpPost]
+    [HttpPost(Name = "CreateUser")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateUser([FromBody] UpsertUserRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            return BadRequest(new { message = "Name is required." });
-        }
-
         if (string.IsNullOrWhiteSpace(request.Email))
         {
             return BadRequest(new { message = "Email is required." });
+        }
+
+        if (!TryResolveCreateNameParts(request, out var firstName, out var lastName))
+        {
+            return BadRequest(new { message = "FirstName/LastName or Name is required." });
         }
 
         if (!TryParseRole(request.Role, out var parsedRole))
@@ -159,7 +172,6 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             return Conflict(new { message = "A user with this email already exists." });
         }
 
-        var (firstName, lastName) = SplitName(request.Name);
         var effectivePassword = string.IsNullOrWhiteSpace(request.Password)
             ? BuildTemporaryPassword()
             : request.Password.Trim();
@@ -189,13 +201,21 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, ToDashboardUser(user, departmentName));
+        var result = ToDashboardUser(user, departmentName);
+        return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, result);
     }
 
     /// <summary>
     /// Met à jour partiellement un utilisateur.
     /// </summary>
-    [HttpPatch("{id:guid}")]
+    [HttpPatch("{id:guid}", Name = "UpdateUser")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpsertUserRequest request, CancellationToken cancellationToken)
     {
         var user = await dbContext.Users
@@ -207,12 +227,34 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             return NotFound(new { message = "User not found." });
         }
 
+        var updatesNonStatusField =
+            !string.IsNullOrWhiteSpace(request.Name) ||
+            !string.IsNullOrWhiteSpace(request.FirstName) ||
+            !string.IsNullOrWhiteSpace(request.LastName) ||
+            !string.IsNullOrWhiteSpace(request.Email) ||
+            !string.IsNullOrWhiteSpace(request.Role) ||
+            !string.IsNullOrWhiteSpace(request.Password) ||
+            !string.IsNullOrWhiteSpace(request.Department);
+
+        if (user.Status == UserStatus.Archived && updatesNonStatusField)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new
+            {
+                message = "Archived users can only be reactivated through the status field."
+            });
+        }
+
         var updatedFields = new List<string>();
         var resolvedDepartmentName = user.Department?.Name;
 
-        if (!string.IsNullOrWhiteSpace(request.Name))
+        if (!string.IsNullOrWhiteSpace(request.Name) ||
+            !string.IsNullOrWhiteSpace(request.FirstName) ||
+            !string.IsNullOrWhiteSpace(request.LastName))
         {
-            var (firstName, lastName) = SplitName(request.Name);
+            if (!TryResolveUpdateNameParts(request, user, out var firstName, out var lastName))
+            {
+                return BadRequest(new { message = "Invalid firstName/lastName values." });
+            }
 
             user.FirstName = firstName;
             user.LastName = lastName;
@@ -307,11 +349,158 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
         return Ok(ToDashboardUser(user, resolvedDepartmentName));
     }
 
+    [HttpPatch("{id:guid}/archive", Name = "ArchiveUser")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ArchiveUser(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .Include(current => current.Department)
+            .FirstOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+        if (user is null)
+        {
+            return NotFound(new { message = "User not found." });
+        }
+
+        var actorRole = UserContextHelper.ResolveCurrentUserRole(User);
+        if (actorRole == UserRole.Admin && user.Role == UserRole.SuperAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot archive SuperAdmin users." });
+        }
+
+        if (user.Status != UserStatus.Archived)
+        {
+            user.Status = UserStatus.Archived;
+
+            var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
+            var actorName = UserContextHelper.ResolveCurrentActorName(User);
+            dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.archive", $"user:{user.Id}"));
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return Ok(ToDashboardUser(user, user.Department?.Name));
+    }
+
+    [HttpDelete("{id:guid}", Name = "DeleteUser")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteUser(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+        if (user is null)
+        {
+            return NotFound(new { message = "User not found." });
+        }
+
+        var actorRole = UserContextHelper.ResolveCurrentUserRole(User);
+        if (actorRole == UserRole.Admin && user.Role == UserRole.SuperAdmin)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot delete SuperAdmin users." });
+        }
+
+        if (user.Status != UserStatus.Archived)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new
+            {
+                message = "Only archived users can be deleted. Archive the user first."
+            });
+        }
+
+        var hasDependencies = await UserHasDependenciesAsync(user.Id, cancellationToken);
+        if (hasDependencies)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new
+            {
+                message = "User cannot be deleted because related business data still exists."
+            });
+        }
+
+        var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
+        var actorName = UserContextHelper.ResolveCurrentActorName(User);
+        dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.delete", $"user:{user.Id}"));
+
+        dbContext.Users.Remove(user);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}", Name = "GetUserById")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUserById(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .Include(current => current.Department)
+            .FirstOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(ToDashboardUser(user, user.Department?.Name));
+    }
+
+    [HttpGet("me/summary", Name = "GetUserSummary")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserSummaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
+    {
+        var userId = UserContextHelper.ResolveCurrentUserId(User);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId.Value)
+            .Select(u => new UserSummary
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Email = u.Email,
+                Role = u.Role.ToString(),
+                Status = u.Status.ToString(),
+                FullName = $"{u.FirstName} {u.LastName}"
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(user);
+    }
+
     private static object ToDashboardUser(User user, string? departmentName = null)
     {
         return new
         {
             id = user.Id,
+            firstName = user.FirstName,
+            lastName = user.LastName,
+            fullName = $"{user.FirstName} {user.LastName}".Trim(),
             name = $"{user.FirstName} {user.LastName}".Trim(),
             email = user.Email,
             status = user.Status.ToString().ToLowerInvariant(),
@@ -321,28 +510,106 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
         };
     }
 
+    private async Task<bool> UserHasDependenciesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var hasDependencies = await dbContext.Missions
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
+                              || await dbContext.Deliverables
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
+                              || await dbContext.Evaluations
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
+                              || await dbContext.Meetings
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
+                              || await dbContext.JournalEntries
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.InternId == userId, cancellationToken)
+                              || await dbContext.InternTasks
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.InternId == userId, cancellationToken)
+                              || await dbContext.InternProfiles
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.InternId == userId, cancellationToken)
+                              || await dbContext.Notifications
+                                  .AsNoTracking()
+                                  .AnyAsync(item => item.UserId == userId, cancellationToken);
+
+        return hasDependencies;
+    }
+
     private static string NormalizeEmail(string email)
     {
         return email.Trim().ToLowerInvariant();
     }
 
-    private static (string FirstName, string LastName) SplitName(string fullName)
+    private static bool TryResolveCreateNameParts(UpsertUserRequest request, out string firstName, out string lastName)
     {
+        firstName = request.FirstName?.Trim() ?? string.Empty;
+        lastName = request.LastName?.Trim() ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(lastName))
+        {
+            return true;
+        }
+
+        return TrySplitName(request.Name, out firstName, out lastName);
+    }
+
+    private static bool TryResolveUpdateNameParts(UpsertUserRequest request, User currentUser, out string firstName, out string lastName)
+    {
+        firstName = currentUser.FirstName;
+        lastName = currentUser.LastName;
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            return TrySplitName(request.Name, out firstName, out lastName);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FirstName))
+        {
+            firstName = request.FirstName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.LastName))
+        {
+            lastName = request.LastName.Trim();
+        }
+
+        return !string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(lastName);
+    }
+
+    private static bool TrySplitName(string? fullName, out string firstName, out string lastName)
+    {
+        firstName = string.Empty;
+        lastName = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return false;
+        }
+
         var parts = fullName
             .Trim()
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (parts.Length == 0)
         {
-            return ("User", "Generated");
+            return false;
         }
 
         if (parts.Length == 1)
         {
-            return (parts[0], "User");
+            firstName = parts[0];
+            lastName = parts[0];
+            return true;
         }
 
-        return (parts[0], string.Join(' ', parts.Skip(1)));
+        firstName = parts[0];
+        lastName = string.Join(' ', parts.Skip(1));
+        return true;
     }
 
     private static string BuildTemporaryPassword()
@@ -472,6 +739,10 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 public sealed class UpsertUserRequest
 {
     public string Name { get; init; } = string.Empty;
+
+    public string FirstName { get; init; } = string.Empty;
+
+    public string LastName { get; init; } = string.Empty;
 
     public string Email { get; init; } = string.Empty;
 

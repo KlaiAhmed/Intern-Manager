@@ -4,6 +4,8 @@
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Requests;
+using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,145 +13,295 @@ using Microsoft.EntityFrameworkCore;
 namespace InternManager.Api.Controllers;
 
 [ApiController]
-[Route("api/settings")]
+[Route("api/admin/settings")]
 [Authorize]
 public sealed class AdminSettingsController(AppDbContext dbContext) : ControllerBase
 {
-    [HttpGet("departments")]
+    [HttpGet("departments", Name = "ListDepartments")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetDepartments(CancellationToken cancellationToken)
     {
         return GetReferentialItemsAsync(dbContext.Departments, cancellationToken);
     }
 
-    [HttpPost("departments")]
+    [HttpGet("departments/{id:guid}", Name = "GetDepartmentById")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> CreateDepartment([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> GetDepartmentById(Guid id, CancellationToken cancellationToken)
     {
-        return CreateReferentialItemAsync(dbContext.Departments, request, cancellationToken);
+        return GetReferentialItemByIdAsync(dbContext.Departments, id, cancellationToken);
     }
 
-    [HttpPatch("departments/{id:guid}")]
+    [HttpPost("departments", Name = "CreateDepartment")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> UpdateDepartment(Guid id, [FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateDepartment([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return CreateReferentialItemAsync(dbContext.Departments, request, nameof(GetDepartmentById), cancellationToken);
+    }
+
+    [HttpPatch("departments/{id:guid}", Name = "UpdateDepartment")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateDepartment(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
     {
         return UpdateReferentialItemAsync(dbContext.Departments, id, request, cancellationToken);
     }
 
-    [HttpDelete("departments/{id:guid}")]
+    [HttpDelete("departments/{id:guid}", Name = "DeleteDepartment")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> DeleteDepartment(Guid id, CancellationToken cancellationToken)
     {
         return DeleteReferentialItemAsync(dbContext.Departments, id, cancellationToken);
     }
 
-    [HttpGet("schools")]
+    [HttpGet("schools", Name = "ListSchools")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetSchools(CancellationToken cancellationToken)
     {
         return GetReferentialItemsAsync(dbContext.Schools, cancellationToken);
     }
 
-    [HttpPost("schools")]
+    [HttpGet("schools/{id:guid}", Name = "GetSchoolById")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> CreateSchool([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> GetSchoolById(Guid id, CancellationToken cancellationToken)
     {
-        return CreateReferentialItemAsync(dbContext.Schools, request, cancellationToken);
+        return GetReferentialItemByIdAsync(dbContext.Schools, id, cancellationToken);
     }
 
-    [HttpPatch("schools/{id:guid}")]
+    [HttpPost("schools", Name = "CreateSchool")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> UpdateSchool(Guid id, [FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateSchool([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return CreateReferentialItemAsync(dbContext.Schools, request, nameof(GetSchoolById), cancellationToken);
+    }
+
+    [HttpPatch("schools/{id:guid}", Name = "UpdateSchool")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateSchool(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
     {
         return UpdateReferentialItemAsync(dbContext.Schools, id, request, cancellationToken);
     }
 
-    [HttpDelete("schools/{id:guid}")]
+    [HttpDelete("schools/{id:guid}", Name = "DeleteSchool")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> DeleteSchool(Guid id, CancellationToken cancellationToken)
     {
         return DeleteReferentialItemAsync(dbContext.Schools, id, cancellationToken);
     }
 
-    [HttpGet("internship-types")]
+    [HttpGet("internship-types", Name = "ListInternshipTypes")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetInternshipTypes(CancellationToken cancellationToken)
     {
         return GetReferentialItemsAsync(dbContext.InternshipTypes, cancellationToken);
     }
 
-    [HttpPost("internship-types")]
+    [HttpGet("internship-types/{id:guid}", Name = "GetInternshipTypeById")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> CreateInternshipType([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> GetInternshipTypeById(Guid id, CancellationToken cancellationToken)
     {
-        return CreateReferentialItemAsync(dbContext.InternshipTypes, request, cancellationToken);
+        return GetReferentialItemByIdAsync(dbContext.InternshipTypes, id, cancellationToken);
     }
 
-    [HttpPatch("internship-types/{id:guid}")]
+    [HttpPost("internship-types", Name = "CreateInternshipType")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> UpdateInternshipType(Guid id, [FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateInternshipType([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return CreateReferentialItemAsync(dbContext.InternshipTypes, request, nameof(GetInternshipTypeById), cancellationToken);
+    }
+
+    [HttpPatch("internship-types/{id:guid}", Name = "UpdateInternshipType")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateInternshipType(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
     {
         return UpdateReferentialItemAsync(dbContext.InternshipTypes, id, request, cancellationToken);
     }
 
-    [HttpDelete("internship-types/{id:guid}")]
+    [HttpDelete("internship-types/{id:guid}", Name = "DeleteInternshipType")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> DeleteInternshipType(Guid id, CancellationToken cancellationToken)
     {
         return DeleteReferentialItemAsync(dbContext.InternshipTypes, id, cancellationToken);
     }
 
-    [HttpGet("skills")]
+    [HttpGet("skills", Name = "ListSkills")]
     [Authorize(Roles = "Admin,Supervisor")]
+    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetSkills(CancellationToken cancellationToken)
     {
         return GetReferentialItemsAsync(dbContext.Skills, cancellationToken);
     }
 
-    [HttpPost("skills")]
-    [Authorize(Roles = "Admin")]
-    public Task<IActionResult> CreateSkill([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [HttpGet("skills/{id:guid}", Name = "GetSkillById")]
+    [Authorize(Roles = "Admin,Supervisor")]
+    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> GetSkillById(Guid id, CancellationToken cancellationToken)
     {
-        return CreateReferentialItemAsync(dbContext.Skills, request, cancellationToken);
+        return GetReferentialItemByIdAsync(dbContext.Skills, id, cancellationToken);
     }
 
-    [HttpPatch("skills/{id:guid}")]
+    [HttpPost("skills", Name = "CreateSkill")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> UpdateSkill(Guid id, [FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateSkill([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return CreateReferentialItemAsync(dbContext.Skills, request, nameof(GetSkillById), cancellationToken);
+    }
+
+    [HttpPatch("skills/{id:guid}", Name = "UpdateSkill")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateSkill(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
     {
         return UpdateReferentialItemAsync(dbContext.Skills, id, request, cancellationToken);
     }
 
-    [HttpDelete("skills/{id:guid}")]
+    [HttpDelete("skills/{id:guid}", Name = "DeleteSkill")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> DeleteSkill(Guid id, CancellationToken cancellationToken)
     {
         return DeleteReferentialItemAsync(dbContext.Skills, id, cancellationToken);
     }
 
-    [HttpGet("statuses")]
+    [HttpGet("statuses", Name = "ListStatuses")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetStatuses(CancellationToken cancellationToken)
     {
         return GetReferentialItemsAsync(dbContext.UserStatusReferences, cancellationToken);
     }
 
-    [HttpPost("statuses")]
+    [HttpGet("statuses/{id:guid}", Name = "GetStatusById")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> CreateStatus([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> GetStatusById(Guid id, CancellationToken cancellationToken)
     {
-        return CreateReferentialItemAsync(dbContext.UserStatusReferences, request, cancellationToken);
+        return GetReferentialItemByIdAsync(dbContext.UserStatusReferences, id, cancellationToken);
     }
 
-    [HttpPatch("statuses/{id:guid}")]
+    [HttpPost("statuses", Name = "CreateStatus")]
     [Authorize(Roles = "Admin")]
-    public Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateStatus([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return CreateReferentialItemAsync(dbContext.UserStatusReferences, request, nameof(GetStatusById), cancellationToken);
+    }
+
+    [HttpPatch("statuses/{id:guid}", Name = "UpdateStatus")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
     {
         return UpdateReferentialItemAsync(dbContext.UserStatusReferences, id, request, cancellationToken);
     }
 
-    [HttpDelete("statuses/{id:guid}")]
+    [HttpDelete("statuses/{id:guid}", Name = "DeleteStatus")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> DeleteStatus(Guid id, CancellationToken cancellationToken)
     {
         return DeleteReferentialItemAsync(dbContext.UserStatusReferences, id, cancellationToken);
@@ -214,7 +366,19 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return Ok(new { data = data.Select(ToResponse) });
     }
 
-    private async Task<IActionResult> CreateReferentialItemAsync<TEntity>(DbSet<TEntity> dbSet, UpsertReferentialRequest request, CancellationToken cancellationToken)
+    private async Task<IActionResult> GetReferentialItemByIdAsync<TEntity>(DbSet<TEntity> dbSet, Guid id, CancellationToken cancellationToken)
+        where TEntity : ReferentialEntityBase
+    {
+        var entry = await dbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        return entry is null
+            ? NotFound()
+            : Ok(ToResponse(entry));
+    }
+
+    private async Task<IActionResult> CreateReferentialItemAsync<TEntity>(DbSet<TEntity> dbSet, UpsertReferentialRequest request, string getByIdActionName, CancellationToken cancellationToken)
         where TEntity : ReferentialEntityBase, new()
     {
         var normalizedName = NormalizeName(request.Name);
@@ -246,10 +410,11 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, ToResponse(entry));
+        var result = ToResponse(entry);
+        return CreatedAtAction(getByIdActionName, new { id = entry.Id }, result);
     }
 
-    private async Task<IActionResult> UpdateReferentialItemAsync<TEntity>(DbSet<TEntity> dbSet, Guid id, UpsertReferentialRequest request, CancellationToken cancellationToken)
+    private async Task<IActionResult> UpdateReferentialItemAsync<TEntity>(DbSet<TEntity> dbSet, Guid id, UpdateReferentialRequest request, CancellationToken cancellationToken)
         where TEntity : ReferentialEntityBase
     {
         var normalizedName = NormalizeName(request.Name);
