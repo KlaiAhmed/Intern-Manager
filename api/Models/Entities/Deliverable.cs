@@ -36,4 +36,6 @@ public sealed class Deliverable
     public User? Supervisor { get; set; }
 
     public User? Intern { get; set; }
+
+    public ICollection<DeliverableVersion> Versions { get; set; } = new List<DeliverableVersion>();
 }

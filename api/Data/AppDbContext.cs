@@ -56,6 +56,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<InternTask> InternTasks => Set<InternTask>();
 
     /// <summary>
+    /// Table des profils detailles des stagiaires.
+    /// </summary>
+    public DbSet<InternProfile> InternProfiles => Set<InternProfile>();
+
+    /// <summary>
+    /// Table de liaison entre profils stagiaires et competences taggees.
+    /// </summary>
+    public DbSet<InternProfileSkill> InternProfileSkills => Set<InternProfileSkill>();
+
+    /// <summary>
+    /// Table des versions historisees des livrables.
+    /// </summary>
+    public DbSet<DeliverableVersion> DeliverableVersions => Set<DeliverableVersion>();
+
+    /// <summary>
+    /// Table des notifications in-app.
+    /// </summary>
+    public DbSet<Notification> Notifications => Set<Notification>();
+
+    /// <summary>
+    /// Table des entrees de changelog des missions/stages.
+    /// </summary>
+    public DbSet<MissionHistoryEntry> MissionHistoryEntries => Set<MissionHistoryEntry>();
+
+    /// <summary>
+    /// Table des jetons de reinitialisation de mot de passe.
+    /// </summary>
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
+    /// <summary>
     /// Table des departements parametrables depuis les settings admin.
     /// </summary>
     public DbSet<Department> Departments => Set<Department>();
@@ -284,6 +314,47 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(deliverable => deliverable.InternId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(deliverable => deliverable.Versions)
+                .WithOne(version => version.Deliverable)
+                .HasForeignKey(version => version.DeliverableId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DeliverableVersion>(entity =>
+        {
+            entity.ToTable("DeliverableVersions");
+
+            entity.HasKey(version => version.Id);
+
+            entity.Property(version => version.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(version => version.FileUrl)
+                .IsRequired()
+                .HasMaxLength(2048);
+
+            entity.Property(version => version.Status)
+                .IsRequired()
+                .HasMaxLength(32)
+                .HasDefaultValue("submitted");
+
+            entity.Property(version => version.SupervisorComment)
+                .HasMaxLength(2000);
+
+            entity.Property(version => version.SubmittedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(version => version.DeliverableId);
+            entity.HasIndex(version => new { version.DeliverableId, version.VersionNumber })
+                .IsUnique();
+
+            entity.HasOne(version => version.Deliverable)
+                .WithMany(deliverable => deliverable.Versions)
+                .HasForeignKey(version => version.DeliverableId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Evaluation>(entity =>
@@ -425,6 +496,180 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<InternProfile>(entity =>
+        {
+            entity.ToTable("InternProfiles");
+
+            entity.HasKey(profile => profile.Id);
+
+            entity.Property(profile => profile.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(profile => profile.School)
+                .HasMaxLength(200);
+
+            entity.Property(profile => profile.Specialty)
+                .HasMaxLength(200);
+
+            entity.Property(profile => profile.Experience)
+                .HasMaxLength(3000);
+
+            entity.Property(profile => profile.CvFileUrl)
+                .HasMaxLength(2048);
+
+            entity.Property(profile => profile.CompetenciesJson)
+                .HasDefaultValue("[]");
+
+            entity.Property(profile => profile.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(profile => profile.UpdatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(profile => profile.InternId)
+                .IsUnique();
+
+            entity.HasOne(profile => profile.Intern)
+                .WithMany()
+                .HasForeignKey(profile => profile.InternId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InternProfileSkill>(entity =>
+        {
+            entity.ToTable("InternProfileSkills");
+
+            entity.HasKey(profileSkill => new { profileSkill.InternProfileId, profileSkill.SkillId });
+
+            entity.Property(profileSkill => profileSkill.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(profileSkill => profileSkill.InternProfile)
+                .WithMany(profile => profile.Skills)
+                .HasForeignKey(profileSkill => profileSkill.InternProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(profileSkill => profileSkill.Skill)
+                .WithMany()
+                .HasForeignKey(profileSkill => profileSkill.SkillId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("Notifications");
+
+            entity.HasKey(notification => notification.Id);
+
+            entity.Property(notification => notification.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(notification => notification.Type)
+                .IsRequired()
+                .HasMaxLength(64);
+
+            entity.Property(notification => notification.Title)
+                .HasMaxLength(200);
+
+            entity.Property(notification => notification.Message)
+                .IsRequired()
+                .HasMaxLength(2000);
+
+            entity.Property(notification => notification.RelatedEntity)
+                .HasMaxLength(300);
+
+            entity.Property(notification => notification.IsRead)
+                .HasDefaultValue(false);
+
+            entity.Property(notification => notification.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(notification => notification.UserId);
+            entity.HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
+
+            entity.HasOne(notification => notification.User)
+                .WithMany()
+                .HasForeignKey(notification => notification.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MissionHistoryEntry>(entity =>
+        {
+            entity.ToTable("MissionHistoryEntries");
+
+            entity.HasKey(history => history.Id);
+
+            entity.Property(history => history.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(history => history.Field)
+                .IsRequired()
+                .HasMaxLength(120);
+
+            entity.Property(history => history.OldValue)
+                .HasMaxLength(2000);
+
+            entity.Property(history => history.NewValue)
+                .HasMaxLength(2000);
+
+            entity.Property(history => history.ChangedBy)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(history => history.ChangedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(history => history.MissionId);
+            entity.HasIndex(history => history.ChangedAt);
+
+            entity.HasOne(history => history.Mission)
+                .WithMany(mission => mission.HistoryEntries)
+                .HasForeignKey(history => history.MissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(history => history.ChangedByUser)
+                .WithMany()
+                .HasForeignKey(history => history.ChangedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.ToTable("PasswordResetTokens");
+
+            entity.HasKey(token => token.Id);
+
+            entity.Property(token => token.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(token => token.TokenHash)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.Property(token => token.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(token => token.TokenHash)
+                .IsUnique();
+
+            entity.HasIndex(token => new { token.UserId, token.ExpiresAt });
+
+            entity.HasOne(token => token.User)
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Department>(entity => ConfigureReferentialEntity(entity, "Departments"));
         modelBuilder.Entity<School>(entity => ConfigureReferentialEntity(entity, "Schools"));
         modelBuilder.Entity<InternshipType>(entity => ConfigureReferentialEntity(entity, "InternshipTypes"));
@@ -534,6 +779,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         }
 
         foreach (var entry in ChangeTracker.Entries<ReferentialEntityBase>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+
+                entry.Entity.UpdatedAt = utcNow;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Property(e => e.CreatedAt).IsModified = false;
+                entry.Entity.UpdatedAt = utcNow;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<InternProfile>())
         {
             if (entry.State == EntityState.Added)
             {

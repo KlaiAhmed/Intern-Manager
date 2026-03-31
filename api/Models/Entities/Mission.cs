@@ -30,4 +30,6 @@ public sealed class Mission
     public User? Intern { get; set; }
 
     public ICollection<Deliverable> Deliverables { get; set; } = new List<Deliverable>();
+
+    public ICollection<MissionHistoryEntry> HistoryEntries { get; set; } = new List<MissionHistoryEntry>();
 }
