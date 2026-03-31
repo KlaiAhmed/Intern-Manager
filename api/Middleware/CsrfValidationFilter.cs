@@ -38,6 +38,12 @@ public sealed class CsrfValidationFilter : IAsyncActionFilter
     {
         var request = context.HttpContext.Request;
 
+        if (DevelopmentLazyAuthBypassMiddleware.IsLazyBypassActive(context.HttpContext))
+        {
+            await next();
+            return;
+        }
+
         if (!StateChangingMethods.Contains(request.Method))
         {
             await next();
