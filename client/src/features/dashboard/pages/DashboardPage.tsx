@@ -3,10 +3,11 @@ import { useI18n } from '../../../shared/i18n/I18nContext'
 import { usePageMetadata } from '../../../shared/seo/usePageMetadata'
 import { SuperAdminDashboard } from './SuperAdminDashboard'
 import { AdminDashboard } from './AdminDashboard'
+import { ManagerDashboard } from './ManagerDashboard'
 import { SupervisorDashboard } from './SupervisorDashboard'
 import { InternDashboard } from './InternDashboard'
 
-type DashboardRole = 'super_admin' | 'admin' | 'supervisor' | 'intern'
+type DashboardRole = 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'intern'
 
 function normalizeDashboardRole(rawRole: string | undefined): DashboardRole | null {
   if (!rawRole) {
@@ -20,8 +21,9 @@ function normalizeDashboardRole(rawRole: string | undefined): DashboardRole | nu
     case 'super_admin':
       return 'super_admin'
     case 'admin':
-    case 'manager':
       return 'admin'
+    case 'manager':
+      return 'manager'
     case 'supervisor':
       return 'supervisor'
     case 'intern':
@@ -52,6 +54,8 @@ export function DashboardPage() {
         return <SuperAdminDashboard />
       case 'admin':
         return <AdminDashboard />
+      case 'manager':
+        return <ManagerDashboard />
       case 'supervisor':
         return <SupervisorDashboard />
       case 'intern':
