@@ -15,7 +15,7 @@ const trustFeatures = [
   {
     key: 'trust.security',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
         <path d="M7 11V7a5 5 0 0110 0v4" />
       </svg>
@@ -24,7 +24,7 @@ const trustFeatures = [
   {
     key: 'trust.accessibility',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
@@ -32,8 +32,8 @@ const trustFeatures = [
   {
     key: 'trust.performance',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
       </svg>
     ),
   },
@@ -166,21 +166,23 @@ export default function ExtendedSections() {
       </Section>
 
       {/* Final CTA Section */}
-      <Section id="cta" className="final-cta-section">
-        <div className="surface-card final-cta-card">
-          <h2>{t('cta.title')}</h2>
-          <p>{t('cta.text')}</p>
-          <div className="hero-actions">
-            <Button
-              size="md"
-              variant="primary"
-              onClick={() => navigate(isLoggedIn ? '/dashboard' : '/signup')}
-            >
-              {t('nav.getStarted')}
-            </Button>
+      {!isLoggedIn && (
+        <Section id="cta" className="final-cta-section">
+          <div className="surface-card final-cta-card">
+            <h2>{t('cta.title')}</h2>
+            <p>{t('cta.text')}</p>
+            <div className="hero-actions">
+              <Button
+                size="md"
+                variant="primary"
+                onClick={() => navigate('/signup')}
+              >
+                {t('nav.getStarted')}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Section>
+        </Section>
+      )}
     </>
   )
 }

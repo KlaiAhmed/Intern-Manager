@@ -90,8 +90,8 @@ html {
 body {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.65;
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
@@ -278,7 +278,7 @@ a {
   text-decoration: none;
   font-weight: 700;
   font-family: var(--font-display);
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 .brand-mark {
@@ -319,7 +319,7 @@ a {
 .main-nav-list a {
   text-decoration: none;
   color: var(--color-text-secondary);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.875rem;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
@@ -327,7 +327,7 @@ a {
 }
 
 .main-nav-list a:hover {
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 .desktop-nav {
@@ -464,7 +464,7 @@ a {
 .user-menu-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: #ef4444;
   margin-bottom: 0.125rem;
 }
 
@@ -536,12 +536,12 @@ a {
 .button-primary {
   background: var(--color-text);
   color: var(--color-text-inverse);
-  border-color: var(--color-text);
+  border-color: #ef4444;
 }
 
 .button-primary:hover {
   background: var(--color-text);
-  border-color: var(--color-text);
+  border-color: #ef4444;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),
     0 4px 12px rgba(0, 0, 0, 0.12);
@@ -549,7 +549,7 @@ a {
 
 .button-secondary {
   background: var(--color-surface);
-  color: var(--color-text);
+  color: #ef4444;
   border-color: var(--color-border);
 }
 
@@ -560,7 +560,7 @@ a {
 
 .button-ghost {
   background: transparent;
-  color: var(--color-text);
+  color: #ef4444;
   border-color: transparent;
 }
 
@@ -690,13 +690,13 @@ a {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 .hero-stat-item span {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Surface Cards */
@@ -773,12 +773,14 @@ a {
 .lifecycle-list li:not(:last-child)::after {
   content: '';
   position: absolute;
-  top: 1.5rem;
-  right: -1.5rem;
-  width: 2rem;
-  height: 1px;
-  background: var(--color-border);
-  background: linear-gradient(90deg, var(--color-border) 0%, transparent 100%);
+  top: 50%;
+  right: calc(-1 * var(--space-5) / 2 - 1px);
+  width: var(--space-5);
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, var(--color-border) 0%, var(--color-primary) 50%, var(--color-border) 100%);
+  border-radius: 1px;
+  z-index: 1;
 }
 
 .lifecycle-list .surface-card {
@@ -810,7 +812,7 @@ a {
   font-size: clamp(1.75rem, 4vw, 2.25rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 /* List styles */
@@ -852,7 +854,7 @@ a {
 .testimonial-card blockquote {
   font-size: 0.9375rem;
   line-height: 1.65;
-  color: var(--color-text);
+  color: #ef4444;
   font-style: italic;
 }
 
@@ -908,8 +910,7 @@ a {
 
 .final-cta-card p {
   position: relative;
-  color: var(--color-text-tertiary);
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 1.0625rem;
   max-width: 44ch;
   margin-inline: auto;
@@ -958,7 +959,7 @@ a {
   padding: var(--space-2) var(--space-3);
   font-size: 1rem;
   cursor: pointer;
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 /* Skip link */
@@ -972,7 +973,7 @@ a {
   background: var(--color-text);
   color: var(--color-text-inverse);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.8125rem;
 }
 
@@ -1204,8 +1205,8 @@ a {
     background: transparent;
     font: inherit;
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text);
+    font-weight: 600;
+    color: #ef4444;
     cursor: pointer;
   }
 
@@ -1238,7 +1239,7 @@ a {
     background: transparent;
     font: inherit;
     font-size: 0.8125rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-text-secondary);
     text-align: start;
     cursor: pointer;
@@ -1260,7 +1261,7 @@ a {
   .mobile-menu-user-name {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--color-text);
+    color: #ef4444;
   }
 
   .mobile-menu-user-email {
@@ -1277,8 +1278,8 @@ a {
     background: transparent;
     font: inherit;
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text);
+    font-weight: 600;
+    color: #ef4444;
     text-align: start;
     cursor: pointer;
   }
@@ -1347,7 +1348,7 @@ DASHBOARD STYLES
 .dashboard-title {
   font-size: 1.75rem;
   font-weight: 800;
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 .dashboard-section {
@@ -1357,7 +1358,7 @@ DASHBOARD STYLES
 .dashboard-section-title {
   font-size: 1.15rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: #ef4444;
   margin-bottom: var(--space-4);
 }
 
@@ -1401,7 +1402,7 @@ DASHBOARD STYLES
 
 .kpi-title {
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-secondary);
   margin-bottom: var(--space-2);
 }
@@ -1410,7 +1411,7 @@ DASHBOARD STYLES
   font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 800;
-  color: var(--color-text);
+  color: #ef4444;
 }
 
 /* Charts Grid */
@@ -1430,7 +1431,7 @@ DASHBOARD STYLES
 .chart-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: #ef4444;
   margin-bottom: var(--space-4);
 }
 
@@ -1456,7 +1457,7 @@ DASHBOARD STYLES
 .bar-chart-label {
   flex: 0 0 100px;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-secondary);
   text-overflow: ellipsis;
   overflow: hidden;
@@ -1481,7 +1482,7 @@ DASHBOARD STYLES
 .bar-chart-value {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: #ef4444;
   min-width: 40px;
 }
 
@@ -1558,19 +1559,19 @@ ENHANCED HOME PAGE COMPONENTS
   color: var(--color-text-secondary);
   font-family: var(--font-body);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
 }
 
 .role-tab:hover {
-  color: var(--color-text);
+  color: #ef4444;
   background: var(--color-surface);
 }
 
 .role-tab.is-active {
   background: var(--color-surface);
-  color: var(--color-text);
+  color: #ef4444;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -1738,7 +1739,7 @@ ENHANCED HOME PAGE COMPONENTS
 
 .bi-metric-header h3 {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-secondary);
 }
 
@@ -1800,7 +1801,7 @@ ENHANCED HOME PAGE COMPONENTS
   position: relative;
   font-size: 0.9375rem;
   line-height: 1.7;
-  color: var(--color-text);
+  color: #ef4444;
   margin: 0 0 var(--space-5);
 }
 
@@ -1867,4 +1868,19 @@ ENHANCED HOME PAGE COMPONENTS
     flex: 1;
     justify-content: center;
   }
+}
+
+.mobile-menu-nav-item {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: start;
+  text-decoration: none;
+  display: block;
 }

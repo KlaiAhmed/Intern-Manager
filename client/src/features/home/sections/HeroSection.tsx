@@ -79,23 +79,25 @@ export function HeroSection() {
           <p className="hero-kicker">Axia</p>
           <h1 className="hero-title">{t('hero.title')}</h1>
           <p className="hero-description">{t('hero.description')}</p>
-          <div className="hero-actions">
-            <Button
-              size="md"
-              variant="primary"
-              onClick={() => navigate(isLoggedIn ? '/dashboard' : '/signup')}
-              className="hero-cta"
-            >
-              {t('nav.getStarted')}
-            </Button>
-            <Button
-              size="md"
-              variant="secondary"
-              onClick={() => navigate(isLoggedIn ? '/dashboard' : '/login')}
-            >
-              {t('nav.login')}
-            </Button>
-          </div>
+          {!isLoggedIn && (
+            <div className="hero-actions">
+              <Button
+                size="md"
+                variant="primary"
+                onClick={() => navigate('/signup')}
+                className="hero-cta"
+              >
+                {t('nav.getStarted')}
+              </Button>
+              <Button
+                size="md"
+                variant="secondary"
+                onClick={() => navigate('/login')}
+              >
+                {t('nav.login')}
+              </Button>
+            </div>
+          )}
         </div>
 
         <aside className="hero-panel" aria-label="Platform impact metrics">

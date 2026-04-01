@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
 import { useRolePreference } from '../../../shared/state/RolePreferenceContext'
 import { Card } from '../../../shared/ui/Card'
 import { Section } from '../../../shared/ui/Section'
 import type { UserRole } from '../../../shared/types/role'
 import type { TranslationKey } from '../../../shared/i18n/I18nContext'
-import { classNames } from '../../../shared/utils/classNames'
 
 const roleContentKeys: Record<UserRole, { title: TranslationKey; description: TranslationKey }> = {
   supervisor: { title: 'roles.supervisorTitle', description: 'roles.supervisorText' },
@@ -34,17 +33,12 @@ const roleIcons = {
 export function RoleValueSection() {
   const { t } = useI18n()
   const { activeRole, setActiveRole } = useRolePreference()
-  const [isTransitioning, setIsTransitioning] = useState(false)
 
   const selectedRoleContent = useMemo(() => roleContentKeys[activeRole], [activeRole])
 
   const handleRoleChange = (role: UserRole) => {
     if (role === activeRole) return
-    setIsTransitioning(true)
-    setTimeout(() => {
-      setActiveRole(role)
-      setIsTransitioning(false)
-    }, 150)
+    setActiveRole(role)
   }
 
   const roles: UserRole[] = ['supervisor', 'intern', 'manager']
@@ -63,10 +57,9 @@ export function RoleValueSection() {
             role="tab"
             aria-selected={activeRole === role}
             onClick={() => handleRoleChange(role)}
-            className={classNames(
-              'role-tab',
-              activeRole === role && 'is-active'
-            )}
+            className={
+              activeRole === role ? 'role-tab is-active' : 'role-tab'
+            }
           >
             <span className="role-tab-icon" aria-hidden="true">
               {roleIcons[role]}
@@ -78,7 +71,7 @@ export function RoleValueSection() {
 
       <div className="cards-grid cards-grid-2">
         <Card
-          className={classNames('role-content-card', isTransitioning && 'is-transitioning')}
+          className="role-content-card"
           as="div"
           aria-live="polite"
         >
@@ -90,7 +83,7 @@ export function RoleValueSection() {
         </Card>
 
         <Card
-          className={classNames('surface-card-emphasis', 'role-preview-card', isTransitioning && 'is-transitioning')}
+          className="surface-card-emphasis role-preview-card"
           as="div"
         >
           <div className="role-preview-header">

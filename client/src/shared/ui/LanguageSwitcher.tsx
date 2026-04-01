@@ -24,8 +24,12 @@ export function LanguageSwitcher({ shouldClose = false }: LanguageSwitcherProps)
       ariaLabel={`${t('language.label')}: ${t(activeLanguage.labelKey)}`}
       title={`${t('language.label')}: ${t(activeLanguage.labelKey)}`}
       icon={
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18Zm0 0c2.4 0 4.3 4 4.3 9s-1.9 9-4.3 9s-4.3-4-4.3-9s1.9-9 4.3-9ZM3 12h18M4.8 7.5h14.4M4.8 16.5h14.4" />
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18" />
+          <path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18" />
+          <path d="M5 7h14" />
+          <path d="M5 17h14" />
         </svg>
       }
       valueText={locale.toUpperCase()}
