@@ -21,6 +21,9 @@
   --space-16: 4rem;
   --space-20: 5rem;
 
+  /* Header height - must match .header-content min-height */
+  --header-height: 68px;
+
   --duration-instant: 100ms;
   --duration-fast: 180ms;
   --duration-normal: 260ms;
@@ -268,7 +271,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  min-height: 68px;
+  min-height: var(--header-height);
 }
 
 .brand {
@@ -1333,7 +1336,7 @@ DASHBOARD STYLES
 
 .dashboard-page {
   min-height: 100vh;
-  padding-top: var(--space-6);
+  padding-top: var(--header-height);
   padding-bottom: var(--space-16);
 }
 

@@ -28,7 +28,7 @@ const benefitItems = [
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M12 1L5 3.5v5.5c0 5.5 3.5 8.5 7 9.5 3.5-1 7-4 7-9.5V3.5L12 1Z" />
-        <path d="M9 10l2 2 4-4" />
+        <path d="M9 9.5l2 2 4-4" />
       </svg>
     ),
   },

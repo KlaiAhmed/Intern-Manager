@@ -63,7 +63,7 @@ public static class AuthExtensions
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero,
                     NameClaimType = ClaimTypes.Email,
-                    RoleClaimType = "role"
+                    RoleClaimType = ClaimTypes.Role
                 };
 
                 options.Events = new JwtBearerEvents
