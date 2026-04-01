@@ -3,5 +3,5 @@ obj/
 .vs/
 *.user
 *.suo
-
 .env
+uploads/
