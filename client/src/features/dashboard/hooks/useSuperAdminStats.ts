@@ -11,10 +11,15 @@ interface KPIStats {
   pendingDeliverables: number | null
 }
 
+interface ChartDatum {
+  name: string
+  value: number
+}
+
 interface ChartData {
-  internsByDepartment: Array<{ name: string; value: number }>
-  internshipsByStatus: Array<{ name: string; value: number }>
-  internshipsByType: Array<{ name: string; value: number }>
+  internsByDepartment: ChartDatum[]
+  internshipsByStatus: ChartDatum[]
+  internshipsByType: ChartDatum[]
 }
 
 interface UseSuperAdminStatsReturn {
@@ -35,7 +40,7 @@ interface UseSuperAdminStatsReturn {
 const extractNumber = (value: unknown): number => {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
-    const parsed = parseInt(value, 10)
+    const parsed = Number.parseInt(value, 10)
     return isNaN(parsed) ? 0 : parsed
   }
   if (value && typeof value === 'object') {
@@ -55,8 +60,23 @@ const extractArray = <T,>(value: unknown): T[] => {
   return []
 }
 
+const normalizeStatusKey = (value: string): string => {
+  return value.trim().toLowerCase().replace(/[\s_-]/g, '')
+}
+
+const chartSeriesFromUnknown = (value: unknown): ChartDatum[] => {
+  return extractArray<Record<string, unknown>>(value)
+    .map((item) => ({
+      name: String(item.name ?? ''),
+      value: extractNumber(item.value),
+    }))
+    .filter((item) => item.name.trim().length > 0)
+}
+
+const activeInternshipStatusKeys = new Set(['active', 'actif'])
+
 export function useSuperAdminStats(): UseSuperAdminStatsReturn {
-  const api = useDashboardApi()
+  const { get } = useDashboardApi()
 
   const [stats, setStats] = useState<KPIStats>({
     activeInterns: null,
@@ -87,25 +107,38 @@ export function useSuperAdminStats(): UseSuperAdminStatsReturn {
   const refreshKpis = useCallback(async () => {
     setLoading((prev) => ({ ...prev, kpis: true }))
     setErrors((prev) => ({ ...prev, kpis: null }))
+
     try {
-      const response = await api.get<{
-        activeInterns?: unknown
-        activeSupervisors?: unknown
-        totalMissions?: unknown
-        activeAdmins?: unknown
-        totalInterns?: unknown
-        activeInternships?: unknown
-        pendingDeliverables?: unknown
-      }>('/api/stats/dashboard')
+      const [
+        activeInternsResponse,
+        activeSupervisorsResponse,
+        totalMissionsResponse,
+        activeAdminsResponse,
+        pendingDeliverablesResponse,
+        internshipsByStatusResponse,
+      ] = await Promise.all([
+        get<{ count?: unknown }>('/api/stats/interns/active'),
+        get<{ count?: unknown }>('/api/stats/supervisors'),
+        get<{ count?: unknown }>('/api/stats/missions'),
+        get<{ count?: unknown }>('/api/stats/admins'),
+        get<{ count?: unknown }>('/api/stats/deliverables/pending'),
+        get<{ data?: unknown }>('/api/stats/internships-by-status'),
+      ])
+
+      const internshipStatusSeries = chartSeriesFromUnknown(internshipsByStatusResponse.data)
+      const totalInterns = internshipStatusSeries.reduce((sum, item) => sum + item.value, 0)
+      const activeInternships = internshipStatusSeries
+        .filter((item) => activeInternshipStatusKeys.has(normalizeStatusKey(item.name)))
+        .reduce((sum, item) => sum + item.value, 0)
 
       setStats({
-        activeInterns: extractNumber(response.activeInterns ?? response.activeInterns),
-        activeSupervisors: extractNumber(response.activeSupervisors ?? response.activeSupervisors),
-        totalMissions: extractNumber(response.totalMissions ?? response.totalMissions),
-        activeAdmins: extractNumber(response.activeAdmins ?? response.activeAdmins),
-        totalInterns: extractNumber(response.totalInterns ?? response.totalInterns),
-        activeInternships: extractNumber(response.activeInternships ?? response.activeInternships),
-        pendingDeliverables: extractNumber(response.pendingDeliverables ?? response.pendingDeliverables),
+        activeInterns: extractNumber(activeInternsResponse.count),
+        activeSupervisors: extractNumber(activeSupervisorsResponse.count),
+        totalMissions: extractNumber(totalMissionsResponse.count),
+        activeAdmins: extractNumber(activeAdminsResponse.count),
+        totalInterns,
+        activeInternships,
+        pendingDeliverables: extractNumber(pendingDeliverablesResponse.count),
       })
     } catch (err) {
       setErrors((prev) => ({
@@ -115,22 +148,23 @@ export function useSuperAdminStats(): UseSuperAdminStatsReturn {
     } finally {
       setLoading((prev) => ({ ...prev, kpis: false }))
     }
-  }, [api])
+  }, [get])
 
   const refreshCharts = useCallback(async () => {
     setLoading((prev) => ({ ...prev, charts: true }))
     setErrors((prev) => ({ ...prev, charts: null }))
+
     try {
-      const response = await api.get<{
-        internsByDepartment?: unknown
-        internshipsByStatus?: unknown
-        internshipsByType?: unknown
-      }>('/api/stats/charts')
+      const [internsByDepartmentResponse, internshipsByStatusResponse, internshipsByTypeResponse] = await Promise.all([
+        get<{ data?: unknown }>('/api/stats/interns-by-department'),
+        get<{ data?: unknown }>('/api/stats/internships-by-status'),
+        get<{ data?: unknown }>('/api/stats/internships-by-type'),
+      ])
 
       setCharts({
-        internsByDepartment: extractArray(response.internsByDepartment),
-        internshipsByStatus: extractArray(response.internshipsByStatus),
-        internshipsByType: extractArray(response.internshipsByType),
+        internsByDepartment: chartSeriesFromUnknown(internsByDepartmentResponse.data),
+        internshipsByStatus: chartSeriesFromUnknown(internshipsByStatusResponse.data),
+        internshipsByType: chartSeriesFromUnknown(internshipsByTypeResponse.data),
       })
     } catch (err) {
       setErrors((prev) => ({
@@ -140,7 +174,7 @@ export function useSuperAdminStats(): UseSuperAdminStatsReturn {
     } finally {
       setLoading((prev) => ({ ...prev, charts: false }))
     }
-  }, [api])
+  }, [get])
 
   useEffect(() => {
     void refreshKpis()

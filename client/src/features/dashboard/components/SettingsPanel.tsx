@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, Edit, Trash2 } from './IconComponents'
 import { useDashboardApi } from '../hooks/useDashboardApi'
 import { Skeleton } from './Skeleton'
@@ -11,7 +11,6 @@ export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' 
 interface SettingsItem {
   id: string
   name: string
-  description?: string
 }
 
 interface SettingsPanelProps {
@@ -22,46 +21,75 @@ interface SettingsPanelProps {
 const tabs: { id: SettingsSubSection; label: string; endpoint: string }[] = [
   { id: 'departments', label: 'Departments', endpoint: 'departments' },
   { id: 'schools', label: 'Schools', endpoint: 'schools' },
-  { id: 'types', label: 'Internship Types', endpoint: 'types' },
+  { id: 'types', label: 'Internship Types', endpoint: 'internship-types' },
   { id: 'skills', label: 'Skills', endpoint: 'skills' },
   { id: 'statuses', label: 'Statuses', endpoint: 'statuses' },
 ]
+
+function parseSettingsItems(payload: unknown): SettingsItem[] {
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null
+        }
+
+        const record = item as Record<string, unknown>
+        const id = String(record.id ?? '')
+        const name = String(record.name ?? '')
+
+        if (!id || !name) {
+          return null
+        }
+
+        return { id, name }
+      })
+      .filter((item): item is SettingsItem => item !== null)
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    if (Array.isArray(record.data)) {
+      return parseSettingsItems(record.data)
+    }
+  }
+
+  return []
+}
 
 export function SettingsPanel({
   activeSubSection,
   onSubSectionChange,
 }: SettingsPanelProps) {
-  const api = useDashboardApi()
+  const { get, post, patch, del } = useDashboardApi()
 
   const [items, setItems] = useState<SettingsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<SettingsItem | null>(null)
-  const [formData, setFormData] = useState({ name: '', description: '' })
+  const [formData, setFormData] = useState({ name: '' })
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeSubSection) ?? tabs[0]
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const result = await api.get<{
-        data: SettingsItem[]
-      }>(`/api/admin/settings/${activeTab.endpoint}`)
-      setItems(result.data ?? [])
+      const result = await get<unknown>(`/api/admin/settings/${activeTab.endpoint}`)
+      setItems(parseSettingsItems(result))
     } catch {
       setError(`Failed to load ${activeTab.label.toLowerCase()}`)
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeTab.endpoint, activeTab.label, get])
 
   useEffect(() => {
     void fetchItems()
-  }, [activeSubSection])
+  }, [fetchItems])
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -72,19 +100,17 @@ export function SettingsPanel({
     setFormError(null)
     try {
       if (editingItem) {
-        await api.patch(`/api/admin/settings/${activeTab.endpoint}/${editingItem.id}`, {
+        await patch(`/api/admin/settings/${activeTab.endpoint}/${editingItem.id}`, {
           name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
         })
       } else {
-        await api.post(`/api/admin/settings/${activeTab.endpoint}`, {
+        await post(`/api/admin/settings/${activeTab.endpoint}`, {
           name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
         })
       }
       setIsModalOpen(false)
       setEditingItem(null)
-      setFormData({ name: '', description: '' })
+      setFormData({ name: '' })
       await fetchItems()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Operation failed')
@@ -95,7 +121,7 @@ export function SettingsPanel({
 
   const handleEdit = (item: SettingsItem) => {
     setEditingItem(item)
-    setFormData({ name: item.name, description: item.description ?? '' })
+    setFormData({ name: item.name })
     setFormError(null)
     setIsModalOpen(true)
   }
@@ -103,7 +129,7 @@ export function SettingsPanel({
   const handleDelete = async (itemId: string) => {
     if (confirm(`Are you sure you want to delete this ${activeTab.label.toLowerCase()}?`)) {
       try {
-        await api.del(`/api/admin/settings/${activeTab.endpoint}/${itemId}`)
+        await del(`/api/admin/settings/${activeTab.endpoint}/${itemId}`)
         await fetchItems()
       } catch {
         setError(`Failed to delete ${activeTab.label.toLowerCase()}`)
@@ -137,7 +163,7 @@ export function SettingsPanel({
           className="dash-btn dash-btn-primary dash-btn-md"
           onClick={() => {
             setEditingItem(null)
-            setFormData({ name: '', description: '' })
+            setFormData({ name: '' })
             setFormError(null)
             setIsModalOpen(true)
           }}
@@ -173,9 +199,6 @@ export function SettingsPanel({
             <div key={item.id} className="settings-item">
               <div className="settings-item-info">
                 <h3 className="settings-item-name">{item.name}</h3>
-                {item.description && (
-                  <p className="settings-item-description">{item.description}</p>
-                )}
               </div>
               <div className="settings-item-actions">
                 <button
@@ -224,16 +247,6 @@ export function SettingsPanel({
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder={`Enter ${activeTab.label.toLowerCase()} name`}
               className={formError ? 'input-error' : ''}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="item-description">Description (optional)</label>
-            <textarea
-              id="item-description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder={`Brief description of this ${activeTab.label.slice(0, -1).toLowerCase()}`}
-              rows={3}
             />
           </div>
           {formError && (

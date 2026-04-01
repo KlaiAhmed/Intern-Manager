@@ -21,7 +21,7 @@ namespace InternManager.Api.Controllers;
 public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBase
 {
     private const string SuperAdminRole = "SuperAdmin";
-    private const string AdminRole = "Admin";
+    private const string AdminRole = "Admin,SuperAdmin";
 
     /// <summary>
     /// Récupère le nombre de stagiaires actifs.

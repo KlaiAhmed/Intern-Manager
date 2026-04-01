@@ -6,13 +6,19 @@ export interface User {
   name: string
   email: string
   role: string
-  status: 'active' | 'inactive' | 'archived'
+  status: 'active' | 'archived'
   department: string
   created: string
 }
 
+export interface DepartmentOption {
+  id: string
+  name: string
+}
+
 interface UseUserManagementReturn {
   users: User[]
+  departments: DepartmentOption[]
   loading: boolean
   error: string | null
   page: number
@@ -32,20 +38,90 @@ interface UseUserManagementReturn {
   deleteUser: (id: string) => Promise<void>
 }
 
+const guidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isGuid(value: string): boolean {
+  return guidPattern.test(value.trim())
+}
+
+function normalizeStatus(status: string | undefined): User['status'] {
+  const normalized = String(status ?? '').trim().toLowerCase()
+  return normalized === 'archived' || normalized === 'inactive' ? 'archived' : 'active'
+}
+
+function parseDepartmentOptions(payload: unknown): DepartmentOption[] {
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null
+        }
+
+        const record = item as Record<string, unknown>
+        const id = String(record.id ?? '')
+        const name = String(record.name ?? '')
+
+        if (!id || !name) {
+          return null
+        }
+
+        return { id, name }
+      })
+      .filter((item): item is DepartmentOption => item !== null)
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    if (Array.isArray(record.data)) {
+      return parseDepartmentOptions(record.data)
+    }
+  }
+
+  return []
+}
+
+function buildUserUpsertPayload(userData: Partial<Omit<User, 'id' | 'created'>>): Record<string, string> {
+  const payload: Record<string, string> = {}
+
+  if (typeof userData.name === 'string' && userData.name.trim()) {
+    payload.name = userData.name.trim()
+  }
+
+  if (typeof userData.email === 'string' && userData.email.trim()) {
+    payload.email = userData.email.trim()
+  }
+
+  if (typeof userData.role === 'string' && userData.role.trim()) {
+    payload.role = userData.role.trim()
+  }
+
+  if (typeof userData.status === 'string' && userData.status.trim()) {
+    payload.status = normalizeStatus(userData.status)
+  }
+
+  if (typeof userData.department === 'string' && isGuid(userData.department)) {
+    payload.department = userData.department.trim()
+  }
+
+  return payload
+}
+
 const mapApiUserToUser = (apiUser: Record<string, unknown>): User => ({
   id: String(apiUser.id ?? ''),
   name: String(apiUser.name ?? `${apiUser.firstName ?? ''} ${apiUser.lastName ?? ''}`.trim()),
   email: String(apiUser.email ?? ''),
   role: String(apiUser.role ?? ''),
-  status: (apiUser.status as 'active' | 'inactive' | 'archived') || 'active',
+  status: normalizeStatus(String(apiUser.status ?? 'active')),
   department: String(apiUser.department ?? ''),
   created: String(apiUser.createdAt ?? apiUser.created ?? new Date().toISOString()),
 })
 
 export function useUserManagement(): UseUserManagementReturn {
-  const api = useDashboardApi()
+  const { get, post, patch, del } = useDashboardApi()
 
   const [users, setUsers] = useState<User[]>([])
+  const [departments, setDepartments] = useState<DepartmentOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -69,7 +145,7 @@ export function useUserManagement(): UseUserManagementReturn {
       if (currentFilters.department) params.set('department', currentFilters.department)
       if (currentFilters.search) params.set('search', currentFilters.search)
 
-      const result = await api.get<{ data: Record<string, unknown>[]; total: number }>(`/api/users?${params.toString()}`)
+      const result = await get<{ data: Record<string, unknown>[]; total: number }>(`/api/users?${params.toString()}`)
       const mappedUsers = (result.data ?? []).map(mapApiUserToUser)
       setUsers(mappedUsers)
       setTotalPages(Math.max(1, Math.ceil((result.total ?? 0) / 10)))
@@ -78,7 +154,16 @@ export function useUserManagement(): UseUserManagementReturn {
     } finally {
       setLoading(false)
     }
-  }, [api])
+  }, [get])
+
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const result = await get<unknown>('/api/admin/settings/departments')
+      setDepartments(parseDepartmentOptions(result))
+    } catch {
+      setDepartments([])
+    }
+  }, [get])
 
   const setFilters = useCallback((newFilters: Partial<typeof filters>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }))
@@ -96,24 +181,28 @@ export function useUserManagement(): UseUserManagementReturn {
   }, [fetchUsers, page, filters])
 
   const createUser = useCallback(async (userData: Omit<User, 'id' | 'created'>) => {
-    await api.post('/api/users', userData)
+    await post('/api/users', buildUserUpsertPayload(userData))
     await refresh()
-  }, [api, refresh])
+  }, [post, refresh])
 
   const updateUser = useCallback(async (id: string, userData: Partial<User>) => {
-    await api.patch(`/api/users/${id}`, userData)
+    await patch(`/api/users/${id}`, buildUserUpsertPayload(userData))
     await refresh()
-  }, [api, refresh])
+  }, [patch, refresh])
 
   const archiveUser = useCallback(async (id: string) => {
-    await api.patch(`/api/users/${id}`, { status: 'archived' })
+    await patch(`/api/users/${id}/archive`, {})
     await refresh()
-  }, [api, refresh])
+  }, [patch, refresh])
 
   const deleteUser = useCallback(async (id: string) => {
-    await api.del(`/api/users/${id}`)
+    await del(`/api/users/${id}`)
     await refresh()
-  }, [api, refresh])
+  }, [del, refresh])
+
+  useEffect(() => {
+    void fetchDepartments()
+  }, [fetchDepartments])
 
   useEffect(() => {
     void fetchUsers(page, filters)
@@ -121,6 +210,7 @@ export function useUserManagement(): UseUserManagementReturn {
 
   return {
     users,
+    departments,
     loading,
     error,
     page,

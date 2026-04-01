@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { apiFetch } from '../../../shared/api/apiClient'
 import { getCsrfCookieToken } from '../../../lib/auth'
 
@@ -218,5 +218,8 @@ export function useDashboardApi() {
     return parseJsonBody<T>(response)
   }, [])
 
-  return { get, post, patch, del, postFormData }
+  return useMemo(
+    () => ({ get, post, patch, del, postFormData }),
+    [get, post, patch, del, postFormData]
+  )
 }

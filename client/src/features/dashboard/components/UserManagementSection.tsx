@@ -11,6 +11,7 @@ export function UserManagementSection() {
   const { t } = useI18n()
   const {
     users,
+    departments,
     loading,
     error,
     page,
@@ -30,7 +31,7 @@ export function UserManagementSection() {
     name: '',
     email: '',
     role: 'intern',
-    status: 'active' as 'active' | 'inactive' | 'archived',
+    status: 'active' as 'active' | 'archived',
     department: '',
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -45,7 +46,7 @@ export function UserManagementSection() {
 
   const statuses = [
     { value: 'active', label: t('dashboard.admin.statusActive') },
-    { value: 'inactive', label: t('dashboard.admin.statusArchived') },
+    { value: 'archived', label: t('dashboard.admin.statusArchived') },
   ]
 
   const getRoleBadgeClass = (role: string) => {
@@ -88,13 +89,18 @@ export function UserManagementSection() {
   }
 
   const handleEdit = (user: User) => {
+    const departmentMatch = departments.find(
+      (department) =>
+        department.name.trim().toLowerCase() === user.department.trim().toLowerCase()
+    )
+
     setEditingUser(user)
     setFormData({
       name: user.name,
       email: user.email,
       role: user.role,
       status: user.status,
-      department: user.department,
+      department: departmentMatch?.id ?? '',
     })
     setIsCreateModalOpen(true)
   }
@@ -162,6 +168,11 @@ export function UserManagementSection() {
             onChange={(e) => setFilters({ department: e.target.value })}
           >
             <option value="">{t('dashboard.admin.allDepartments')}</option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -328,13 +339,19 @@ export function UserManagementSection() {
 
           <div className="form-field">
             <label htmlFor="user-department">{t('dashboard.form.department')}</label>
-            <input
+            <select
               id="user-department"
-              type="text"
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
               className={formErrors.department ? 'input-error' : ''}
-            />
+            >
+              <option value="">{t('dashboard.admin.allDepartments')}</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
             {formErrors.department && <span className="field-error">{formErrors.department}</span>}
           </div>
 
@@ -359,7 +376,7 @@ export function UserManagementSection() {
               <select
                 id="user-status"
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' | 'archived' })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'archived' })}
               >
                 {statuses.map((status) => (
                   <option key={status.value} value={status.value}>
