@@ -15,8 +15,8 @@
   --intern-error: #ef4444;
   --intern-info: #06b6d4;
 
-  /* Warm neutrals */
-  --intern-bg-warm: #fefdfb;
+  /* Match the app background */
+  --intern-bg-warm: var(--color-bg, #fafafa);
   --intern-card-1: #fef3c7; /* amber */
   --intern-card-2: #dbeafe; /* blue */
   --intern-card-3: #fce7f3; /* pink */

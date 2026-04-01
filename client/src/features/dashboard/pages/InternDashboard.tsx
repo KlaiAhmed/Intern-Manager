@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useAuth } from '../../../shared/state/AuthContext'
 import { Modal } from '../components/Modal'
 import { useDashboardApi } from '../hooks/useDashboardApi'
 import './InternDashboard.css'
@@ -709,6 +710,7 @@ function MeetingCard({ meeting, loading, error, onRetry }: {
 // Main Dashboard Component
 export function InternDashboard() {
   const { t } = useI18n()
+  const { user } = useAuth()
   const api = useDashboardApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -922,7 +924,17 @@ export function InternDashboard() {
   }
 
   // Get user initials for avatar
-  const getUserInitials = () => 'IN'
+  const getUserInitials = () => {
+    if (!user?.name) return 'IN'
+    const names = user.name.split(' ')
+    return names.map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  // Get first name for greeting
+  const getFirstName = () => {
+    if (!user?.name) return ''
+    return user.name.split(' ')[0]
+  }
 
   return (
     <div className="intern-dashboard">
@@ -930,7 +942,7 @@ export function InternDashboard() {
         <div className="intern-welcome">
           <div className="intern-avatar">{getUserInitials()}</div>
           <div>
-            <h1 className="intern-greeting">Welcome back!</h1>
+            <h1 className="intern-greeting">Welcome back{getFirstName() ? `, ${getFirstName()}` : ''}!</h1>
             <p className="intern-greeting-sub">Here&apos;s your internship overview</p>
           </div>
         </div>
