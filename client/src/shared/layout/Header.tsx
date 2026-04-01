@@ -234,8 +234,8 @@ export function Header() {
                     </li>
                   ))}
 
-                {/* Dashboard link when logged in */}
-                {isLoggedIn && (
+                {/* Dashboard link when logged in AND on home page */}
+                {isLoggedIn && isHomePage && (
                   <li>
                     <button
                       type="button"
