@@ -32,21 +32,27 @@ interface UseSuperAdminStatsReturn {
   refreshCharts: () => Promise<void>
 }
 
-const readNumericValue = (payload: unknown): number => {
-  if (typeof payload === 'number') return payload
-  if (typeof payload === 'object' && payload !== null) {
-    const record = payload as Record<string, unknown>
-    const count = record.count
-    const value = record.value
-    if (typeof count === 'number') return count
-    if (typeof value === 'number') return value
+const extractNumber = (value: unknown): number => {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const parsed = parseInt(value, 10)
+    return isNaN(parsed) ? 0 : parsed
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    if (typeof record.count === 'number') return record.count
+    if (typeof record.value === 'number') return record.value
   }
   return 0
 }
 
-const readArrayData = <T,>(payload: { data?: T[] } | T[] | undefined): T[] => {
-  if (Array.isArray(payload)) return payload
-  return payload?.data ?? []
+const extractArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    if (Array.isArray(record.data)) return record.data as T[]
+  }
+  return []
 }
 
 export function useSuperAdminStats(): UseSuperAdminStatsReturn {
@@ -79,68 +85,60 @@ export function useSuperAdminStats(): UseSuperAdminStatsReturn {
   })
 
   const refreshKpis = useCallback(async () => {
-    setLoading(prev => ({ ...prev, kpis: true }))
-    setErrors(prev => ({ ...prev, kpis: null }))
+    setLoading((prev) => ({ ...prev, kpis: true }))
+    setErrors((prev) => ({ ...prev, kpis: null }))
     try {
-      const [
-        activeInternsRes,
-        activeSupervisorsRes,
-        totalMissionsRes,
-        activeAdminsRes,
-        totalInternsRes,
-        activeInternshipsRes,
-        pendingDeliverablesRes,
-      ] = await Promise.all([
-        api.get<{ count?: number } | number>('/api/stats/interns/active'),
-        api.get<{ count?: number } | number>('/api/stats/supervisors'),
-        api.get<{ count?: number } | number>('/api/stats/missions'),
-        api.get<{ count?: number } | number>('/api/stats/admins'),
-        api.get<{ count?: number } | number>('/api/stats/interns/count'),
-        api.get<{ count?: number } | number>('/api/stats/internships/active'),
-        api.get<{ count?: number } | number>('/api/stats/deliverables/pending'),
-      ])
+      const response = await api.get<{
+        activeInterns?: unknown
+        activeSupervisors?: unknown
+        totalMissions?: unknown
+        activeAdmins?: unknown
+        totalInterns?: unknown
+        activeInternships?: unknown
+        pendingDeliverables?: unknown
+      }>('/api/stats/dashboard')
 
       setStats({
-        activeInterns: readNumericValue(activeInternsRes),
-        activeSupervisors: readNumericValue(activeSupervisorsRes),
-        totalMissions: readNumericValue(totalMissionsRes),
-        activeAdmins: readNumericValue(activeAdminsRes),
-        totalInterns: readNumericValue(totalInternsRes),
-        activeInternships: readNumericValue(activeInternshipsRes),
-        pendingDeliverables: readNumericValue(pendingDeliverablesRes),
+        activeInterns: extractNumber(response.activeInterns ?? response.activeInterns),
+        activeSupervisors: extractNumber(response.activeSupervisors ?? response.activeSupervisors),
+        totalMissions: extractNumber(response.totalMissions ?? response.totalMissions),
+        activeAdmins: extractNumber(response.activeAdmins ?? response.activeAdmins),
+        totalInterns: extractNumber(response.totalInterns ?? response.totalInterns),
+        activeInternships: extractNumber(response.activeInternships ?? response.activeInternships),
+        pendingDeliverables: extractNumber(response.pendingDeliverables ?? response.pendingDeliverables),
       })
     } catch (err) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
         kpis: err instanceof Error ? err.message : 'Failed to load KPIs',
       }))
     } finally {
-      setLoading(prev => ({ ...prev, kpis: false }))
+      setLoading((prev) => ({ ...prev, kpis: false }))
     }
   }, [api])
 
   const refreshCharts = useCallback(async () => {
-    setLoading(prev => ({ ...prev, charts: true }))
-    setErrors(prev => ({ ...prev, charts: null }))
+    setLoading((prev) => ({ ...prev, charts: true }))
+    setErrors((prev) => ({ ...prev, charts: null }))
     try {
-      const [byDept, byStatus, byType] = await Promise.all([
-        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/interns-by-department'),
-        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/internships-by-status'),
-        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/internships-by-type'),
-      ])
+      const response = await api.get<{
+        internsByDepartment?: unknown
+        internshipsByStatus?: unknown
+        internshipsByType?: unknown
+      }>('/api/stats/charts')
 
       setCharts({
-        internsByDepartment: readArrayData(byDept),
-        internshipsByStatus: readArrayData(byStatus),
-        internshipsByType: readArrayData(byType),
+        internsByDepartment: extractArray(response.internsByDepartment),
+        internshipsByStatus: extractArray(response.internshipsByStatus),
+        internshipsByType: extractArray(response.internshipsByType),
       })
     } catch (err) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
         charts: err instanceof Error ? err.message : 'Failed to load charts',
       }))
     } finally {
-      setLoading(prev => ({ ...prev, charts: false }))
+      setLoading((prev) => ({ ...prev, charts: false }))
     }
   }, [api])
 
