@@ -415,6 +415,7 @@ export function Header() {
                         viewBox="0 0 24 24"
                         focusable="false"
                         aria-hidden="true"
+                  fill="currentColor"
                       >
                         <path d="M12 12a4 4 0 1 0-4-4a4 4 0 0 0 4 4Zm0 2c-4.1 0-7.4 2.2-7.4 4.9V21h14.8v-2.1c0-2.7-3.3-4.9-7.4-4.9Z" />
                       </svg>
