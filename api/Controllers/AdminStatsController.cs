@@ -185,7 +185,12 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     {
         var count = await dbContext.Users
             .AsNoTracking()
-            .CountAsync(user => user.Role == UserRole.Intern && user.Status == UserStatus.Active, cancellationToken);
+            .Join(
+                dbContext.InternProfiles.AsNoTracking(),
+                user => user.Id,
+                profile => profile.InternId,
+                (user, profile) => new { user, profile })
+            .CountAsync(item => item.user.Role == UserRole.Intern && item.profile.Status == InternLifecycleStatus.ACTIVE, cancellationToken);
 
         return Ok(new { count });
     }
@@ -210,13 +215,17 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternsByDepartment(CancellationToken cancellationToken)
     {
-        var data = await dbContext.Users
+        var data = await dbContext.InternProfiles
             .AsNoTracking()
-            .Where(user => user.Role == UserRole.Intern && user.Status == UserStatus.Active)
-            .Select(user => new
+            .Include(profile => profile.Intern)
+            .ThenInclude(intern => intern!.Department)
+            .Where(profile => profile.Status == InternLifecycleStatus.ACTIVE &&
+                              profile.Intern != null &&
+                              profile.Intern.Role == UserRole.Intern)
+            .Select(profile => new
             {
-                DepartmentName = user.Department != null
-                    ? user.Department.Name
+                DepartmentName = profile.Intern!.Department != null
+                    ? profile.Intern.Department.Name
                     : null
             })
             .GroupBy(entry => string.IsNullOrWhiteSpace(entry.DepartmentName) ? "Unassigned" : entry.DepartmentName!)
@@ -252,10 +261,11 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternshipsByStatus(CancellationToken cancellationToken)
     {
-        var raw = await dbContext.Users
+        var raw = await dbContext.InternProfiles
             .AsNoTracking()
-            .Where(user => user.Role == UserRole.Intern)
-            .GroupBy(user => user.Status)
+            .Include(profile => profile.Intern)
+            .Where(profile => profile.Intern != null && profile.Intern.Role == UserRole.Intern)
+            .GroupBy(profile => profile.Status)
             .Select(group => new
             {
                 status = group.Key,
@@ -266,7 +276,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
         var data = raw
             .Select(item => new
             {
-                name = item.status.ToString().ToLowerInvariant(),
+                name = item.status.ToString(),
                 item.value
             })
             .OrderByDescending(item => item.value)

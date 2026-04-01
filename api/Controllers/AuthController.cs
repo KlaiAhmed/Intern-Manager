@@ -22,6 +22,8 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur API qui gère le cycle de session utilisateur en s appuyant sur <see cref="IAuthService"/>.
 /// </summary>
 /// <param name="authService">Service métier responsable de la création et de la révocation des sessions.</param>
+/// <param name="passwordResetService">Service métier responsable des jetons de réinitialisation de mot de passe.</param>
+/// <param name="dbContext">Contexte EF Core utilisé pour les opérations de lecture/écriture liées à l authentification.</param>
 [ApiController]
 [Route("auth")]
 public sealed class AuthController(
@@ -130,6 +132,7 @@ public sealed class AuthController(
 
         var user = new User
         {
+            Id = Guid.NewGuid(),
             FirstName = firstName,
             LastName = lastName,
             Email = normalizedEmail,
@@ -139,6 +142,25 @@ public sealed class AuthController(
         };
 
         dbContext.Users.Add(user);
+
+        if (requestedRole == UserRole.Intern)
+        {
+            dbContext.InternProfiles.Add(new InternProfile
+            {
+                Id = Guid.NewGuid(),
+                InternId = user.Id,
+                School = string.Empty,
+                Specialty = string.Empty,
+                CompetenciesJson = "[]",
+                Experience = string.Empty,
+                CvFileUrl = null,
+                Status = InternLifecycleStatus.INCOMPLETE,
+                StartDate = null,
+                EndDate = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
 
         try
         {
@@ -161,6 +183,27 @@ public sealed class AuthController(
         var result = ToAuthMeResponse(user);
 
         return Created("/auth/me", result);
+    }
+
+    /// <summary>
+    /// Alias explicite de l endpoint signup pour compatibilite avec les clients attendant /auth/register.
+    /// </summary>
+    /// <param name="request">Objet contenant les informations du nouveau compte.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du compte créé.</returns>
+    /// <response code="201">Compte créé avec succès.</response>
+    /// <response code="400">Données invalides ou rôle non autorisé.</response>
+    /// <response code="409">Un compte existe déjà avec cet email.</response>
+    [AllowAnonymous]
+    [HttpPost("register", Name = "Register")]
+    [HttpPost("/api/auth/register")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> Register([FromBody] SignupRequest request, CancellationToken cancellationToken)
+    {
+        return Signup(request, cancellationToken);
     }
 
     /// <summary>

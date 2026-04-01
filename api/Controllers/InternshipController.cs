@@ -62,6 +62,10 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        var profile = await dbContext.InternProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InternId == internId.Value, cancellationToken);
+
         var missionDeliverables = mission is null
             ? []
             : await dbContext.Deliverables
@@ -73,25 +77,13 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             ? 0
             : (int)Math.Round(missionDeliverables.Average(item => Math.Clamp(item.Progress, 0, 100)));
 
-        var startDate = mission?.CreatedAt ?? intern.CreatedAt;
-        var endDate = missionDeliverables
-            .Where(item => item.DueDate.HasValue)
-            .Select(item => item.DueDate!.Value)
-            .OrderByDescending(date => date)
-            .FirstOrDefault();
-
-        if (endDate == default)
-        {
-            endDate = startDate.AddDays(90);
-        }
+        var lifecycleStatus = profile?.Status ?? InternLifecycleStatus.INCOMPLETE;
+        var startDate = profile?.StartDate;
+        var endDate = profile?.EndDate;
 
         var supervisorName = mission?.Supervisor is null
             ? string.Empty
             : $"{mission.Supervisor.FirstName} {mission.Supervisor.LastName}".Trim();
-
-        var status = !string.IsNullOrWhiteSpace(mission?.Status)
-            ? mission.Status
-            : intern.Status.ToString().ToLowerInvariant();
 
         return Ok(new
         {
@@ -101,7 +93,7 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             department = intern.Department?.Name ?? string.Empty,
             startDate,
             endDate,
-            status,
+            status = lifecycleStatus.ToString(),
             progress
         });
     }

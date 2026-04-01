@@ -225,6 +225,25 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 
         dbContext.Users.Add(user);
 
+        if (parsedRole == UserRole.Intern)
+        {
+            dbContext.InternProfiles.Add(new InternProfile
+            {
+                Id = Guid.NewGuid(),
+                InternId = user.Id,
+                School = string.Empty,
+                Specialty = string.Empty,
+                CompetenciesJson = "[]",
+                Experience = string.Empty,
+                CvFileUrl = null,
+                Status = InternLifecycleStatus.INCOMPLETE,
+                StartDate = null,
+                EndDate = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+
         var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
         var actorName = UserContextHelper.ResolveCurrentActorName(User);
         dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.create", $"user:{user.Id}"));
@@ -381,6 +400,34 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             updatedFields.Add("department");
         }
 
+        if (user.Role == UserRole.Intern)
+        {
+            var profileExists = await dbContext.InternProfiles
+                .AsNoTracking()
+                .AnyAsync(item => item.InternId == user.Id, cancellationToken);
+
+            if (!profileExists)
+            {
+                dbContext.InternProfiles.Add(new InternProfile
+                {
+                    Id = Guid.NewGuid(),
+                    InternId = user.Id,
+                    School = string.Empty,
+                    Specialty = string.Empty,
+                    CompetenciesJson = "[]",
+                    Experience = string.Empty,
+                    CvFileUrl = null,
+                    Status = InternLifecycleStatus.INCOMPLETE,
+                    StartDate = null,
+                    EndDate = null,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                updatedFields.Add("internProfile");
+            }
+        }
+
         if (updatedFields.Count > 0)
         {
             var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
@@ -417,6 +464,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ArchiveUser(Guid id, CancellationToken cancellationToken)
     {
         var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
@@ -457,6 +505,42 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot archive SuperAdmin users." });
         }
 
+        InternProfile? internProfile = null;
+        if (user.Role == UserRole.Intern)
+        {
+            internProfile = await dbContext.InternProfiles
+                .FirstOrDefaultAsync(item => item.InternId == user.Id, cancellationToken);
+
+            if (internProfile is null)
+            {
+                internProfile = new InternProfile
+                {
+                    Id = Guid.NewGuid(),
+                    InternId = user.Id,
+                    School = string.Empty,
+                    Specialty = string.Empty,
+                    CompetenciesJson = "[]",
+                    Experience = string.Empty,
+                    CvFileUrl = null,
+                    Status = InternLifecycleStatus.INCOMPLETE,
+                    StartDate = null,
+                    EndDate = null,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                dbContext.InternProfiles.Add(internProfile);
+            }
+
+            if (internProfile.Status != InternLifecycleStatus.COMPLETED && internProfile.Status != InternLifecycleStatus.ARCHIVED)
+            {
+                return StatusCode(StatusCodes.Status409Conflict, new
+                {
+                    message = "Intern can be archived only after lifecycle status reaches COMPLETED."
+                });
+            }
+        }
+
         if (user.Status == UserStatus.Archived)
         {
             return Ok(ToDashboardUser(user, user.Department?.Name));
@@ -471,6 +555,12 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 
             // Explicit self-archive handling: status update always occurs after audit insert.
             user.Status = UserStatus.Archived;
+
+            if (internProfile is not null)
+            {
+                internProfile.Status = InternLifecycleStatus.ARCHIVED;
+            }
+
             await dbContext.SaveChangesAsync(cancellationToken);
 
             await tx.CommitAsync(cancellationToken);

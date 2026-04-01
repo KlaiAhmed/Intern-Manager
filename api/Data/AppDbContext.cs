@@ -4,6 +4,7 @@
 /// 📦 Contient   : [AppDbContext]
 /// </summary>
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Data;
@@ -518,6 +519,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(profile => profile.CvFileUrl)
                 .HasMaxLength(2048);
 
+            entity.Property(profile => profile.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(InternLifecycleStatus.INCOMPLETE);
+
+            entity.Property(profile => profile.StartDate);
+
+            entity.Property(profile => profile.EndDate);
+
             entity.Property(profile => profile.CompetenciesJson)
                 .HasDefaultValue("[]");
 
@@ -531,6 +542,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.HasIndex(profile => profile.InternId)
                 .IsUnique();
+
+            entity.HasIndex(profile => profile.Status);
+
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_InternProfiles_Status_StartDate",
+                    "([Status] NOT IN ('INCOMPLETE','PENDING') OR ([StartDate] IS NULL AND [EndDate] IS NULL))");
+            });
 
             entity.HasOne(profile => profile.Intern)
                 .WithMany()

@@ -3,6 +3,7 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -15,10 +16,14 @@ namespace InternManager.Api.Controllers;
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
+/// <param name="notificationService">Service de notifications in-app.</param>
 [ApiController]
 [Route("api/intern/me/profile")]
 [Authorize(Roles = "Intern")]
-public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvironment environment) : ControllerBase
+public sealed class InternProfileController(
+    AppDbContext dbContext,
+    IWebHostEnvironment environment,
+    INotificationService notificationService) : ControllerBase
 {
     private const long MaxCvUploadBytes = 5 * 1024 * 1024;
 
@@ -292,6 +297,11 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
 
         var profile = await EnsureProfileAsync(internId.Value, cancellationToken);
 
+        if (profile.Status is InternLifecycleStatus.ACTIVE or InternLifecycleStatus.COMPLETED or InternLifecycleStatus.ARCHIVED)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new { message = $"CV upload is not allowed when intern status is {profile.Status}." });
+        }
+
         var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "cv");
         Directory.CreateDirectory(uploadsDirectory);
 
@@ -310,6 +320,14 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
 
         profile.CvFileUrl = $"/uploads/cv/{storedFileName}";
 
+        if (profile.Status == InternLifecycleStatus.INCOMPLETE)
+        {
+            profile.Status = InternLifecycleStatus.PENDING;
+        }
+
+        profile.StartDate = null;
+        profile.EndDate = null;
+
         dbContext.AuditLogs.Add(new AuditLog
         {
             ActorUserId = internId,
@@ -319,9 +337,27 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
             Timestamp = DateTime.UtcNow
         });
 
+        notificationService.QueueNotification(
+            internId.Value,
+            "intern.cv.submitted",
+            "CV submitted",
+            "Your CV has been submitted successfully. You will be notified when a supervisor assigns you to a project.",
+            $"intern:{internId.Value}");
+
+        notificationService.QueueNotification(
+            internId.Value,
+            "intern.profile.pending-assignment",
+            "Profile awaiting assignment",
+            "Your profile is awaiting assignment",
+            $"intern:{internId.Value}");
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { fileUrl = profile.CvFileUrl });
+        return Ok(new
+        {
+            fileUrl = profile.CvFileUrl,
+            status = profile.Status.ToString()
+        });
     }
 
     /// <summary>
@@ -386,6 +422,9 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
             Specialty = string.Empty,
             CompetenciesJson = "[]",
             Experience = string.Empty,
+            Status = InternLifecycleStatus.INCOMPLETE,
+            StartDate = null,
+            EndDate = null,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -408,6 +447,9 @@ public sealed class InternProfileController(AppDbContext dbContext, IWebHostEnvi
             competencies,
             experience = profile.Experience,
             cvFileUrl = profile.CvFileUrl,
+            status = profile.Status.ToString(),
+            startDate = profile.StartDate,
+            endDate = profile.EndDate,
             skills
         };
     }

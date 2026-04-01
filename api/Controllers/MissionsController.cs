@@ -126,6 +126,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateMission([FromBody] CreateMissionRequest request, CancellationToken cancellationToken)
     {
         var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
@@ -146,20 +147,10 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         if (internId.HasValue)
         {
-            var internExists = await dbContext.Users
-                .AsNoTracking()
-                .AnyAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
-
-            if (!internExists)
+            return StatusCode(StatusCodes.Status409Conflict, new
             {
-                return BadRequest(new { message = "Intern not found." });
-            }
-
-            var canAssignIntern = await CanAssignInternAsync(supervisorId.Value, internId.Value, cancellationToken);
-            if (!canAssignIntern)
-            {
-                return Forbid();
-            }
+                message = "Direct intern assignment on mission creation is disabled. Create the mission as template and assign via POST /api/stages/assign."
+            });
         }
 
         var skillValues = (request.Skills ?? Array.Empty<string>())
@@ -172,13 +163,13 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         {
             Id = Guid.NewGuid(),
             SupervisorId = supervisorId.Value,
-            InternId = internId,
+            InternId = null,
             Title = request.Title.Trim(),
             Description = request.Description?.Trim() ?? string.Empty,
             SkillsJson = JsonSerializer.Serialize(skillValues),
             Tools = request.Tools?.Trim() ?? string.Empty,
             Level = request.Level?.Trim() ?? string.Empty,
-            Status = internId.HasValue ? "active" : "template",
+            Status = "template",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -196,7 +187,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 Id = Guid.NewGuid(),
                 MissionId = mission.Id,
                 SupervisorId = supervisorId.Value,
-                InternId = internId,
+                InternId = null,
                 Title = deliverableTitles[index],
                 Status = "pending",
                 FileUrl = string.Empty,
@@ -207,20 +198,6 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             };
 
             dbContext.Deliverables.Add(deliverable);
-
-            if (internId.HasValue)
-            {
-                dbContext.InternTasks.Add(new InternTask
-                {
-                    Id = Guid.NewGuid(),
-                    InternId = internId.Value,
-                    DeliverableId = deliverable.Id,
-                    Title = deliverable.Title,
-                    DueDate = deliverable.DueDate,
-                    IsComplete = false,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
         }
 
         dbContext.AuditLogs.Add(new AuditLog
@@ -243,16 +220,6 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             ChangedBy = UserContextHelper.ResolveCurrentActorName(User),
             ChangedAt = DateTime.UtcNow
         });
-
-        if (internId.HasValue)
-        {
-            notificationService.QueueNotification(
-                internId.Value,
-                "mission.assigned",
-                "New mission assigned",
-                $"A mission titled '{mission.Title}' has been assigned to you.",
-                $"mission:{mission.Id}");
-        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -425,6 +392,37 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 return BadRequest(new { message = "Invalid mission status." });
             }
 
+            if (normalizedStatus == "active")
+            {
+                return StatusCode(StatusCodes.Status409Conflict, new
+                {
+                    message = "Mission activation is handled by POST /api/stages/assign to enforce lifecycle transitions."
+                });
+            }
+
+            if (normalizedStatus == "completed" && mission.InternId.HasValue)
+            {
+                var profile = await dbContext.InternProfiles
+                    .FirstOrDefaultAsync(item => item.InternId == mission.InternId.Value, cancellationToken);
+
+                if (profile is null || profile.Status != InternLifecycleStatus.ACTIVE)
+                {
+                    return StatusCode(StatusCodes.Status409Conflict, new
+                    {
+                        message = "Only ACTIVE interns can transition to COMPLETED."
+                    });
+                }
+
+                profile.Status = InternLifecycleStatus.COMPLETED;
+
+                notificationService.QueueNotification(
+                    mission.InternId.Value,
+                    "intern.status.completed",
+                    "Internship completed",
+                    "Congratulations. Your internship status is now COMPLETED.",
+                    $"mission:{mission.Id}");
+            }
+
             if (!string.Equals(mission.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
             {
                 historyEntries.Add(BuildHistoryEntry(mission.Id, "status", mission.Status, normalizedStatus, currentSupervisorId));
@@ -489,6 +487,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignMissionIntern(Guid id, [FromBody] AssignMissionRequest request, CancellationToken cancellationToken)
     {
         var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
@@ -512,20 +511,10 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         if (requestedInternId.HasValue)
         {
-            var internExists = await dbContext.Users
-                .AsNoTracking()
-                .AnyAsync(user => user.Id == requestedInternId.Value && user.Role == UserRole.Intern, cancellationToken);
-
-            if (!internExists)
+            return StatusCode(StatusCodes.Status409Conflict, new
             {
-                return BadRequest(new { message = "Intern not found." });
-            }
-
-            var canAssignIntern = await CanAssignInternAsync(supervisorId.Value, requestedInternId.Value, cancellationToken);
-            if (!canAssignIntern)
-            {
-                return Forbid();
-            }
+                message = "Intern assignment is now handled by POST /api/stages/assign to enforce lifecycle transitions."
+            });
         }
 
         if (mission.InternId == requestedInternId)

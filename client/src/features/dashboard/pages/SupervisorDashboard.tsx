@@ -53,6 +53,12 @@ interface Skill {
   name: string
 }
 
+interface PendingInternOption {
+  id: string
+  fullName: string
+  status: 'PENDING' | 'INCOMPLETE' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' | string
+}
+
 /**
  * Tableau de bord pour le rôle supervisor.
  * Gère les missions, les livrables, les évaluations et les réunions.
@@ -83,6 +89,8 @@ export function SupervisorDashboard() {
   const [pendingEvaluations, setPendingEvaluations] = useState<Evaluation[]>([])
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [skills, setSkills] = useState<Skill[]>([])
+  const [pendingInternOptions, setPendingInternOptions] = useState<PendingInternOption[]>([])
+  const [successToast, setSuccessToast] = useState<string | null>(null)
 
   // Modal states
   const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false)
@@ -100,6 +108,11 @@ export function SupervisorDashboard() {
     tools: '',
     level: 'junior',
     deliverables: '',
+  })
+  const [assignmentFormData, setAssignmentFormData] = useState({
+    internId: '',
+    startDate: '',
+    endDate: '',
   })
   const [meetingFormData, setMeetingFormData] = useState({ internId: '', date: '', note: '' })
   const [validationComment, setValidationComment] = useState('')
@@ -225,6 +238,15 @@ export function SupervisorDashboard() {
     }
   }
 
+  const loadPendingInternOptions = async () => {
+    try {
+      const result = await api.get<{ data?: PendingInternOption[] }>('/api/interns?status=PENDING&limit=200')
+      setPendingInternOptions(result.data ?? [])
+    } catch {
+      setPendingInternOptions([])
+    }
+  }
+
   useEffect(() => {
     void loadKpis()
     void loadInterns()
@@ -233,24 +255,73 @@ export function SupervisorDashboard() {
     void loadEvaluations()
     void loadMeetings()
     void loadSkills()
+    void loadPendingInternOptions()
   }, [])
+
+  useEffect(() => {
+    if (!successToast) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setSuccessToast(null)
+    }, 3500)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [successToast])
 
   const handleCreateMission = async () => {
     const errors: Record<string, string> = {}
     if (!missionFormData.title.trim()) errors.title = t('dashboard.form.required')
+
+    if (assignmentFormData.internId) {
+      if (!assignmentFormData.startDate) {
+        errors.startDate = t('dashboard.form.required')
+      }
+
+      if (!assignmentFormData.endDate) {
+        errors.endDate = t('dashboard.form.required')
+      }
+
+      if (assignmentFormData.startDate && assignmentFormData.endDate && assignmentFormData.endDate < assignmentFormData.startDate) {
+        errors.endDate = 'End date must be greater than or equal to start date.'
+      }
+    }
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       return
     }
 
     try {
-      await api.post('/api/missions', {
+      const mission = await api.post<{ id: string; title?: string }>('/api/missions', {
         ...missionFormData,
         deliverables: missionFormData.deliverables.split('\n').filter(Boolean),
       })
+
+      if (assignmentFormData.internId) {
+        await api.post('/api/stages/assign', {
+          missionId: mission.id,
+          internId: assignmentFormData.internId,
+          startDate: new Date(assignmentFormData.startDate).toISOString(),
+          endDate: new Date(assignmentFormData.endDate).toISOString(),
+        })
+
+        const internName = pendingInternOptions.find((intern) => intern.id === assignmentFormData.internId)?.fullName ?? 'Intern'
+        const missionName = mission.title ?? missionFormData.title
+        setSuccessToast(`Intern ${internName} has been activated and assigned to ${missionName}.`)
+      }
+
       setIsCreateMissionModalOpen(false)
       setMissionFormData({ title: '', description: '', skills: [], tools: '', level: 'junior', deliverables: '' })
+      setAssignmentFormData({ internId: '', startDate: '', endDate: '' })
+      setFormErrors({})
       void loadMissions()
+      void loadInterns()
+      void loadKpis()
+      void loadPendingInternOptions()
     } catch (error) {
       setFormErrors({ submit: getErrorMessage(error) })
     }
@@ -353,6 +424,11 @@ export function SupervisorDashboard() {
     setFormErrors({})
   }
 
+  const closeCreateMissionModal = () => {
+    setIsCreateMissionModalOpen(false)
+    setFormErrors({})
+  }
+
   const missionColumns = [
     { key: 'title', label: t('dashboard.table.title') },
     { key: 'internName', label: t('dashboard.table.intern') },
@@ -368,6 +444,12 @@ export function SupervisorDashboard() {
 
   return (
     <div className="dashboard-container">
+      {successToast && (
+        <div className="supervisor-success-toast" role="status" aria-live="polite">
+          {successToast}
+        </div>
+      )}
+
       <header className="dashboard-header">
         <h1 className="dashboard-title">{t('dashboard.supervisor.title')}</h1>
       </header>
@@ -538,7 +620,7 @@ export function SupervisorDashboard() {
       </section>
 
       {/* Create Mission Modal */}
-      <Modal isOpen={isCreateMissionModalOpen} onClose={() => setIsCreateMissionModalOpen(false)} title={t('dashboard.supervisor.createMission')}>
+      <Modal isOpen={isCreateMissionModalOpen} onClose={closeCreateMissionModal} title={t('dashboard.supervisor.createMission')}>
         <form className="modal-form" onSubmit={(e) => { e.preventDefault(); void handleCreateMission() }}>
           <div className="form-field">
             <label htmlFor="mission-title">{t('dashboard.form.title')}</label>
@@ -598,6 +680,52 @@ export function SupervisorDashboard() {
               <option value="senior">Senior</option>
             </select>
           </div>
+
+          <div className="form-field">
+            <label htmlFor="mission-pending-intern">Assign pending intern (optional)</label>
+            <select
+              id="mission-pending-intern"
+              value={assignmentFormData.internId}
+              onChange={(e) => setAssignmentFormData({ ...assignmentFormData, internId: e.target.value })}
+            >
+              <option value="">Create as template mission</option>
+              {pendingInternOptions.map((intern) => (
+                <option key={intern.id} value={intern.id}>
+                  {intern.fullName} - {intern.status}
+                </option>
+              ))}
+            </select>
+            <span className="field-helper">Only interns with status PENDING are shown.</span>
+          </div>
+
+          {assignmentFormData.internId && (
+            <>
+              <div className="form-field">
+                <label htmlFor="mission-start-date">Stage start date</label>
+                <input
+                  id="mission-start-date"
+                  type="date"
+                  value={assignmentFormData.startDate}
+                  onChange={(e) => setAssignmentFormData({ ...assignmentFormData, startDate: e.target.value })}
+                  className={formErrors.startDate ? 'input-error' : ''}
+                />
+                {formErrors.startDate && <span className="field-error">{formErrors.startDate}</span>}
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="mission-end-date">Stage end date</label>
+                <input
+                  id="mission-end-date"
+                  type="date"
+                  value={assignmentFormData.endDate}
+                  onChange={(e) => setAssignmentFormData({ ...assignmentFormData, endDate: e.target.value })}
+                  className={formErrors.endDate ? 'input-error' : ''}
+                />
+                {formErrors.endDate && <span className="field-error">{formErrors.endDate}</span>}
+              </div>
+            </>
+          )}
+
           <div className="form-field">
             <label htmlFor="mission-deliverables">{t('dashboard.form.deliverables')}</label>
             <textarea
@@ -610,7 +738,7 @@ export function SupervisorDashboard() {
           </div>
           {formErrors.submit && <p className="form-error">{formErrors.submit}</p>}
           <div className="modal-actions">
-            <button type="button" className="button button-secondary button-sm" onClick={() => setIsCreateMissionModalOpen(false)}>
+            <button type="button" className="button button-secondary button-sm" onClick={closeCreateMissionModal}>
               {t('dashboard.form.cancel')}
             </button>
             <button type="submit" className="button button-primary button-sm">

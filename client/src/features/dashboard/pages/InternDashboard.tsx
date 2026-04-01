@@ -3,6 +3,8 @@ import { useI18n } from '../../../shared/i18n/I18nContext'
 import { useAuth } from '../../../shared/state/AuthContext'
 import { Modal } from '../components/Modal'
 import { useDashboardApi } from '../hooks/useDashboardApi'
+import { apiBaseUrl } from '../../../shared/api/apiClient'
+import { getCsrfCookieToken } from '../../../lib/auth'
 import './InternDashboard.css'
 
 type TranslateFn = ReturnType<typeof useI18n>['t']
@@ -63,6 +65,90 @@ interface Meeting {
   notes: string
 }
 
+type InternLifecycleStatus = 'INCOMPLETE' | 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+
+interface InternStatusResponse {
+  id: string
+  status: InternLifecycleStatus
+}
+
+interface NotificationItem {
+  id: string
+  type: string
+  message: string
+  title: string
+}
+
+interface InternProfileReadOnly {
+  school?: string
+  specialty?: string
+  experience?: string
+  cvFileUrl?: string | null
+}
+
+interface CvUploadResponse {
+  id?: string
+  status?: InternLifecycleStatus
+  cvFileUrl?: string
+}
+
+function uploadInternCvWithProgress(
+  internId: string,
+  file: File,
+  onProgress: (value: number) => void,
+): Promise<CvUploadResponse> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const formData = new FormData()
+    formData.append('file', file)
+
+    xhr.open('POST', `${apiBaseUrl}/api/interns/${internId}/upload-cv`)
+    xhr.withCredentials = true
+    xhr.setRequestHeader('Accept', 'application/json')
+
+    const csrfToken = getCsrfCookieToken()
+    if (csrfToken) {
+      xhr.setRequestHeader('X-CSRF-Token', csrfToken)
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+      }
+    }
+
+    xhr.onload = () => {
+      const responseText = xhr.responseText?.trim() ?? ''
+      let payload: Record<string, unknown> = {}
+
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText) as Record<string, unknown>
+        } catch {
+          payload = {}
+        }
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as CvUploadResponse)
+        return
+      }
+
+      const apiMessage = typeof payload.message === 'string' && payload.message.trim().length > 0
+        ? payload.message
+        : xhr.statusText
+
+      reject(new Error(apiMessage || 'CV upload failed.'))
+    }
+
+    xhr.onerror = () => {
+      reject(new Error('Network error while uploading CV.'))
+    }
+
+    xhr.send(formData)
+  })
+}
+
 // Icons as simple SVG components
 const Icons = {
   user: () => (
@@ -95,6 +181,228 @@ const Icons = {
       <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
     </svg>
   ),
+}
+
+function StatusGateLoading() {
+  return (
+    <div className="intern-dashboard status-gate-page">
+      <div className="status-gate-card">
+        <div className="status-gate-spinner" />
+        <h1 className="status-gate-title">Loading your internship status...</h1>
+      </div>
+    </div>
+  )
+}
+
+function CvUpload({
+  internId,
+  onUploaded,
+}: {
+  internId: string
+  onUploaded: (status: InternLifecycleStatus) => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const validateAndUpload = async (file: File) => {
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+      setError('Only PDF files are allowed.')
+      return false
+    }
+
+    setError(null)
+    setIsUploading(true)
+    setProgress(0)
+
+    try {
+      const response = await uploadInternCvWithProgress(internId, file, setProgress)
+      onUploaded(response.status ?? 'PENDING')
+      return true
+    } catch (uploadError) {
+      if (uploadError instanceof Error && uploadError.message.trim()) {
+        setError(uploadError.message)
+      } else {
+        setError('Unable to upload CV right now.')
+      }
+      return false
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    await validateAndUpload(file)
+    event.target.value = ''
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    const file = e.dataTransfer.files?.[0]
+    if (!file) return
+
+    await validateAndUpload(file)
+  }
+
+  return (
+    <div className="cv-upload-card">
+      <label
+        className={`cv-upload-dropzone ${isDragging ? 'drag-active' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(event) => {
+            void handleFileChange(event)
+          }}
+          disabled={isUploading}
+          className="cv-upload-input"
+        />
+        <div className="cv-upload-dropzone-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </div>
+        <p className="cv-upload-dropzone-text">Click or drag and drop your CV</p>
+        <p className="cv-upload-dropzone-hint">PDF files only, up to 10MB</p>
+
+        {error && <div className="cv-upload-dropzone-error">{error}</div>}
+      </label>
+
+      {isUploading && (
+        <div className="cv-upload-progress-wrap">
+          <div className="cv-upload-progress-track">
+            <div className="cv-upload-progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+          <span className="cv-upload-progress-value">{progress}%</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function IncompleteStatusView({
+  internId,
+  onUploaded,
+}: {
+  internId: string
+  onUploaded: (status: InternLifecycleStatus) => void
+}) {
+  return (
+    <div className="intern-dashboard status-gate-page">
+      <div className="status-gate-card">
+        <div className="status-gate-card-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
+          </svg>
+        </div>
+        <h1 className="status-gate-title">Complete your profile</h1>
+        <p className="status-gate-subtitle">
+          Upload your CV to move your profile to supervisor review
+        </p>
+        <CvUpload internId={internId} onUploaded={onUploaded} />
+      </div>
+    </div>
+  )
+}
+
+function PendingStatusView({
+  notificationMessage,
+  profile,
+}: {
+  notificationMessage: string
+  profile: InternProfileReadOnly | null
+}) {
+  const [showProfile, setShowProfile] = useState(false)
+
+  return (
+    <div className="intern-dashboard status-gate-page">
+      <div className="status-gate-card pending-status-card">
+        <div className="pending-status-header">
+          <div className="pending-indicator" aria-hidden="true" />
+          <h1 className="status-gate-title">Under review</h1>
+        </div>
+        <p className="status-gate-subtitle">
+          Your CV has been submitted and is being reviewed by our team
+        </p>
+        <p className="pending-notification-message">{notificationMessage}</p>
+
+        <div className="pending-actions">
+          <button
+            type="button"
+            className="pending-btn pending-btn-primary"
+            onClick={() => setShowProfile((currentValue) => !currentValue)}
+          >
+            {showProfile ? 'Hide profile' : 'View my profile'}
+          </button>
+        </div>
+
+        {showProfile && (
+          <div className="pending-profile-panel" aria-live="polite">
+            <div className="pending-profile-panel-grid">
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">School</span>
+                <span className="pending-profile-value">
+                  {profile?.school || <span className="pending-profile-value-empty">Not provided</span>}
+                </span>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">Specialty</span>
+                <span className="pending-profile-value">
+                  {profile?.specialty || <span className="pending-profile-value-empty">Not provided</span>}
+                </span>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">Experience</span>
+                <span className="pending-profile-value">
+                  {profile?.experience || <span className="pending-profile-value-empty">Not provided</span>}
+                </span>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">CV File</span>
+                <span className="pending-profile-value">
+                  {profile?.cvFileUrl ? (
+                    <a href={profile.cvFileUrl} target="_blank" rel="noreferrer">View uploaded CV</a>
+                  ) : (
+                    <span className="pending-profile-value-empty">Not uploaded</span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // Circular Progress Component
@@ -722,6 +1030,11 @@ export function InternDashboard() {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [nextMeeting, setNextMeeting] = useState<Meeting | null>(null)
   const [meetingsCount, setMeetingsCount] = useState(0)
+  const [internLifecycleStatus, setInternLifecycleStatus] = useState<InternLifecycleStatus | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [pendingNotificationMessage, setPendingNotificationMessage] = useState('Your profile is awaiting assignment')
+  const [pendingProfile, setPendingProfile] = useState<InternProfileReadOnly | null>(null)
 
   // Modal states
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false)
@@ -760,6 +1073,47 @@ export function InternDashboard() {
     communication: 0,
     deadlineRespect: 0,
     deliverableQuality: 0,
+  }
+
+  const loadInternLifecycleStatus = async () => {
+    if (!user?.id) {
+      setStatusError('Unable to resolve current intern id.')
+      setStatusLoading(false)
+      return
+    }
+
+    setStatusLoading(true)
+    setStatusError(null)
+
+    try {
+      const result = await api.get<InternStatusResponse>(`/api/interns/${user.id}/status`)
+      setInternLifecycleStatus(result.status)
+    } catch (error) {
+      setStatusError(getErrorMessage(error))
+    } finally {
+      setStatusLoading(false)
+    }
+  }
+
+  const loadPendingContext = async () => {
+    try {
+      const [notificationsResult, profileResult] = await Promise.all([
+        api.get<{ data?: NotificationItem[] }>('/api/notifications?unreadOnly=true&limit=20'),
+        api.get<InternProfileReadOnly>('/api/intern/me/profile'),
+      ])
+
+      setPendingProfile(profileResult)
+
+      const firstLifecycleNotification = (notificationsResult.data ?? []).find((item) =>
+        item.type === 'intern.profile.pending-assignment' || item.type === 'intern.cv.submitted')
+
+      if (firstLifecycleNotification?.message?.trim()) {
+        setPendingNotificationMessage(firstLifecycleNotification.message)
+      }
+    } catch {
+      setPendingProfile(null)
+      setPendingNotificationMessage('Your profile is awaiting assignment')
+    }
   }
 
   const loadInternship = async () => {
@@ -872,14 +1226,25 @@ export function InternDashboard() {
   }
 
   useEffect(() => {
-    void loadInternship()
-    void loadTasks()
-    void loadDeliverables()
-    void loadJournal()
-    void loadEvaluations()
-    void loadNextMeeting()
-    void loadMeetingsCount()
-  }, [])
+    void loadInternLifecycleStatus()
+  }, [user?.id])
+
+  useEffect(() => {
+    if (internLifecycleStatus === 'ACTIVE') {
+      void loadInternship()
+      void loadTasks()
+      void loadDeliverables()
+      void loadJournal()
+      void loadEvaluations()
+      void loadNextMeeting()
+      void loadMeetingsCount()
+      return
+    }
+
+    if (internLifecycleStatus === 'PENDING') {
+      void loadPendingContext()
+    }
+  }, [internLifecycleStatus])
 
   const handleCompleteTask = async (taskId: string) => {
     try {
@@ -934,6 +1299,65 @@ export function InternDashboard() {
   const getFirstName = () => {
     if (!user?.name) return ''
     return user.name.split(' ')[0]
+  }
+
+  if (statusLoading) {
+    return <StatusGateLoading />
+  }
+
+  if (statusError) {
+    return (
+      <div className="intern-dashboard status-gate-page">
+        <div className="status-gate-card">
+          <h1 className="status-gate-title">Unable to load your status</h1>
+          <p className="status-gate-subtitle">{statusError}</p>
+          <button className="error-retry-btn" onClick={() => { void loadInternLifecycleStatus() }}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user?.id) {
+    return (
+      <div className="intern-dashboard status-gate-page">
+        <div className="status-gate-card">
+          <h1 className="status-gate-title">Unable to load your profile</h1>
+        </div>
+      </div>
+    )
+  }
+
+  if (internLifecycleStatus === 'INCOMPLETE') {
+    return (
+      <IncompleteStatusView
+        internId={user.id}
+        onUploaded={(status) => {
+          setInternLifecycleStatus(status)
+          setPendingNotificationMessage('Your profile is awaiting assignment')
+          void loadPendingContext()
+        }}
+      />
+    )
+  }
+
+  if (internLifecycleStatus === 'PENDING') {
+    return (
+      <PendingStatusView
+        notificationMessage={pendingNotificationMessage}
+        profile={pendingProfile}
+      />
+    )
+  }
+
+  if (internLifecycleStatus === 'COMPLETED' || internLifecycleStatus === 'ARCHIVED') {
+    return (
+      <div className="intern-dashboard status-gate-page">
+        <div className="status-gate-card">
+          <h1 className="status-gate-title">Internship status: {internLifecycleStatus}</h1>
+          <p className="status-gate-subtitle">This dashboard is currently in read-only mode for your lifecycle state.</p>
+        </div>
+      </div>
+    )
   }
 
   return (

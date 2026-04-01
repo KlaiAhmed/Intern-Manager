@@ -1,3 +1,5 @@
+using InternManager.Api.Common.Enums;
+
 namespace InternManager.Api.Models.Entities;
 
 /// <summary>
@@ -18,6 +20,12 @@ public sealed class InternProfile
     public string Experience { get; set; } = string.Empty;
 
     public string? CvFileUrl { get; set; }
+
+    public InternLifecycleStatus Status { get; set; } = InternLifecycleStatus.INCOMPLETE;
+
+    public DateTime? StartDate { get; set; }
+
+    public DateTime? EndDate { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

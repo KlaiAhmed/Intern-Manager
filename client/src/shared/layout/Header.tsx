@@ -39,11 +39,24 @@ export function Header() {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [mobileSubmenu, setMobileSubmenu] = useState<MobileSubmenu>(null);
+  const [notifications] = useState<Array<{ id: string; title: string; message: string; isRead: boolean; createdAt: string }>>([]);
+  const [isNotificationsLoading] = useState(false);
+  const [notificationsError] = useState<string | null>(null);
   const lastScrollTopRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const unreadNotificationsCount = notifications.filter((item) => !item.isRead).length;
+
+  const formatNotificationDate = (rawDate: string): string => {
+    const parsedDate = new Date(rawDate);
+    if (Number.isNaN(parsedDate.getTime())) return "";
+    return parsedDate.toLocaleString();
+  };
 
   const toggleMobileSubmenu = (submenu: MobileSubmenu): void => {
     setMobileSubmenu((current) => (current === submenu ? null : submenu));
@@ -112,23 +125,24 @@ export function Header() {
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent): void => {
-      if (!userMenuRef.current) {
-        return;
-      }
-
       const target = event.target;
       if (!(target instanceof Node)) {
         return;
       }
 
-      if (!userMenuRef.current.contains(target)) {
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setIsUserMenuOpen(false);
+      }
+
+      if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(target)) {
+        setIsNotificationsOpen(false);
       }
     };
 
     const onEscape = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         setIsUserMenuOpen(false);
+        setIsNotificationsOpen(false);
       }
     };
 

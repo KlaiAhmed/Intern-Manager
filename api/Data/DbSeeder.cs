@@ -38,6 +38,7 @@ public static class DbSeeder
         await EnsureSupervisorRouterSchemaAsync(dbContext);
         await EnsureInternRouterSchemaAsync(dbContext);
         await EnsureExtendedFeatureSchemaAsync(dbContext);
+        await EnsureInternLifecycleSchemaAsync(dbContext);
 
         await SeedDefaultStatusReferencesAsync(dbContext, logger);
 
@@ -410,6 +411,9 @@ public static class DbSeeder
                     [CompetenciesJson] NVARCHAR(MAX) NOT NULL CONSTRAINT [DF_InternProfiles_CompetenciesJson] DEFAULT N'[]',
                     [Experience] NVARCHAR(3000) NOT NULL CONSTRAINT [DF_InternProfiles_Experience] DEFAULT N'',
                     [CvFileUrl] NVARCHAR(2048) NULL,
+                    [Status] NVARCHAR(32) NOT NULL CONSTRAINT [DF_InternProfiles_Status] DEFAULT N'INCOMPLETE',
+                    [StartDate] DATETIME2 NULL,
+                    [EndDate] DATETIME2 NULL,
                     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_InternProfiles_CreatedAt] DEFAULT GETUTCDATE(),
                     [UpdatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_InternProfiles_UpdatedAt] DEFAULT GETUTCDATE()
                 );
@@ -481,6 +485,12 @@ public static class DbSeeder
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[InternProfiles]') AND name = N'IX_InternProfiles_InternId')
             BEGIN
                 CREATE UNIQUE INDEX [IX_InternProfiles_InternId] ON [dbo].[InternProfiles]([InternId]);
+            END
+
+            IF COL_LENGTH('dbo.InternProfiles', 'Status') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[InternProfiles]') AND name = N'IX_InternProfiles_Status')
+            BEGIN
+                CREATE INDEX [IX_InternProfiles_Status] ON [dbo].[InternProfiles]([Status]);
             END
 
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[Notifications]') AND name = N'IX_Notifications_UserId')
@@ -590,6 +600,88 @@ public static class DbSeeder
         return dbContext.Database.ExecuteSqlRawAsync(sql);
     }
 
+    private static async Task EnsureInternLifecycleSchemaAsync(AppDbContext dbContext)
+    {
+        const string addColumnsSql = """
+            IF COL_LENGTH('dbo.InternProfiles', 'Status') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[InternProfiles]
+                ADD [Status] NVARCHAR(32) NOT NULL CONSTRAINT [DF_InternProfiles_Status] DEFAULT N'INCOMPLETE';
+            END
+
+            IF COL_LENGTH('dbo.InternProfiles', 'StartDate') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[InternProfiles] ADD [StartDate] DATETIME2 NULL;
+            END
+
+            IF COL_LENGTH('dbo.InternProfiles', 'EndDate') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[InternProfiles] ADD [EndDate] DATETIME2 NULL;
+            END
+            """;
+
+        const string finalizeSql = """
+            IF COL_LENGTH('dbo.InternProfiles', 'Status') IS NOT NULL
+            BEGIN
+                DECLARE @StartDateDefaultConstraintName NVARCHAR(128);
+                SELECT @StartDateDefaultConstraintName = [dc].[name]
+                FROM [sys].[default_constraints] AS [dc]
+                INNER JOIN [sys].[columns] AS [c]
+                    ON [c].[default_object_id] = [dc].[object_id]
+                INNER JOIN [sys].[tables] AS [t]
+                    ON [t].[object_id] = [c].[object_id]
+                WHERE [t].[name] = N'InternProfiles' AND [c].[name] = N'StartDate';
+
+                IF @StartDateDefaultConstraintName IS NOT NULL
+                BEGIN
+                    EXEC(N'ALTER TABLE [dbo].[InternProfiles] DROP CONSTRAINT [' + @StartDateDefaultConstraintName + N']');
+                END
+
+                DECLARE @EndDateDefaultConstraintName NVARCHAR(128);
+                SELECT @EndDateDefaultConstraintName = [dc].[name]
+                FROM [sys].[default_constraints] AS [dc]
+                INNER JOIN [sys].[columns] AS [c]
+                    ON [c].[default_object_id] = [dc].[object_id]
+                INNER JOIN [sys].[tables] AS [t]
+                    ON [t].[object_id] = [c].[object_id]
+                WHERE [t].[name] = N'InternProfiles' AND [c].[name] = N'EndDate';
+
+                IF @EndDateDefaultConstraintName IS NOT NULL
+                BEGIN
+                    EXEC(N'ALTER TABLE [dbo].[InternProfiles] DROP CONSTRAINT [' + @EndDateDefaultConstraintName + N']');
+                END
+
+                UPDATE [p]
+                SET [p].[Status] = CASE
+                        WHEN UPPER(LTRIM(RTRIM(ISNULL([u].[Status], N'')))) = N'ACTIVE' THEN N'ACTIVE'
+                        ELSE N'INCOMPLETE'
+                    END
+                FROM [dbo].[InternProfiles] AS [p]
+                INNER JOIN [dbo].[Users] AS [u]
+                    ON [u].[Id] = [p].[InternId]
+                WHERE [p].[Status] IS NULL
+                   OR UPPER(LTRIM(RTRIM([p].[Status]))) NOT IN (N'INCOMPLETE', N'PENDING', N'ACTIVE', N'COMPLETED', N'ARCHIVED');
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[InternProfiles]') AND name = N'IX_InternProfiles_Status')
+                BEGIN
+                    CREATE INDEX [IX_InternProfiles_Status] ON [dbo].[InternProfiles]([Status]);
+                END
+
+                IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_InternProfiles_Status_StartDate')
+                BEGIN
+                    ALTER TABLE [dbo].[InternProfiles] DROP CONSTRAINT [CK_InternProfiles_Status_StartDate];
+                END
+
+                ALTER TABLE [dbo].[InternProfiles]
+                ADD CONSTRAINT [CK_InternProfiles_Status_StartDate]
+                    CHECK (([Status] NOT IN (N'INCOMPLETE', N'PENDING')) OR ([StartDate] IS NULL AND [EndDate] IS NULL));
+            END
+            """;
+
+        await dbContext.Database.ExecuteSqlRawAsync(addColumnsSql);
+        await dbContext.Database.ExecuteSqlRawAsync(finalizeSql);
+    }
+
     /// <summary>
     /// Ajoute les statuts utilisateurs par defaut utilises par l application.
     /// </summary>
@@ -597,7 +689,10 @@ public static class DbSeeder
     {
         var defaultStatusNames = new[]
         {
+            "incomplete",
+            "pending",
             "active",
+            "completed",
             "archived"
         };
 

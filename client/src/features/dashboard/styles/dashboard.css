@@ -146,6 +146,27 @@
   margin: 0 0 var(--dash-space-lg) 0;
 }
 
+.supervisor-success-toast {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 120;
+  max-width: 26rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--dash-radius-md);
+  border: 1px solid color-mix(in srgb, var(--dash-success) 30%, transparent);
+  background: color-mix(in srgb, var(--dash-success) 15%, var(--dash-bg-primary));
+  color: var(--dash-text);
+  box-shadow: var(--dash-shadow-lg);
+}
+
+.field-helper {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--dash-text-muted);
+}
+
 /* Filter inputs */
 .dash-input {
   appearance: none;

@@ -130,18 +130,13 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var typeName = await ResolveOptionalInternshipTypeNameAsync(request.Type, cancellationToken);
         var coSupervisor = await ResolveOptionalSupervisorAsync(request.CoSupervisorId, cancellationToken);
 
-        var startDate = request.StartDate == default
-            ? DateTime.UtcNow
-            : NormalizeUtc(request.StartDate);
-
-        DateTime? endDate = request.EndDate == default
-            ? null
-            : NormalizeUtc(request.EndDate);
-
-        if (endDate.HasValue && endDate.Value < startDate)
+        if (intern is not null)
         {
-            throw new ArgumentException("endDate must be greater than or equal to startDate.");
+            throw new InvalidOperationException("Direct intern assignment on internship creation is disabled. Use POST /api/stages/assign.");
         }
+
+        var startDate = DateTime.UtcNow;
+        DateTime? endDate = null;
 
         var normalizedStatus = NormalizeInternshipStatus(request.Status);
         if (request.Status is not null && normalizedStatus is null)
@@ -149,21 +144,15 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             throw new ArgumentException("Invalid internship status.");
         }
 
-        var status = normalizedStatus ?? (intern is null ? "template" : "active");
-        if (status == "active" && intern is null)
+        var status = normalizedStatus ?? "template";
+        if (!string.Equals(status, "template", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("An active internship must be assigned to an intern.");
+            throw new InvalidOperationException("New internships must be created as template and activated only through POST /api/stages/assign.");
         }
 
         var objectives = string.IsNullOrWhiteSpace(request.Objectives)
             ? string.Empty
             : request.Objectives.Trim();
-
-        if (intern is not null && department is not null)
-        {
-            intern.DepartmentId = department.Id;
-            intern.Department = department;
-        }
 
         var mission = new Mission
         {
