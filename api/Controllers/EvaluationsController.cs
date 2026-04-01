@@ -639,6 +639,15 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
                     deadlineRespect = evaluation.DeadlineRespect,
                     deliverableQuality = evaluation.DeliverableQuality
                 },
+                scores = new
+                {
+                    technical = evaluation.Technical,
+                    autonomy = evaluation.Autonomy,
+                    communication = evaluation.Communication,
+                    deadlineRespect = evaluation.DeadlineRespect,
+                    deliverableQuality = evaluation.DeliverableQuality
+                },
+                date = evaluation.SubmittedAt ?? evaluation.CreatedAt,
                 comments = evaluation.Comments,
                 supervisorName = evaluation.Supervisor != null
                     ? $"{evaluation.Supervisor.FirstName} {evaluation.Supervisor.LastName}".Trim()

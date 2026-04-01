@@ -119,12 +119,15 @@ public sealed class SupervisorStatsController(AppDbContext dbContext) : Controll
             return Unauthorized();
         }
 
-        var averageProgress = await dbContext.Deliverables
+        var deliverableProgressValues = await dbContext.Deliverables
             .AsNoTracking()
             .Where(deliverable => deliverable.SupervisorId == supervisorId.Value)
-            .Select(deliverable => (double)Math.Clamp(deliverable.Progress, 0, 100))
-            .DefaultIfEmpty(0)
-            .AverageAsync(cancellationToken);
+            .Select(deliverable => deliverable.Progress)
+            .ToListAsync(cancellationToken);
+
+        var averageProgress = deliverableProgressValues.Count == 0
+            ? 0
+            : deliverableProgressValues.Average(progress => Math.Clamp(progress, 0, 100));
 
         return Ok(new { value = Math.Round(averageProgress, 2) });
     }

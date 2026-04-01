@@ -6,6 +6,7 @@ import { AdminDashboard } from './AdminDashboard'
 import { ManagerDashboard } from './ManagerDashboard'
 import { SupervisorDashboard } from './SupervisorDashboard'
 import { InternDashboard } from './InternDashboard'
+import '../styles/dashboard-tokens.css'
 
 type DashboardRole = 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'intern'
 

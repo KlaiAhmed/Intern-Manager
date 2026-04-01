@@ -218,8 +218,8 @@ export function SupervisorDashboard() {
 
   const loadSkills = async () => {
     try {
-      const result = await api.get<Skill[]>('/api/admin/settings/skills')
-      setSkills(result ?? [])
+      const result = await api.get<{ data: Skill[] }>('/api/admin/settings/skills')
+      setSkills(result.data ?? [])
     } catch (error) {
       setMissionsError(getErrorMessage(error))
     }

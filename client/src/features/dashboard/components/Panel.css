@@ -1,0 +1,72 @@
+/* Panel Styles */
+
+.dash-panel {
+  background: var(--dash-bg-primary);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  overflow: hidden;
+  transition: border-color var(--dash-duration-fast) var(--dash-ease);
+}
+
+.dash-panel:hover {
+  border-color: var(--dash-border-hover);
+}
+
+.dash-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--dash-space-md);
+  padding: var(--dash-space-xl);
+  border-bottom: 1px solid var(--dash-border);
+}
+
+.dash-panel-title {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 1.125rem;
+  color: var(--dash-text);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.dash-panel-actions {
+  display: flex;
+  gap: var(--dash-space-sm);
+}
+
+.dash-panel-content {
+  padding: var(--dash-space-xl);
+}
+
+/* Panel variants for different use cases */
+.dash-panel-flat {
+  border-color: transparent;
+}
+
+.dash-panel-flat:hover {
+  border-color: var(--dash-border);
+}
+
+/* Compact variant for dense content */
+.dash-panel-compact .dash-panel-header {
+  padding: var(--dash-space-lg);
+}
+
+.dash-panel-compact .dash-panel-content {
+  padding: var(--dash-space-lg);
+}
+
+/* Panel with table */
+.dash-panel-table {
+  padding: 0;
+}
+
+.dash-panel-table .dash-panel-content {
+  padding: 0;
+}
+
+.dash-panel-table .dash-panel-header {
+  padding: var(--dash-space-lg) var(--dash-space-xl);
+}

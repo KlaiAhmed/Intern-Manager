@@ -32,6 +32,7 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
     /// <param name="supervisorId">Optionnel : filtre par identifiant de superviseur.</param>
     /// <param name="internId">Optionnel : filtre par identifiant de stagiaire.</param>
     /// <param name="upcoming">Si vrai, retourne uniquement les réunions futures.</param>
+    /// <param name="count">Si vrai, retourne uniquement le nombre de réunions correspondant au filtre.</param>
     /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
     /// <param name="limit">Nombre d éléments par page (entre 1 et 100).</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
@@ -47,6 +48,7 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
         [FromQuery] string? supervisorId = null,
         [FromQuery] string? internId = null,
         [FromQuery] bool upcoming = false,
+        [FromQuery] bool count = false,
         [FromQuery] int page = 1,
         [FromQuery] int limit = 20,
         CancellationToken cancellationToken = default)
@@ -57,6 +59,9 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
             return Unauthorized();
         }
 
+        var safePage = Math.Max(page, 1);
+        var safeLimit = Math.Clamp(limit, 1, 100);
+
         if (User.IsInRole("Intern"))
         {
             if (!UserContextHelper.IsCurrentInternScope(internId, currentUserId.Value))
@@ -64,12 +69,23 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
                 return Forbid();
             }
 
-            var upcomingMeeting = await dbContext.Meetings
+            var internQuery = dbContext.Meetings
                 .AsNoTracking()
                 .Where(meeting => meeting.InternId == currentUserId.Value)
-                .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow)
-                .Include(meeting => meeting.Supervisor)
-                .OrderBy(meeting => meeting.Date)
+                .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow);
+
+            var internTotal = await internQuery.CountAsync(cancellationToken);
+
+            if (count)
+            {
+                return Ok(new { count = internTotal });
+            }
+
+            var internData = await (upcoming
+                    ? internQuery.OrderBy(meeting => meeting.Date)
+                    : internQuery.OrderByDescending(meeting => meeting.Date))
+                .Skip((safePage - 1) * safeLimit)
+                .Take(safeLimit)
                 .Select(meeting => new
                 {
                     id = meeting.Id,
@@ -79,9 +95,9 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
                         : string.Empty,
                     notes = meeting.Notes
                 })
-                .FirstOrDefaultAsync(cancellationToken);
+                .ToListAsync(cancellationToken);
 
-            return Ok(upcomingMeeting);
+            return Ok(new { data = internData, total = internTotal, page = safePage, limit = safeLimit });
         }
 
         if (!User.IsInRole("Supervisor"))
@@ -94,18 +110,22 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
             return Forbid();
         }
 
-        var safePage = Math.Max(page, 1);
-        var safeLimit = Math.Clamp(limit, 1, 100);
-
         var query = dbContext.Meetings
             .AsNoTracking()
             .Where(meeting => meeting.SupervisorId == currentUserId.Value)
+            .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow)
             .Include(meeting => meeting.Intern);
 
         var total = await query.CountAsync(cancellationToken);
 
-        var data = await query
-            .OrderByDescending(meeting => meeting.Date)
+        if (count)
+        {
+            return Ok(new { count = total });
+        }
+
+        var data = await (upcoming
+                ? query.OrderBy(meeting => meeting.Date)
+                : query.OrderByDescending(meeting => meeting.Date))
             .Skip((safePage - 1) * safeLimit)
             .Take(safeLimit)
             .Select(meeting => new

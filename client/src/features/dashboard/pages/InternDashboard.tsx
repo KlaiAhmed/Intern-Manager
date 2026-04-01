@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
 import { Modal } from '../components/Modal'
-import { Skeleton } from '../components/Skeleton'
-import { ErrorState } from '../components/ErrorState'
 import { useDashboardApi } from '../hooks/useDashboardApi'
+import './InternDashboard.css'
+
+type TranslateFn = ReturnType<typeof useI18n>['t']
 
 interface Internship {
   id: string
@@ -21,6 +22,7 @@ interface Task {
   title: string
   dueDate: string
   completed: boolean
+  priority?: 'high' | 'medium' | 'low'
 }
 
 interface Deliverable {
@@ -60,22 +62,655 @@ interface Meeting {
   notes: string
 }
 
-/**
- * Tableau de bord pour le rôle intern.
- * Affiche les informations du stage, les tâches, les livrables et le journal de bord.
- */
+// Icons as simple SVG components
+const Icons = {
+  user: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1.25rem', height: '1.25rem' }}>
+      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+    </svg>
+  ),
+  building: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1.25rem', height: '1.25rem' }}>
+      <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/>
+    </svg>
+  ),
+  upload: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1rem', height: '1rem' }}>
+      <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+    </svg>
+  ),
+  comment: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1rem', height: '1rem' }}>
+      <path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/>
+    </svg>
+  ),
+  close: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1.5rem', height: '1.5rem' }}>
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+    </svg>
+  ),
+  clock: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '1rem', height: '1rem' }}>
+      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+    </svg>
+  ),
+}
+
+// Circular Progress Component
+function CircularProgress({ value, size = 128 }: { value: number; size?: number }) {
+  const radius = (size - 16) / 2
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference - (value / 100) * circumference
+
+  return (
+    <div className="progress-ring-wrapper" style={{ width: size, height: size }}>
+      <svg className="progress-ring-svg" viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+          <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#8b5cf6" />
+          </linearGradient>
+        </defs>
+        <circle className="progress-ring-bg" cx={size / 2} cy={size / 2} r={radius} />
+        <circle
+          className="progress-ring-fill"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          style={{ strokeDasharray: circumference, strokeDashoffset }}
+        />
+      </svg>
+      <div className="progress-ring-value">{value}%</div>
+      <div className="progress-ring-label">Complete</div>
+    </div>
+  )
+}
+
+// Mission Card Component
+function MissionCard({ internship, loading, error, onRetry, t }: {
+  internship: Internship | null
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  t: TranslateFn
+}) {
+  if (loading) {
+    return (
+      <div className="intern-card mission-card">
+        <div className="skeleton-title" />
+        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+          <div className="skeleton-circle" />
+          <div style={{ flex: 1 }}>
+            <div className="skeleton-line" style={{ width: '80%' }} />
+            <div className="skeleton-line" style={{ width: '60%' }} />
+            <div className="skeleton-line" style={{ width: '40%' }} />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="intern-card mission-card">
+        <div className="error-state-modern">
+          <div className="error-state-icon">⚠️</div>
+          <p className="error-state-text">{error}</p>
+          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!internship) {
+    return (
+      <div className="intern-card mission-card">
+        <div className="empty-state-modern">
+          <div className="empty-state-icon">📝</div>
+          <p className="empty-state-text">{t('dashboard.noData')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  const getStatusClass = () => {
+    switch (internship.status.toLowerCase()) {
+      case 'active': return 'mission-status-active'
+      case 'pending': return 'mission-status-pending'
+      case 'completed': return 'mission-status-completed'
+      default: return 'mission-status-active'
+    }
+  }
+
+  return (
+    <div className="intern-card mission-card">
+      <div className="mission-card-header">
+        <div>
+          <h2 className="mission-title">{internship.missionTitle}</h2>
+          <div className="mission-meta">
+            <div className="mission-meta-item">
+              <span className="mission-meta-icon"><Icons.user /></span>
+              {internship.supervisorName}
+            </div>
+            <div className="mission-meta-item">
+              <span className="mission-meta-icon"><Icons.building /></span>
+              {internship.department}
+            </div>
+          </div>
+        </div>
+        <span className={`mission-status-badge ${getStatusClass()}`}>{internship.status}</span>
+      </div>
+      <div className="mission-progress-container">
+        <CircularProgress value={internship.progress} />
+        <div className="mission-progress-details">
+          <div className="progress-bar-wrapper">
+            <div className="progress-bar-label-row">
+              <span className="progress-bar-label">{t('dashboard.intern.progress')}</span>
+              <span className="progress-bar-value">{internship.progress}%</span>
+            </div>
+            <div className="progress-bar-track">
+              <div className="progress-bar-fill" style={{ width: `${internship.progress}%` }} />
+            </div>
+          </div>
+          <div className="mission-dates">
+            <div className="mission-date-item">
+              <span className="mission-date-label">Start Date</span>
+              <span className="mission-date-value">{formatDate(internship.startDate)}</span>
+            </div>
+            <div className="mission-date-item">
+              <span className="mission-date-label">End Date</span>
+              <span className="mission-date-value">{formatDate(internship.endDate)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Quick Stats Card
+function QuickStatsCard({ tasks, deliverables, internship, meetingsCount, loading }: {
+  tasks: Task[]
+  deliverables: Deliverable[]
+  internship: Internship | null
+  meetingsCount: number
+  loading: boolean
+}) {
+  const completedTasks = tasks.filter(t => t.completed).length
+  const submittedDeliverables = deliverables.filter(d => d.status !== 'not_submitted').length
+  const daysLeft = internship ? Math.ceil((new Date(internship.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0
+
+  if (loading) {
+    return (
+      <div className="intern-card stats-card">
+        <div className="stats-card-title">Overview</div>
+        <div className="stats-grid">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="skeleton-card" style={{ padding: '1rem', height: '5rem' }} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="intern-card stats-card">
+      <h2 className="stats-card-title">Overview</h2>
+      <div className="stats-grid">
+        <div className="stat-bubble">
+          <div className="stat-bubble-icon stat-bubble-icon-tasks">📋</div>
+          <div className="stat-bubble-value">{completedTasks}/{tasks.length}</div>
+          <div className="stat-bubble-label">Tasks Done</div>
+        </div>
+        <div className="stat-bubble">
+          <div className="stat-bubble-icon stat-bubble-icon-deliverables">📁</div>
+          <div className="stat-bubble-value">{submittedDeliverables}/{deliverables.length}</div>
+          <div className="stat-bubble-label">Files</div>
+        </div>
+        <div className="stat-bubble">
+          <div className="stat-bubble-icon stat-bubble-icon-days">📅</div>
+          <div className="stat-bubble-value">{Math.max(0, daysLeft)}</div>
+          <div className="stat-bubble-label">Days Left</div>
+        </div>
+        <div className="stat-bubble">
+          <div className="stat-bubble-icon stat-bubble-icon-meetings">👥</div>
+          <div className="stat-bubble-value">{meetingsCount}</div>
+          <div className="stat-bubble-label">Meetings</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tasks Card
+function TasksCard({ tasks, loading, error, onRetry, onComplete }: {
+  tasks: Task[]
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  onComplete: (id: string) => void
+}) {
+  const incompleteTasks = tasks.filter(t => !t.completed).slice(0, 4)
+
+  if (loading) {
+    return (
+      <div className="intern-card tasks-card">
+        <div className="card-title">Tasks</div>
+        <div className="task-list-modern">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '3rem' }} />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="intern-card tasks-card">
+        <div className="error-state-modern">
+          <div className="error-state-icon">⚠️</div>
+          <p className="error-state-text">{error}</p>
+          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="intern-card tasks-card">
+        <div className="card-header">
+          <h2 className="card-title"><span className="card-title-icon">📋</span> Tasks</h2>
+        </div>
+        <div className="empty-state-modern">
+          <div className="empty-state-icon">✅</div>
+          <p className="empty-state-text">No tasks assigned</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="intern-card tasks-card">
+      <div className="card-header">
+        <h2 className="card-title"><span className="card-title-icon">📋</span> Tasks</h2>
+        <span className="card-action">{tasks.filter(t => t.completed).length}/{tasks.length}</span>
+      </div>
+      <div className="task-list-modern">
+        {incompleteTasks.map(task => (
+          <div key={task.id} className={`task-item-modern ${task.completed ? 'completed' : ''}`}>
+            <input
+              type="checkbox"
+              checked={task.completed}
+              onChange={() => !task.completed && onComplete(task.id)}
+              disabled={task.completed}
+              className="task-checkbox-modern"
+            />
+            <div className="task-content-modern">
+              <p className="task-title-modern">{task.title}</p>
+              <p className="task-due-modern">Due {task.dueDate}</p>
+            </div>
+            <div className={`task-priority task-priority-${task.priority || 'low'}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Deliverables Card
+function DeliverablesCard({ deliverables, loading, error, onRetry, onUploadClick, onViewComment }: {
+  deliverables: Deliverable[]
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  onUploadClick: (id: string) => void
+  onViewComment: (d: Deliverable) => void
+}) {
+  const getStatusClass = (status: Deliverable['status']) => {
+    switch (status) {
+      case 'submitted': return 'deliverable-status-submitted'
+      case 'accepted': return 'deliverable-status-accepted'
+      case 'rejected': return 'deliverable-status-rejected'
+      default: return 'deliverable-status-pending'
+    }
+  }
+
+  const getStatusLabel = (status: Deliverable['status']) => {
+    switch (status) {
+      case 'submitted': return 'Submitted'
+      case 'accepted': return 'Accepted'
+      case 'rejected': return 'Rejected'
+      default: return 'Pending'
+    }
+  }
+
+  const getProgressClass = (status: Deliverable['status']) => {
+    switch (status) {
+      case 'submitted': return 'deliverable-progress-fill-submitted'
+      case 'accepted': return 'deliverable-progress-fill-accepted'
+      case 'rejected': return 'deliverable-progress-fill-rejected'
+      default: return 'deliverable-progress-fill-pending'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="intern-card deliverables-card">
+        <div className="card-title">📁 Deliverables</div>
+        <div className="deliverable-list">
+          {[1, 2].map(i => <div key={i} className="skeleton-card" style={{ height: '6rem' }} />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="intern-card deliverables-card">
+        <div className="error-state-modern">
+          <div className="error-state-icon">⚠️</div>
+          <p className="error-state-text">{error}</p>
+          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (deliverables.length === 0) {
+    return (
+      <div className="intern-card deliverables-card">
+        <div className="card-header">
+          <h2 className="card-title"><span className="card-title-icon">📁</span> Deliverables</h2>
+        </div>
+        <div className="empty-state-modern">
+          <div className="empty-state-icon">📂</div>
+          <p className="empty-state-text">No deliverables</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="intern-card deliverables-card">
+      <div className="card-header">
+        <h2 className="card-title"><span className="card-title-icon">📁</span> Deliverables</h2>
+        <span className="card-action">{deliverables.filter(d => d.status === 'accepted').length}/{deliverables.length}</span>
+      </div>
+      <div className="deliverable-list">
+        {deliverables.slice(0, 3).map(deliverable => (
+          <div key={deliverable.id} className="deliverable-item">
+            <div className="deliverable-header-row">
+              <div className="deliverable-title-row">
+                <div className="deliverable-icon">📄</div>
+                <span className="deliverable-name">{deliverable.title}</span>
+              </div>
+              <span className={`deliverable-status ${getStatusClass(deliverable.status)}`}>
+                {getStatusLabel(deliverable.status)}
+                {deliverable.status === 'submitted' && ` v${deliverable.version}`}
+              </span>
+            </div>
+            <div className="deliverable-progress-mini">
+              <div className="deliverable-progress-track">
+                <div className={`deliverable-progress-fill ${getProgressClass(deliverable.status)}`} style={{ width: `${deliverable.progress}%` }} />
+              </div>
+              <span className="deliverable-progress-value">{deliverable.progress}%</span>
+            </div>
+            <div className="deliverable-actions-row">
+              <button className="deliverable-btn deliverable-btn-primary" onClick={() => onUploadClick(deliverable.id)}>
+                <Icons.upload /> Upload
+              </button>
+              {deliverable.status === 'rejected' && deliverable.supervisorComment && (
+                <button className="deliverable-btn" onClick={() => onViewComment(deliverable)}>
+                  <Icons.comment /> View
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Evaluation Card
+function EvaluationCard({ evaluations, loading, error, onRetry, t }: {
+  evaluations: Evaluation[]
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  t: TranslateFn
+}) {
+  const getScoreClass = (score: number) => {
+    if (score >= 8) return 'score-pill-excellent'
+    if (score >= 6) return 'score-pill-good'
+    return 'score-pill-average'
+  }
+
+  const getOverallScore = (scores: Evaluation['scores']) => {
+    const values = Object.values(scores)
+    return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1)
+  }
+
+  if (loading) {
+    return (
+      <div className="intern-card evaluation-card">
+        <div className="card-title">📊 Evaluations</div>
+        <div className="skeleton-card" style={{ height: '8rem' }} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="intern-card evaluation-card">
+        <div className="error-state-modern">
+          <div className="error-state-icon">⚠️</div>
+          <p className="error-state-text">{error}</p>
+          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (evaluations.length === 0) {
+    return (
+      <div className="intern-card evaluation-card">
+        <div className="card-header">
+          <h2 className="card-title"><span className="card-title-icon">📊</span> Evaluations</h2>
+        </div>
+        <div className="empty-state-modern">
+          <div className="empty-state-icon">📋</div>
+          <p className="empty-state-text">No evaluations yet</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="intern-card evaluation-card">
+      <div className="card-header">
+        <h2 className="card-title"><span className="card-title-icon">📊</span> {t('dashboard.intern.myEvaluations')}</h2>
+      </div>
+      <div className="evaluation-list">
+        {evaluations.slice(-1).map(evaluation => (
+          <div key={evaluation.id} className="evaluation-item">
+            <div className="evaluation-header">
+              <h3 className="evaluation-type">{evaluation.type === 'mid_term' ? 'Midterm' : 'Final'}</h3>
+              <span className="evaluation-date">{evaluation.date}</span>
+            </div>
+            <div className="evaluation-scores-grid">
+              <div className={`score-pill ${getScoreClass(evaluation.scores.technical)}`}>
+                <span className="score-pill-value">{evaluation.scores.technical}</span>
+                <span className="score-pill-label">Tech</span>
+              </div>
+              <div className={`score-pill ${getScoreClass(evaluation.scores.autonomy)}`}>
+                <span className="score-pill-value">{evaluation.scores.autonomy}</span>
+                <span className="score-pill-label">Auto</span>
+              </div>
+              <div className={`score-pill ${getScoreClass(evaluation.scores.communication)}`}>
+                <span className="score-pill-value">{evaluation.scores.communication}</span>
+                <span className="score-pill-label">Comm</span>
+              </div>
+              <div className={`score-pill ${getScoreClass(evaluation.scores.deadlineRespect)}`}>
+                <span className="score-pill-value">{evaluation.scores.deadlineRespect}</span>
+                <span className="score-pill-label">Time</span>
+              </div>
+              <div className={`score-pill ${getScoreClass(evaluation.scores.deliverableQuality)}`}>
+                <span className="score-pill-value">{evaluation.scores.deliverableQuality}</span>
+                <span className="score-pill-label">Quality</span>
+              </div>
+            </div>
+            <div className="overall-score">
+              <span className="overall-score-label">Overall:</span>
+              <span className="overall-score-value">{getOverallScore(evaluation.scores)}/10</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Journal Card
+function JournalCard({ entries, loading, error, onRetry, onAddClick }: {
+  entries: JournalEntry[]
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  onAddClick: () => void
+}) {
+  if (loading) {
+    return (
+      <div className="intern-card journal-card">
+        <div className="card-title">📝 Journal</div>
+        <div className="journal-entries-list">
+          {[1, 2].map(i => <div key={i} className="skeleton-card" style={{ height: '4rem' }} />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="intern-card journal-card">
+        <div className="error-state-modern">
+          <div className="error-state-icon">⚠️</div>
+          <p className="error-state-text">{error}</p>
+          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="intern-card journal-card">
+      <div className="card-header">
+        <h2 className="card-title"><span className="card-title-icon">📝</span> Journal</h2>
+        <span className="card-action">{entries.length} entries</span>
+      </div>
+      {entries.length === 0 ? (
+        <div className="empty-state-modern">
+          <div className="empty-state-icon">📝</div>
+          <p className="empty-state-text">No journal entries</p>
+          <button className="deliverable-btn deliverable-btn-primary" onClick={onAddClick} style={{ marginTop: '1rem' }}>
+            + Add Entry
+          </button>
+        </div>
+      ) : (
+        <div className="journal-entries-list">
+          {entries.slice(0, 2).map(entry => (
+            <div key={entry.id} className="journal-entry-modern">
+              <p className="journal-entry-content">{entry.content}</p>
+              <span className="journal-entry-date">{entry.createdAt}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Meeting Card
+function MeetingCard({ meeting, loading, error, onRetry }: {
+  meeting: Meeting | null
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+}) {
+  if (loading) {
+    return (
+      <div className="intern-card meeting-card">
+        <div className="card-title">👥 Next Meeting</div>
+        <div className="skeleton-card" style={{ height: '6rem' }} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="intern-card meeting-card">
+        <div className="error-state-modern">
+          <div className="error-state-icon">⚠️</div>
+          <p className="error-state-text">{error}</p>
+          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!meeting) {
+    return (
+      <div className="intern-card meeting-card">
+        <div className="card-header">
+          <h2 className="card-title"><span className="card-title-icon">👥</span> Next Meeting</h2>
+        </div>
+        <div className="empty-state-modern">
+          <div className="empty-state-icon">📅</div>
+          <p className="empty-state-text">No upcoming meetings</p>
+        </div>
+      </div>
+    )
+  }
+
+  const meetingDate = new Date(meeting.date)
+  const month = meetingDate.toLocaleString('default', { month: 'short' })
+  const day = meetingDate.getDate()
+  const time = meetingDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div className="intern-card meeting-card">
+      <div className="card-header">
+        <h2 className="card-title"><span className="card-title-icon">👥</span> Next Meeting</h2>
+      </div>
+      <div className="meeting-display">
+        <div className="meeting-calendar">
+          <span className="meeting-calendar-month">{month}</span>
+          <span className="meeting-calendar-day">{day}</span>
+        </div>
+        <div className="meeting-details">
+          <span className="meeting-with">Meeting with</span>
+          <span className="meeting-supervisor-name">{meeting.supervisorName}</span>
+          <div className="meeting-time">
+            <Icons.clock />
+            {time}
+          </div>
+          {meeting.notes && <p className="meeting-notes-preview">&ldquo;{meeting.notes.slice(0, 80)}...&rdquo;</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Main Dashboard Component
 export function InternDashboard() {
   const { t } = useI18n()
   const api = useDashboardApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message
-    }
-
-    return t('dashboard.error.load')
-  }
 
   // Data states
   const [internship, setInternship] = useState<Internship | null>(null)
@@ -84,16 +719,13 @@ export function InternDashboard() {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [nextMeeting, setNextMeeting] = useState<Meeting | null>(null)
+  const [meetingsCount, setMeetingsCount] = useState(0)
 
   // Modal states
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false)
   const [journalContent, setJournalContent] = useState('')
   const [selectedDeliverableForUpload, setSelectedDeliverableForUpload] = useState<string | null>(null)
   const [commentModalDeliverable, setCommentModalDeliverable] = useState<Deliverable | null>(null)
-
-  // Progress update state
-  const [deliverableProgress, setDeliverableProgress] = useState<Record<string, number>>({})
-  const [savingProgress, setSavingProgress] = useState<Record<string, boolean>>({})
 
   // Loading states
   const [loadingInternship, setLoadingInternship] = useState(true)
@@ -102,6 +734,7 @@ export function InternDashboard() {
   const [loadingJournal, setLoadingJournal] = useState(true)
   const [loadingEvaluations, setLoadingEvaluations] = useState(true)
   const [loadingMeeting, setLoadingMeeting] = useState(true)
+  const [loadingMeetingsCount, setLoadingMeetingsCount] = useState(true)
 
   // Error states
   const [internshipError, setInternshipError] = useState<string | null>(null)
@@ -111,6 +744,21 @@ export function InternDashboard() {
   const [evaluationsError, setEvaluationsError] = useState<string | null>(null)
   const [meetingError, setMeetingError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+    return t('dashboard.error.load')
+  }
+
+  const emptyEvaluationScores: Evaluation['scores'] = {
+    technical: 0,
+    autonomy: 0,
+    communication: 0,
+    deadlineRespect: 0,
+    deliverableQuality: 0,
+  }
 
   const loadInternship = async () => {
     setLoadingInternship(true)
@@ -144,11 +792,6 @@ export function InternDashboard() {
     try {
       const result = await api.get<{ data: Deliverable[] }>('/api/intern/me/deliverables')
       setDeliverables(result.data ?? [])
-      const progressMap: Record<string, number> = {}
-      result.data?.forEach((d) => {
-        progressMap[d.id] = d.progress
-      })
-      setDeliverableProgress(progressMap)
     } catch (error) {
       setDeliverablesError(getErrorMessage(error))
     } finally {
@@ -173,12 +816,43 @@ export function InternDashboard() {
     setLoadingEvaluations(true)
     setEvaluationsError(null)
     try {
-      const result = await api.get<{ data: Evaluation[] }>('/api/intern/me/evaluations')
-      setEvaluations(result.data ?? [])
+      const result = await api.get<{
+        data: Array<{
+          id: string
+          type: Evaluation['type']
+          scores?: Evaluation['scores']
+          criteria?: Evaluation['scores']
+          comments: string
+          date?: string
+          submittedAt?: string
+        }>
+      }>('/api/intern/me/evaluations')
+
+      const normalizedEvaluations: Evaluation[] = (result.data ?? []).map((evaluation) => ({
+        id: evaluation.id,
+        type: evaluation.type,
+        scores: evaluation.scores ?? evaluation.criteria ?? emptyEvaluationScores,
+        comments: evaluation.comments,
+        date: evaluation.date ?? evaluation.submittedAt ?? '',
+      }))
+
+      setEvaluations(normalizedEvaluations)
     } catch (error) {
       setEvaluationsError(getErrorMessage(error))
     } finally {
       setLoadingEvaluations(false)
+    }
+  }
+
+  const loadMeetingsCount = async () => {
+    setLoadingMeetingsCount(true)
+    try {
+      const result = await api.get<{ count?: number }>('/api/meetings?internId=me&upcoming=true&count=true')
+      setMeetingsCount(typeof result.count === 'number' ? result.count : 0)
+    } catch {
+      setMeetingsCount(0)
+    } finally {
+      setLoadingMeetingsCount(false)
     }
   }
 
@@ -202,6 +876,7 @@ export function InternDashboard() {
     void loadJournal()
     void loadEvaluations()
     void loadNextMeeting()
+    void loadMeetingsCount()
   }, [])
 
   const handleCompleteTask = async (taskId: string) => {
@@ -241,317 +916,93 @@ export function InternDashboard() {
     }
   }
 
-  const handleProgressChange = (deliverableId: string, value: number) => {
-    setDeliverableProgress((prev) => ({ ...prev, [deliverableId]: value }))
+  const handleUploadClick = (id: string) => {
+    setSelectedDeliverableForUpload(id)
+    setTimeout(() => fileInputRef.current?.click(), 0)
   }
 
-  const handleSaveProgress = async (deliverableId: string) => {
-    setSavingProgress((prev) => ({ ...prev, [deliverableId]: true }))
-    try {
-      await api.patch(`/api/intern/me/deliverables/${deliverableId}/progress`, {
-        progress: deliverableProgress[deliverableId],
-      })
-    } catch (error) {
-      setDeliverablesError(getErrorMessage(error))
-    } finally {
-      setSavingProgress((prev) => ({ ...prev, [deliverableId]: false }))
-    }
-  }
-
-  const getStatusLabel = (status: Deliverable['status']) => {
-    switch (status) {
-      case 'not_submitted':
-        return t('dashboard.intern.notSubmitted')
-      case 'submitted':
-        return t('dashboard.intern.submitted')
-      case 'accepted':
-        return t('dashboard.intern.accepted')
-      case 'rejected':
-        return t('dashboard.intern.rejected')
-      default:
-        return status
-    }
-  }
-
-  const getStatusClass = (status: Deliverable['status']) => {
-    switch (status) {
-      case 'not_submitted':
-        return 'status-pending'
-      case 'submitted':
-        return 'status-submitted'
-      case 'accepted':
-        return 'status-accepted'
-      case 'rejected':
-        return 'status-rejected'
-      default:
-        return ''
-    }
-  }
+  // Get user initials for avatar
+  const getUserInitials = () => 'IN'
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h1 className="dashboard-title">{t('dashboard.intern.title')}</h1>
+    <div className="intern-dashboard">
+      <header className="intern-header">
+        <div className="intern-welcome">
+          <div className="intern-avatar">{getUserInitials()}</div>
+          <div>
+            <h1 className="intern-greeting">Welcome back!</h1>
+            <p className="intern-greeting-sub">Here&apos;s your internship overview</p>
+          </div>
+        </div>
       </header>
 
-      {/* My Internship Card */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.intern.myInternship')}</h2>
-        {loadingInternship ? (
-          <Skeleton height="200px" />
-        ) : internshipError ? (
-          <ErrorState message={internshipError} onRetry={loadInternship} />
-        ) : internship ? (
-          <div className="internship-card">
-            <div className="internship-info-grid">
-              <div className="internship-info-item">
-                <span className="info-label">{t('dashboard.intern.missionTitle')}</span>
-                <span className="info-value">{internship.missionTitle}</span>
-              </div>
-              <div className="internship-info-item">
-                <span className="info-label">{t('dashboard.intern.supervisorName')}</span>
-                <span className="info-value">{internship.supervisorName}</span>
-              </div>
-              <div className="internship-info-item">
-                <span className="info-label">{t('dashboard.intern.department')}</span>
-                <span className="info-value">{internship.department}</span>
-              </div>
-              <div className="internship-info-item">
-                <span className="info-label">{t('dashboard.intern.period')}</span>
-                <span className="info-value">{internship.startDate} - {internship.endDate}</span>
-              </div>
-              <div className="internship-info-item">
-                <span className="info-label">{t('dashboard.intern.status')}</span>
-                <span className="info-value status-badge">{internship.status}</span>
-              </div>
-            </div>
-            <div className="internship-progress-section">
-              <span className="info-label">{t('dashboard.intern.progress')}</span>
-              <div className="progress-bar-container progress-bar-large">
-                <div className="progress-bar" style={{ width: `${internship.progress}%` }} />
-                <span className="progress-label">{internship.progress}%</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        )}
-      </section>
+      <div className="intern-grid">
+        <MissionCard
+          internship={internship}
+          loading={loadingInternship}
+          error={internshipError}
+          onRetry={loadInternship}
+          t={t}
+        />
 
-      {/* My Task List */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.intern.taskList')}</h2>
-        {loadingTasks ? (
-          <Skeleton height="200px" />
-        ) : tasksError ? (
-          <ErrorState message={tasksError} onRetry={loadTasks} />
-        ) : tasks.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <ul className="task-list">
-            {tasks.map((task) => (
-              <li key={task.id} className={`task-item ${task.completed ? 'task-completed' : ''}`}>
-                <label className="task-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => !task.completed && handleCompleteTask(task.id)}
-                    disabled={task.completed}
-                    className="task-checkbox"
-                  />
-                  <span className="task-title">{task.title}</span>
-                </label>
-                <span className="task-due-date">{task.dueDate}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <QuickStatsCard
+          tasks={tasks}
+          deliverables={deliverables}
+          internship={internship}
+          meetingsCount={meetingsCount}
+          loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
+        />
 
-      {/* Deliverables Progress */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.intern.deliverables')}</h2>
-        {loadingDeliverables ? (
-          <Skeleton height="300px" />
-        ) : deliverablesError ? (
-          <ErrorState message={deliverablesError} onRetry={loadDeliverables} />
-        ) : deliverables.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <div className="deliverables-grid">
-            {deliverables.map((deliverable) => (
-              <div key={deliverable.id} className="deliverable-card">
-                <div className="deliverable-header">
-                  <h3 className="deliverable-title">{deliverable.title}</h3>
-                  <span className={`deliverable-status ${getStatusClass(deliverable.status)}`}>
-                    {getStatusLabel(deliverable.status)}
-                    {deliverable.status === 'submitted' && ` v${deliverable.version}`}
-                  </span>
-                </div>
-                <p className="deliverable-due-date">{t('dashboard.table.dueDate')}: {deliverable.dueDate}</p>
-                <div className="deliverable-actions">
-                  <input
-                    type="file"
-                    ref={selectedDeliverableForUpload === deliverable.id ? fileInputRef : null}
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleFileUpload(deliverable.id, file)
-                    }}
-                  />
-                  <button
-                    className="button button-secondary button-sm"
-                    onClick={() => {
-                      setSelectedDeliverableForUpload(deliverable.id)
-                      setTimeout(() => fileInputRef.current?.click(), 0)
-                    }}
-                  >
-                    {t('dashboard.intern.uploadFile')}
-                  </button>
-                  {deliverable.status === 'rejected' && deliverable.supervisorComment && (
-                    <button
-                      className="action-button"
-                      onClick={() => setCommentModalDeliverable(deliverable)}
-                    >
-                      {t('dashboard.intern.viewComment')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        <TasksCard
+          tasks={tasks}
+          loading={loadingTasks}
+          error={tasksError}
+          onRetry={loadTasks}
+          onComplete={handleCompleteTask}
+        />
 
-      {/* Journal de Bord */}
-      <section className="dashboard-section">
-        <div className="section-header-row">
-          <h2 className="dashboard-section-title">{t('dashboard.intern.journal')}</h2>
-          <button className="button button-primary button-sm" onClick={() => setIsJournalModalOpen(true)}>
-            {t('dashboard.intern.addEntry')}
-          </button>
-        </div>
-        {loadingJournal ? (
-          <Skeleton height="200px" />
-        ) : journalError ? (
-          <ErrorState message={journalError} onRetry={loadJournal} />
-        ) : journalEntries.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <div className="journal-entries">
-            {journalEntries.map((entry) => (
-              <div key={entry.id} className="journal-entry">
-                <p className="journal-content">{entry.content}</p>
-                <span className="journal-date">{entry.createdAt}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        <DeliverablesCard
+          deliverables={deliverables}
+          loading={loadingDeliverables}
+          error={deliverablesError}
+          onRetry={loadDeliverables}
+          onUploadClick={handleUploadClick}
+          onViewComment={setCommentModalDeliverable}
+        />
 
-      {/* Advancement Input */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.intern.advancement')}</h2>
-        {loadingDeliverables ? (
-          <Skeleton height="200px" />
-        ) : deliverables.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <div className="advancement-grid">
-            {deliverables.map((deliverable) => (
-              <div key={deliverable.id} className="advancement-item">
-                <label className="advancement-label">{deliverable.title}</label>
-                <div className="advancement-controls">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={deliverableProgress[deliverable.id] ?? 0}
-                    onChange={(e) => handleProgressChange(deliverable.id, parseInt(e.target.value, 10))}
-                    className="advancement-slider"
-                  />
-                  <span className="advancement-value">{deliverableProgress[deliverable.id] ?? 0}%</span>
-                  <button
-                    className="button button-primary button-sm"
-                    onClick={() => handleSaveProgress(deliverable.id)}
-                    disabled={savingProgress[deliverable.id]}
-                  >
-                    {savingProgress[deliverable.id] ? '...' : t('dashboard.intern.saveProgress')}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        <EvaluationCard
+          evaluations={evaluations}
+          loading={loadingEvaluations}
+          error={evaluationsError}
+          onRetry={loadEvaluations}
+          t={t}
+        />
 
-      {/* My Evaluations */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.intern.myEvaluations')}</h2>
-        {loadingEvaluations ? (
-          <Skeleton height="200px" />
-        ) : evaluationsError ? (
-          <ErrorState message={evaluationsError} onRetry={loadEvaluations} />
-        ) : evaluations.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <div className="evaluations-grid">
-            {evaluations.map((evaluation) => (
-              <div key={evaluation.id} className="evaluation-card">
-                <h3 className="evaluation-type">
-                  {evaluation.type === 'mid_term' ? t('dashboard.evaluation.midTerm') : t('dashboard.evaluation.endOfInternship')}
-                </h3>
-                <p className="evaluation-date">{evaluation.date}</p>
-                <div className="evaluation-scores">
-                  <div className="score-item">
-                    <span>{t('dashboard.evaluation.technical')}</span>
-                    <span>{evaluation.scores.technical}/10</span>
-                  </div>
-                  <div className="score-item">
-                    <span>{t('dashboard.evaluation.autonomy')}</span>
-                    <span>{evaluation.scores.autonomy}/10</span>
-                  </div>
-                  <div className="score-item">
-                    <span>{t('dashboard.evaluation.communication')}</span>
-                    <span>{evaluation.scores.communication}/10</span>
-                  </div>
-                  <div className="score-item">
-                    <span>{t('dashboard.evaluation.deadlineRespect')}</span>
-                    <span>{evaluation.scores.deadlineRespect}/10</span>
-                  </div>
-                  <div className="score-item">
-                    <span>{t('dashboard.evaluation.deliverableQuality')}</span>
-                    <span>{evaluation.scores.deliverableQuality}/10</span>
-                  </div>
-                </div>
-                {evaluation.comments && (
-                  <p className="evaluation-comments">{evaluation.comments}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        <JournalCard
+          entries={journalEntries}
+          loading={loadingJournal}
+          error={journalError}
+          onRetry={loadJournal}
+          onAddClick={() => setIsJournalModalOpen(true)}
+        />
 
-      {/* Next Meeting */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.intern.nextMeeting')}</h2>
-        {loadingMeeting ? (
-          <Skeleton height="100px" />
-        ) : meetingError ? (
-          <ErrorState message={meetingError} onRetry={loadNextMeeting} />
-        ) : nextMeeting ? (
-          <div className="next-meeting-card">
-            <p className="meeting-date">{nextMeeting.date}</p>
-            <p className="meeting-supervisor">{nextMeeting.supervisorName}</p>
-            {nextMeeting.notes && <p className="meeting-notes">{nextMeeting.notes}</p>}
-          </div>
-        ) : (
-          <p className="empty-state">{t('dashboard.intern.noMeeting')}</p>
-        )}
-      </section>
+        <MeetingCard
+          meeting={nextMeeting}
+          loading={loadingMeeting}
+          error={meetingError}
+          onRetry={loadNextMeeting}
+        />
+      </div>
 
-      {/* Add Journal Entry Modal */}
+      {/* Floating Add Button for Journal */}
+      <button
+        className="fab-button"
+        onClick={() => setIsJournalModalOpen(true)}
+        aria-label="Add journal entry"
+      >
+        +
+      </button>
+
       <Modal isOpen={isJournalModalOpen} onClose={() => setIsJournalModalOpen(false)} title={t('dashboard.intern.addEntry')}>
         <form className="modal-form" onSubmit={(e) => { e.preventDefault(); void handleAddJournalEntry() }}>
           <div className="form-field">
@@ -575,7 +1026,6 @@ export function InternDashboard() {
         </form>
       </Modal>
 
-      {/* View Comment Modal */}
       <Modal
         isOpen={!!commentModalDeliverable}
         onClose={() => setCommentModalDeliverable(null)}
@@ -591,7 +1041,6 @@ export function InternDashboard() {
         </div>
       </Modal>
 
-      {/* Hidden file input for uploads */}
       <input
         type="file"
         ref={fileInputRef}
@@ -599,7 +1048,7 @@ export function InternDashboard() {
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file && selectedDeliverableForUpload) {
-            handleFileUpload(selectedDeliverableForUpload, file)
+            void handleFileUpload(selectedDeliverableForUpload, file)
           }
         }}
       />

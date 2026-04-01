@@ -1,0 +1,115 @@
+/* DashboardButton Styles */
+
+.dash-btn {
+  appearance: none;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dash-space-sm);
+  font-family: var(--dash-font-body);
+  font-weight: 400;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  border-radius: var(--dash-radius-md);
+  transition:
+    background-color var(--dash-duration-fast) var(--dash-ease),
+    border-color var(--dash-duration-fast) var(--dash-ease),
+    color var(--dash-duration-fast) var(--dash-ease),
+    transform var(--dash-duration-fast) var(--dash-ease);
+  white-space: nowrap;
+}
+
+.dash-btn:focus-visible {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 2px;
+}
+
+.dash-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Size variants */
+.dash-btn-sm {
+  padding: var(--dash-space-sm) var(--dash-space-md);
+  font-size: 0.875rem;
+}
+
+.dash-btn-md {
+  padding: var(--dash-space-md) var(--dash-space-lg);
+  font-size: 0.9375rem;
+}
+
+/* Primary variant */
+.dash-btn-primary {
+  background: var(--dash-accent);
+  color: white;
+  border: 1px solid var(--dash-accent);
+}
+
+.dash-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dash-accent) 90%, black 10%);
+  border-color: color-mix(in srgb, var(--dash-accent) 90%, black 10%);
+}
+
+.dash-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Secondary variant */
+.dash-btn-secondary {
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text);
+  border: 1px solid var(--dash-border);
+}
+
+.dash-btn-secondary:hover:not(:disabled) {
+  background: var(--dash-bg-primary);
+  border-color: var(--dash-border-hover);
+}
+
+.dash-btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Ghost variant */
+.dash-btn-ghost {
+  background: transparent;
+  color: var(--dash-text-secondary);
+  border: 1px solid transparent;
+}
+
+.dash-btn-ghost:hover:not(:disabled) {
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text);
+  border-color: var(--dash-border);
+}
+
+.dash-btn-ghost:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Spinner for loading state */
+.dash-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: dashBtnSpin 0.8s linear infinite;
+}
+
+@keyframes dashBtnSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .dash-btn-spinner {
+    animation: none;
+    border-right-color: transparent;
+    opacity: 0.5;
+  }
+}

@@ -1,4 +1,5 @@
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { DashboardButton } from './DashboardButton'
+import './ErrorState.css'
 
 interface ErrorStateProps {
   message: string
@@ -6,22 +7,17 @@ interface ErrorStateProps {
 }
 
 /**
- * Composant d'affichage d'erreur avec bouton de réessai.
+ * ErrorState — Clean error display with optional retry
  */
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
-  const { t } = useI18n()
-
   return (
     <div className="error-state" role="alert">
+      <div className="error-icon" aria-hidden="true">!</div>
       <p className="error-message">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          className="button button-secondary button-sm"
-          onClick={onRetry}
-        >
-          {t('dashboard.error.retry')}
-        </button>
+        <DashboardButton variant="ghost" size="sm" onClick={onRetry}>
+          Retry
+        </DashboardButton>
       )}
     </div>
   )

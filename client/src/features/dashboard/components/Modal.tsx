@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { useEffect, useRef } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
+import './Modal.css'
 
 interface ModalProps {
   isOpen: boolean

@@ -1,0 +1,59 @@
+/* ErrorState Styles */
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dash-space-lg);
+  padding: var(--dash-space-3xl);
+  text-align: center;
+  background: var(--dash-bg-primary);
+  border: 1px solid color-mix(in srgb, var(--dash-error) 30%, transparent);
+  border-radius: var(--dash-radius-lg);
+}
+
+.error-icon {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--dash-error) 10%, transparent);
+  color: var(--dash-error);
+  font-size: 1.25rem;
+  border-radius: var(--dash-radius-lg);
+}
+
+.error-message {
+  font-family: var(--dash-font-body);
+  font-size: 0.9375rem;
+  color: var(--dash-text);
+  margin: 0;
+  max-width: 400px;
+}
+
+.error-retry-button {
+  appearance: none;
+  border: 1px solid var(--dash-error);
+  background: transparent;
+  color: var(--dash-error);
+  font-family: var(--dash-font-body);
+  font-size: 0.875rem;
+  font-weight: 400;
+  padding: var(--dash-space-sm) var(--dash-space-lg);
+  border-radius: var(--dash-radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--dash-duration-fast) var(--dash-ease),
+    color var(--dash-duration-fast) var(--dash-ease);
+}
+
+.error-retry-button:hover {
+  background: var(--dash-error);
+  color: white;
+}
+
+.error-retry-button:focus-visible {
+  outline: 2px solid var(--dash-error);
+  outline-offset: 2px;
+}

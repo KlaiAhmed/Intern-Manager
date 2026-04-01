@@ -252,18 +252,26 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternshipsByStatus(CancellationToken cancellationToken)
     {
-        var data = await dbContext.Users
+        var raw = await dbContext.Users
             .AsNoTracking()
             .Where(user => user.Role == UserRole.Intern)
             .GroupBy(user => user.Status)
             .Select(group => new
             {
-                name = group.Key.ToString().ToLowerInvariant(),
+                status = group.Key,
                 value = group.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        var data = raw
+            .Select(item => new
+            {
+                name = item.status.ToString().ToLowerInvariant(),
+                item.value
             })
             .OrderByDescending(item => item.value)
             .ThenBy(item => item.name)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         return Ok(new { data });
     }
