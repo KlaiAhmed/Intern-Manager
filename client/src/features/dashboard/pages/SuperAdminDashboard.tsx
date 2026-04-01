@@ -1,442 +1,350 @@
-import { useState, useEffect } from 'react'
+/*
+ * CODEBASE_AUDIT.md
+ * Date: 2025-04-01
+ * Auditor: Claude Code
+ *
+ * ## Typography
+ * - Primary font: 'DM Sans' for headings (500 weight only)
+ * - Body font: 'IBM Plex Sans' for body text (400 weight)
+ * - Defined via CSS variables: --dash-font-heading, --dash-font-body
+ *
+ * ## Color System
+ * - Uses semantic CSS variables from index.css and dashboard-tokens.css
+ * - Surfaces: --dash-bg-primary, --dash-bg-secondary, --dash-bg-tertiary
+ * - Text: --dash-text, --dash-text-muted (55% opacity light / 50% dark)
+ * - Accent: --dash-accent (blue), derived from --color-primary
+ * - Borders: 1px solid at 15% opacity, 30% on hover
+ * - Status colors: --dash-success, --dash-warning, --dash-error
+ *
+ * ## Spacing Scale
+ * - xs: 0.5rem (8px)
+ * - sm: 0.75rem (12px)
+ * - md: 1rem (16px)
+ * - lg: 1.25rem (20px) - MIN padding for cards
+ * - xl: 1.5rem (24px)
+ * - 2xl: 2rem (32px)
+ * - 3xl: 3rem (48px)
+ *
+ * ## Border Radius
+ * - sm: 0.5rem (8px)
+ * - md: 0.75rem (12px)
+ * - lg: 1rem (16px)
+ *
+ * ## Animation Timing
+ * - Fast: 120ms (micro-interactions)
+ * - Medium: 200ms (content transitions)
+ * - Slow: 300ms (entry animations)
+ * - Easing: cubic-bezier(0.4, 0, 0.2, 1)
+ *
+ * ## Existing Components
+ * - DashboardLayout.tsx: Base layout with sidebar
+ * - StatCard.tsx/css: Metric cards with trend indicators
+ * - Panel.tsx/css: Section containers
+ * - Modal.tsx/css: Dialog boxes
+ * - DataTable.tsx: Paginated tables
+ * - BarChart.tsx, DonutChart.tsx, PieChart.tsx: CSS-based charts
+ * - Skeleton.tsx: Loading state with shimmer
+ * - ErrorState.tsx/css: Error display
+ *
+ * ## Design Rules Followed
+ * - Zero hardcoded hex values - ALL from CSS variables
+ * - No box-shadow, drop-shadow, or decorative gradients
+ * - Font-weight 400 for body, 500 for headings only
+ * - Reduced motion queries on all animations
+ * - Border 1px solid at 15% opacity
+ */
+
+import type { ReactNode } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useI18n } from '../../../shared/i18n/I18nContext'
-import { KPICard } from '../components/KPICard'
-import { DataTable } from '../components/DataTable'
-import { Modal } from '../components/Modal'
-import { Skeleton } from '../components/Skeleton'
-import { ErrorState } from '../components/ErrorState'
+import { useSuperAdminStats } from '../hooks/useSuperAdminStats'
+import { SuperAdminSidebar, type SuperAdminSection } from '../components/SuperAdminSidebar'
+import { SuperAdminStatCard } from '../components/SuperAdminStatCard'
+import { UserManagementSection } from '../components/UserManagementSection'
+import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
+import { AuditLogSection } from '../components/AuditLogSection'
+import { PlaceholderSection } from '../components/PlaceholderSection'
 import { BarChart } from '../components/BarChart'
 import { DonutChart } from '../components/DonutChart'
-import { PieChart } from '../components/PieChart'
-import { useDashboardApi } from '../hooks/useDashboardApi'
+import { Skeleton } from '../components/Skeleton'
+import { ErrorState } from '../components/ErrorState'
+import './SuperAdminDashboard.css'
 
-interface AdminUser {
-  id: string
-  name: string
-  email: string
-  status: string
-  lastLogin: string | null
+// SVG Icon Component
+const Icon = ({ children }: { children: ReactNode }) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {children}
+  </svg>
+)
+
+// Icon definitions
+const Icons = {
+  Users: () => <Icon>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Icon>,
+  User: () => <Icon>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </Icon>,
+  Target: () => <Icon>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" />
+  </Icon>,
+  FolderOpen: () => <Icon>
+    <path d="M6 22l2-15h14" />
+    <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h12l4 7h2" />
+  </Icon>,
+  FileCheck: () => <Icon>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14 2 14 8 20 8" />
+    <path d="m9 15 2 2 4-4" />
+  </Icon>,
 }
 
-interface AuditLog {
-  id: string
-  actor: string
-  action: string
-  timestamp: string
-}
-
-/**
- * Tableau de bord pour le rôle super_admin.
- * Affiche les KPIs globaux, la santé de la plateforme, la gestion des admins et l'activité récente.
- */
-export function SuperAdminDashboard() {
+// Overview Section with KPI cards and charts
+function OverviewSection() {
   const { t } = useI18n()
-  const api = useDashboardApi()
+  const { stats, charts, loading, errors, refreshKpis, refreshCharts } = useSuperAdminStats()
 
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message
-    }
-
-    return t('dashboard.error.load')
-  }
-
-  const readNumericValue = (payload: unknown): number => {
-    if (typeof payload === 'number') {
-      return payload
-    }
-
-    if (typeof payload === 'object' && payload !== null) {
-      const record = payload as Record<string, unknown>
-      const count = record.count
-      if (typeof count === 'number') {
-        return count
-      }
-
-      const value = record.value
-      if (typeof value === 'number') {
-        return value
-      }
-    }
-
-    return 0
-  }
-
-  const readArrayData = <T,>(payload: { data?: T[] } | T[] | undefined): T[] => {
-    if (Array.isArray(payload)) {
-      return payload
-    }
-
-    return payload?.data ?? []
-  }
-  
-  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false)
-  const [adminFormData, setAdminFormData] = useState({ firstName: '', lastName: '', email: '', password: '', status: 'active' })
-  const [adminFormErrors, setAdminFormErrors] = useState<Record<string, string>>({})
-
-  // KPI states
-  const [activeInternsCount, setActiveInternsCount] = useState<number | null>(null)
-  const [supervisorsCount, setSupervisorsCount] = useState<number | null>(null)
-  const [missionsCount, setMissionsCount] = useState<number | null>(null)
-  const [adminsCount, setAdminsCount] = useState<number | null>(null)
-
-  // Chart data states
-  const [internsByDepartment, setInternsByDepartment] = useState<Array<{ name: string; value: number }>>([])
-  const [internshipsByStatus, setInternshipsByStatus] = useState<Array<{ name: string; value: number }>>([])
-  const [internshipsByType, setInternshipsByType] = useState<Array<{ name: string; value: number }>>([])
-
-  // Admin users state
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
-  const [adminUsersPage, setAdminUsersPage] = useState(1)
-  const [adminUsersTotal, setAdminUsersTotal] = useState(0)
-
-  // Audit logs state
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
-
-  // Loading states
-  const [loadingKpis, setLoadingKpis] = useState(true)
-  const [loadingCharts, setLoadingCharts] = useState(true)
-  const [loadingAdmins, setLoadingAdmins] = useState(true)
-  const [loadingAuditLogs, setLoadingAuditLogs] = useState(true)
-
-  // Error states
-  const [kpisError, setKpisError] = useState<string | null>(null)
-  const [chartsError, setChartsError] = useState<string | null>(null)
-  const [adminsError, setAdminsError] = useState<string | null>(null)
-  const [auditLogsError, setAuditLogsError] = useState<string | null>(null)
-
-  const loadKpis = async () => {
-    setLoadingKpis(true)
-    setKpisError(null)
-    try {
-      const [activeInterns, supervisors, missions, admins] = await Promise.all([
-        api.get<{ count?: number } | number>('/api/stats/interns/active'),
-        api.get<{ count?: number } | number>('/api/stats/supervisors'),
-        api.get<{ count?: number } | number>('/api/stats/missions'),
-        api.get<{ count?: number } | number>('/api/stats/admins'),
-      ])
-      setActiveInternsCount(readNumericValue(activeInterns))
-      setSupervisorsCount(readNumericValue(supervisors))
-      setMissionsCount(readNumericValue(missions))
-      setAdminsCount(readNumericValue(admins))
-    } catch (error) {
-      setKpisError(getErrorMessage(error))
-    } finally {
-      setLoadingKpis(false)
-    }
-  }
-
-  const loadCharts = async () => {
-    setLoadingCharts(true)
-    setChartsError(null)
-    try {
-      const [byDept, byStatus, byType] = await Promise.all([
-        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/interns-by-department'),
-        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/internships-by-status'),
-        api.get<{ data?: Array<{ name: string; value: number }> } | Array<{ name: string; value: number }>>('/api/stats/internships-by-type'),
-      ])
-      setInternsByDepartment(readArrayData(byDept))
-      setInternshipsByStatus(readArrayData(byStatus))
-      setInternshipsByType(readArrayData(byType))
-    } catch (error) {
-      setChartsError(getErrorMessage(error))
-    } finally {
-      setLoadingCharts(false)
-    }
-  }
-
-  const loadAdminUsers = async (page: number = 1) => {
-    setLoadingAdmins(true)
-    setAdminsError(null)
-    try {
-      const result = await api.get<{ data: AdminUser[]; total: number }>(`/api/users?role=admin&page=${page}&limit=10`)
-      setAdminUsers(result.data ?? [])
-      setAdminUsersTotal(result.total ?? 0)
-      setAdminUsersPage(page)
-    } catch (error) {
-      setAdminsError(getErrorMessage(error))
-    } finally {
-      setLoadingAdmins(false)
-    }
-  }
-
-  const loadAuditLogs = async () => {
-    setLoadingAuditLogs(true)
-    setAuditLogsError(null)
-    try {
-      const result = await api.get<{ data: AuditLog[] }>('/api/admin/audit-logs?limit=10')
-      setAuditLogs(result.data ?? [])
-    } catch (error) {
-      setAuditLogsError(getErrorMessage(error))
-    } finally {
-      setLoadingAuditLogs(false)
-    }
-  }
-
-  useEffect(() => {
-    void loadKpis()
-    void loadCharts()
-    void loadAdminUsers()
-    void loadAuditLogs()
-  }, [])
-
-  const validateAdminForm = (): boolean => {
-    const errors: Record<string, string> = {}
-    if (!adminFormData.firstName.trim()) errors.firstName = t('dashboard.form.required')
-    if (!adminFormData.lastName.trim()) errors.lastName = t('dashboard.form.required')
-    if (!adminFormData.email.trim()) errors.email = t('dashboard.form.required')
-    if (!adminFormData.password.trim()) errors.password = t('dashboard.form.required')
-    setAdminFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleAddAdmin = async () => {
-    if (!validateAdminForm()) return
-    try {
-      await api.post('/api/users', {
-        firstName: adminFormData.firstName.trim(),
-        lastName: adminFormData.lastName.trim(),
-        email: adminFormData.email.trim(),
-        password: adminFormData.password,
-        status: adminFormData.status,
-        role: 'admin',
-      })
-      setIsAddAdminModalOpen(false)
-      setAdminFormData({ firstName: '', lastName: '', email: '', password: '', status: 'active' })
-      void loadAdminUsers(adminUsersPage)
-    } catch (error) {
-      setAdminFormErrors({ submit: getErrorMessage(error) })
-    }
-  }
-
-  const handleEditAdmin = (adminId: string) => {
-    console.log('Edit admin:', adminId)
-  }
-
-  const handleDeactivateAdmin = async (adminId: string) => {
-    try {
-      await api.patch(`/api/users/${adminId}`, { status: 'inactive' })
-      void loadAdminUsers(adminUsersPage)
-    } catch (error) {
-      setAdminsError(getErrorMessage(error))
-    }
-  }
-
-  const adminTableColumns = [
-    { key: 'name', label: t('dashboard.table.name') },
-    { key: 'email', label: t('dashboard.table.email') },
-    { key: 'status', label: t('dashboard.table.status') },
-    { key: 'lastLogin', label: t('dashboard.table.lastLogin') },
-    { key: 'actions', label: t('dashboard.table.actions') },
-  ]
-
-  const auditLogColumns = [
-    { key: 'actor', label: t('dashboard.table.actor') },
-    { key: 'action', label: t('dashboard.table.action') },
-    { key: 'timestamp', label: t('dashboard.table.timestamp') },
-  ]
+  const formatNumber = (n: number | null) =>
+    n === null ? '—' : n.toLocaleString()
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h1 className="dashboard-title">{t('dashboard.superAdmin.title')}</h1>
-      </header>
+    <section className="overview-section">
+      {/* Row 1: Primary KPIs (4 cards) */}
+      <div className="kpi-row kpi-row-primary">
+        {loading.kpis ? (
+          <>
+            <Skeleton height="140px" />
+            <Skeleton height="140px" />
+            <Skeleton height="140px" />
+            <Skeleton height="140px" />
+          </>
+        ) : errors.kpis ? (
+          <div className="kpi-error-container">
+            <ErrorState
+              message={errors.kpis}
+              onRetry={refreshKpis}
+            />
+          </div>
+        ) : (
+          <>
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.activeInterns')}
+              value={formatNumber(stats.activeInterns)}
+              icon={<Icons.Users />}
+              animationDelay={0}
+            />
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.totalSupervisors')}
+              value={formatNumber(stats.activeSupervisors)}
+              icon={<Icons.User />}
+              animationDelay={60}
+            />
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.totalMissions')}
+              value={formatNumber(stats.totalMissions)}
+              icon={<Icons.Target />}
+              animationDelay={120}
+            />
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.totalAdmins')}
+              value={formatNumber(stats.activeAdmins)}
+              icon={<Icons.User />}
+              animationDelay={180}
+            />
+          </>
+        )}
+      </div>
 
-      {/* KPI Summary Cards */}
-      <section className="dashboard-section">
-        <div className="kpi-grid">
-          {loadingKpis ? (
+      {/* Row 2: Secondary KPIs (3 cards) */}
+      <div className="kpi-row kpi-row-secondary">
+        {loading.kpis ? (
+          <>
+            <Skeleton height="120px" />
+            <Skeleton height="120px" />
+            <Skeleton height="120px" />
+          </>
+        ) : (
+          <>
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.totalInterns')}
+              value={formatNumber(stats.totalInterns)}
+              icon={<Icons.Users />}
+              variant="default"
+              animationDelay={240}
+            />
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.activeInternships')}
+              value={formatNumber(stats.activeInternships)}
+              icon={<Icons.FolderOpen />}
+              variant="primary"
+              animationDelay={300}
+            />
+            <SuperAdminStatCard
+              label={t('dashboard.kpi.pendingDeliverables')}
+              value={formatNumber(stats.pendingDeliverables)}
+              icon={<Icons.FileCheck />}
+              variant="warning"
+              animationDelay={360}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Row 3: Charts */}
+      <div className="charts-row">
+        <h2 className="section-title charts-title">{t('dashboard.section.analytics')}</h2>
+        <div className="charts-grid">
+          {loading.charts ? (
             <>
-              <Skeleton height="120px" />
-              <Skeleton height="120px" />
-              <Skeleton height="120px" />
-              <Skeleton height="120px" />
+              <Skeleton height="320px" />
+              <Skeleton height="320px" />
+              <Skeleton height="320px" />
             </>
-          ) : kpisError ? (
-            <ErrorState message={kpisError} onRetry={loadKpis} />
+          ) : errors.charts ? (
+            <div className="charts-error-container">
+              <ErrorState
+                message={errors.charts}
+                onRetry={refreshCharts}
+              />
+            </div>
           ) : (
             <>
-              <KPICard title={t('dashboard.kpi.activeInterns')} value={activeInternsCount ?? 0} />
-              <KPICard title={t('dashboard.kpi.totalSupervisors')} value={supervisorsCount ?? 0} />
-              <KPICard title={t('dashboard.kpi.totalMissions')} value={missionsCount ?? 0} />
-              <KPICard title={t('dashboard.kpi.totalAdmins')} value={adminsCount ?? 0} />
+              <div className="chart-card" style={{ animationDelay: '150ms' }}>
+                <h3 className="chart-title">{t('dashboard.chart.internsByDepartment')}</h3>
+                <div className="chart-content">
+                  <BarChart data={charts.internsByDepartment} />
+                </div>
+              </div>
+              <div className="chart-card" style={{ animationDelay: '210ms' }}>
+                <h3 className="chart-title">{t('dashboard.chart.internshipsByStatus')}</h3>
+                <div className="chart-content">
+                  <DonutChart data={charts.internshipsByStatus} />
+                </div>
+              </div>
+              <div className="chart-card" style={{ animationDelay: '270ms' }}>
+                <h3 className="chart-title">{t('dashboard.chart.internshipsByType')}</h3>
+                <div className="chart-content">
+                  <BarChart data={charts.internshipsByType} />
+                </div>
+              </div>
             </>
           )}
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
 
-      {/* Platform Health Charts */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.superAdmin.platformHealth')}</h2>
-        {loadingCharts ? (
-          <div className="charts-grid">
-            <Skeleton height="300px" />
-            <Skeleton height="300px" />
-            <Skeleton height="300px" />
-          </div>
-        ) : chartsError ? (
-          <ErrorState message={chartsError} onRetry={loadCharts} />
-        ) : (
-          <div className="charts-grid">
-            <div className="chart-card">
-              <h3 className="chart-title">{t('dashboard.superAdmin.internsByDepartment')}</h3>
-              <BarChart data={internsByDepartment} />
-            </div>
-            <div className="chart-card">
-              <h3 className="chart-title">{t('dashboard.superAdmin.internshipsByStatus')}</h3>
-              <DonutChart data={internshipsByStatus} />
-            </div>
-            <div className="chart-card">
-              <h3 className="chart-title">{t('dashboard.superAdmin.internshipsByType')}</h3>
-              <PieChart data={internshipsByType} />
-            </div>
-          </div>
-        )}
-      </section>
+// Matching IA Section (with 501 placeholder handling)
+function MatchingIA() {
+  const { t } = useI18n()
 
-      {/* Admin Management Panel */}
-      <section className="dashboard-section">
-        <div className="section-header-row">
-          <h2 className="dashboard-section-title">{t('dashboard.superAdmin.adminManagement')}</h2>
-          <button className="button button-primary button-sm" onClick={() => setIsAddAdminModalOpen(true)}>
-            {t('dashboard.superAdmin.addAdmin')}
-          </button>
-        </div>
-        {loadingAdmins ? (
-          <Skeleton height="300px" />
-        ) : adminsError ? (
-          <ErrorState message={adminsError} onRetry={() => loadAdminUsers(adminUsersPage)} />
-        ) : adminUsers.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <DataTable
-            columns={adminTableColumns}
-            data={adminUsers.map((admin) => ({
-              ...admin,
-              lastLogin: admin.lastLogin ?? '-',
-              actions: (
-                <div className="table-actions">
-                  <button className="action-button" onClick={() => handleEditAdmin(admin.id)}>
-                    {t('dashboard.table.edit')}
-                  </button>
-                  <button className="action-button action-button-danger" onClick={() => handleDeactivateAdmin(admin.id)}>
-                    {t('dashboard.table.deactivate')}
-                  </button>
-                </div>
-              ),
-            }))}
-            page={adminUsersPage}
-            totalPages={Math.ceil(adminUsersTotal / 10)}
-            onPageChange={loadAdminUsers}
+  return (
+    <PlaceholderSection
+      title={t('dashboard.superAdmin.matchingIA')}
+      subtitle={t('dashboard.superAdmin.matchingIADesc')}
+      icon="🤖"
+    />
+  )
+}
+
+// Main Dashboard Component
+export function SuperAdminDashboard() {
+  const { t } = useI18n()
+  const [activeSection, setActiveSection] = useState<SuperAdminSection>('overview')
+  const [activeSettingsSubSection, setActiveSettingsSubSection] = useState<SettingsSubSection>('departments')
+  const [settingsExpanded, setSettingsExpanded] = useState(false)
+
+  // Close settings when switching away
+  useEffect(() => {
+    if (activeSection !== 'settings') {
+      setSettingsExpanded(false)
+    }
+  }, [activeSection])
+
+  const renderContent = useCallback(() => {
+    switch (activeSection) {
+      case 'overview':
+        return <OverviewSection />
+      case 'users':
+        return <UserManagementSection />
+      case 'internships':
+        return (
+          <PlaceholderSection
+            title={t('dashboard.superAdmin.internships')}
+            subtitle={t('dashboard.superAdmin.internshipsDesc')}
           />
-        )}
-      </section>
+        )
+      case 'missions':
+        return (
+          <PlaceholderSection
+            title={t('dashboard.superAdmin.missionsLibrary')}
+            subtitle={t('dashboard.superAdmin.missionsDesc')}
+          />
+        )
+      case 'evaluations':
+        return (
+          <PlaceholderSection
+            title={t('dashboard.superAdmin.evaluations')}
+            subtitle={t('dashboard.superAdmin.evaluationsDesc')}
+          />
+        )
+      case 'deliverables':
+        return (
+          <PlaceholderSection
+            title={t('dashboard.superAdmin.deliverables')}
+            subtitle={t('dashboard.superAdmin.deliverablesDesc')}
+          />
+        )
+      case 'matching':
+        return <MatchingIA />
+      case 'settings':
+        return (
+          <SettingsPanel
+            activeSubSection={activeSettingsSubSection}
+            onSubSectionChange={setActiveSettingsSubSection}
+          />
+        )
+      case 'audit':
+        return <AuditLogSection />
+      default:
+        return <OverviewSection />
+    }
+  }, [activeSection, activeSettingsSubSection, t])
 
-      {/* Recent Activity Feed */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.superAdmin.recentActivity')}</h2>
-        {loadingAuditLogs ? (
-          <Skeleton height="200px" />
-        ) : auditLogsError ? (
-          <ErrorState message={auditLogsError} onRetry={loadAuditLogs} />
-        ) : auditLogs.length === 0 ? (
-          <p className="empty-state">{t('dashboard.noData')}</p>
-        ) : (
-          <DataTable columns={auditLogColumns} data={auditLogs} />
-        )}
-      </section>
+  return (
+    <div className="super-admin-dashboard">
+      <SuperAdminSidebar
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        activeSettingsSubSection={activeSettingsSubSection}
+        onSettingsSubSectionChange={setActiveSettingsSubSection}
+        settingsExpanded={settingsExpanded}
+        onSettingsToggle={() => {
+          setSettingsExpanded(!settingsExpanded)
+          if (activeSection !== 'settings') {
+            setActiveSection('settings')
+          }
+        }}
+      />
 
-      {/* System Settings Quick Access */}
-      <section className="dashboard-section">
-        <h2 className="dashboard-section-title">{t('dashboard.superAdmin.systemSettings')}</h2>
-        <div className="settings-links-grid">
-          <a href="/settings/departments" className="settings-link-card">
-            {t('dashboard.superAdmin.departments')}
-          </a>
-          <a href="/settings/schools" className="settings-link-card">
-            {t('dashboard.superAdmin.schools')}
-          </a>
-          <a href="/settings/internship-types" className="settings-link-card">
-            {t('dashboard.superAdmin.internshipTypes')}
-          </a>
-          <a href="/settings/skills" className="settings-link-card">
-            {t('dashboard.superAdmin.skills')}
-          </a>
-          <a href="/settings/statuses" className="settings-link-card">
-            {t('dashboard.superAdmin.statuses')}
-          </a>
+      <main className="super-admin-main" id="main-content">
+        <div className="super-admin-content-wrapper">
+          <h1 className="page-title">{t('dashboard.superAdmin.title')}</h1>
+          <div
+            className="content-fade-in"
+            key={activeSection}
+          >
+            {renderContent()}
+          </div>
         </div>
-      </section>
-
-      {/* Add Admin Modal */}
-      <Modal isOpen={isAddAdminModalOpen} onClose={() => setIsAddAdminModalOpen(false)} title={t('dashboard.superAdmin.addAdmin')}>
-        <form className="modal-form" onSubmit={(e) => { e.preventDefault(); void handleAddAdmin() }}>
-          <div className="form-field">
-            <label htmlFor="admin-first-name">First Name</label>
-            <input
-              id="admin-first-name"
-              type="text"
-              value={adminFormData.firstName}
-              onChange={(e) => setAdminFormData({ ...adminFormData, firstName: e.target.value })}
-              className={adminFormErrors.firstName ? 'input-error' : ''}
-            />
-            {adminFormErrors.firstName && <span className="field-error">{adminFormErrors.firstName}</span>}
-          </div>
-          <div className="form-field">
-            <label htmlFor="admin-last-name">Last Name</label>
-            <input
-              id="admin-last-name"
-              type="text"
-              value={adminFormData.lastName}
-              onChange={(e) => setAdminFormData({ ...adminFormData, lastName: e.target.value })}
-              className={adminFormErrors.lastName ? 'input-error' : ''}
-            />
-            {adminFormErrors.lastName && <span className="field-error">{adminFormErrors.lastName}</span>}
-          </div>
-          <div className="form-field">
-            <label htmlFor="admin-email">{t('dashboard.form.email')}</label>
-            <input
-              id="admin-email"
-              type="email"
-              value={adminFormData.email}
-              onChange={(e) => setAdminFormData({ ...adminFormData, email: e.target.value })}
-              className={adminFormErrors.email ? 'input-error' : ''}
-            />
-            {adminFormErrors.email && <span className="field-error">{adminFormErrors.email}</span>}
-          </div>
-          <div className="form-field">
-            <label htmlFor="admin-password">{t('dashboard.form.password')}</label>
-            <input
-              id="admin-password"
-              type="password"
-              value={adminFormData.password}
-              onChange={(e) => setAdminFormData({ ...adminFormData, password: e.target.value })}
-              className={adminFormErrors.password ? 'input-error' : ''}
-            />
-            {adminFormErrors.password && <span className="field-error">{adminFormErrors.password}</span>}
-          </div>
-          <div className="form-field">
-            <label htmlFor="admin-status">{t('dashboard.form.status')}</label>
-            <select
-              id="admin-status"
-              value={adminFormData.status}
-              onChange={(e) => setAdminFormData({ ...adminFormData, status: e.target.value })}
-            >
-              <option value="active">{t('dashboard.admin.statusActive')}</option>
-              <option value="inactive">{t('dashboard.admin.statusArchived')}</option>
-            </select>
-          </div>
-          {adminFormErrors.submit && <p className="form-error">{adminFormErrors.submit}</p>}
-          <div className="modal-actions">
-            <button type="button" className="button button-secondary button-sm" onClick={() => setIsAddAdminModalOpen(false)}>
-              {t('dashboard.form.cancel')}
-            </button>
-            <button type="submit" className="button button-primary button-sm">
-              {t('dashboard.form.save')}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      </main>
     </div>
   )
 }
