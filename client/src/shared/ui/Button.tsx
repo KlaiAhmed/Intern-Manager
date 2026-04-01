@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, PropsWithChildren } from 'react'
 import { classNames } from '../utils/classNames'
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
-type ButtonSize = 'sm' | 'md'
+type ButtonSize = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
