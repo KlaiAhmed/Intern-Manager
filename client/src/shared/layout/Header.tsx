@@ -8,6 +8,7 @@ import { LanguageSwitcher } from "../ui/LanguageSwitcher";
 import { ThemeSwitcher } from "../ui/ThemeSwitcher";
 import { Button } from "../ui/Button";
 import { classNames } from "../utils/classNames";
+import { NotificationBell } from "../../components/notifications/NotificationBell";
 
 const anchorNavItems = [
   { id: "benefits", labelKey: "nav.product" },
@@ -39,24 +40,11 @@ export function Header() {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [mobileSubmenu, setMobileSubmenu] = useState<MobileSubmenu>(null);
-  const [notifications] = useState<Array<{ id: string; title: string; message: string; isRead: boolean; createdAt: string }>>([]);
-  const [isNotificationsLoading] = useState(false);
-  const [notificationsError] = useState<string | null>(null);
   const lastScrollTopRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
-  const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
-
-  const unreadNotificationsCount = notifications.filter((item) => !item.isRead).length;
-
-  const formatNotificationDate = (rawDate: string): string => {
-    const parsedDate = new Date(rawDate);
-    if (Number.isNaN(parsedDate.getTime())) return "";
-    return parsedDate.toLocaleString();
-  };
 
   const toggleMobileSubmenu = (submenu: MobileSubmenu): void => {
     setMobileSubmenu((current) => (current === submenu ? null : submenu));
@@ -133,16 +121,11 @@ export function Header() {
       if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setIsUserMenuOpen(false);
       }
-
-      if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(target)) {
-        setIsNotificationsOpen(false);
-      }
     };
 
     const onEscape = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         setIsUserMenuOpen(false);
-        setIsNotificationsOpen(false);
       }
     };
 
@@ -404,85 +387,92 @@ export function Header() {
             ) : (
               // Show user icon only when mobile menu is closed
               !isMobileMenuOpen && (
-                <div
-                  ref={userMenuRef}
-                  className={classNames(
-                    "icon-control-dropdown",
-                    "user-menu-dropdown",
-                    isUserMenuOpen && "is-open",
-                  )}
-                >
-                  <button
-                    type="button"
-                    className={classNames("icon-control", "user-menu-trigger")}
-                    onClick={() => {
-                      setLogoutError(null);
-                      setIsUserMenuOpen((prevState) => !prevState);
-                    }}
-                    aria-label={t("auth.nav.userMenu")}
-                    title={t("auth.nav.userMenu")}
-                    aria-haspopup="menu"
-                    aria-expanded={isUserMenuOpen}
+                <>
+                  <NotificationBell
+                    role={user?.role}
+                    shouldClose={isMobileMenuOpen || !isHeaderVisible}
+                  />
+
+                  <div
+                    ref={userMenuRef}
+                    className={classNames(
+                      "icon-control-dropdown",
+                      "user-menu-dropdown",
+                      isUserMenuOpen && "is-open",
+                    )}
                   >
-                    <span className="icon-control-mark" aria-hidden="true">
-                      <svg
-                        viewBox="0 0 24 24"
-                        focusable="false"
-                        aria-hidden="true"
-                  fill="currentColor"
-                      >
-                        <path d="M12 12a4 4 0 1 0-4-4a4 4 0 0 0 4 4Zm0 2c-4.1 0-7.4 2.2-7.4 4.9V21h14.8v-2.1c0-2.7-3.3-4.9-7.4-4.9Z" />
-                      </svg>
-                    </span>
-                  </button>
-
-                  {isUserMenuOpen ? (
-                    <div
-                      className="icon-control-menu user-menu-panel"
-                      role="menu"
+                    <button
+                      type="button"
+                      className={classNames("icon-control", "user-menu-trigger")}
+                      onClick={() => {
+                        setLogoutError(null);
+                        setIsUserMenuOpen((prevState) => !prevState);
+                      }}
                       aria-label={t("auth.nav.userMenu")}
+                      title={t("auth.nav.userMenu")}
+                      aria-haspopup="menu"
+                      aria-expanded={isUserMenuOpen}
                     >
-                      <div className="user-menu-profile" role="presentation">
-                        <p className="user-menu-title">
-                          {t("auth.nav.profile")}
-                        </p>
-                        <p className="user-menu-name">{userDisplayName}</p>
-                        <p className="user-menu-email">{userDisplayEmail}</p>
+                      <span className="icon-control-mark" aria-hidden="true">
+                        <svg
+                          viewBox="0 0 24 24"
+                          focusable="false"
+                          aria-hidden="true"
+                          fill="currentColor"
+                        >
+                          <path d="M12 12a4 4 0 1 0-4-4a4 4 0 0 0 4 4Zm0 2c-4.1 0-7.4 2.2-7.4 4.9V21h14.8v-2.1c0-2.7-3.3-4.9-7.4-4.9Z" />
+                        </svg>
+                      </span>
+                    </button>
+
+                    {isUserMenuOpen ? (
+                      <div
+                        className="icon-control-menu user-menu-panel"
+                        role="menu"
+                        aria-label={t("auth.nav.userMenu")}
+                      >
+                        <div className="user-menu-profile" role="presentation">
+                          <p className="user-menu-title">
+                            {t("auth.nav.profile")}
+                          </p>
+                          <p className="user-menu-name">{userDisplayName}</p>
+                          <p className="user-menu-email">{userDisplayEmail}</p>
+                        </div>
+
+                        <div className="user-menu-divider" role="presentation" />
+
+                        <button
+                          type="button"
+                          className="icon-control-option"
+                          role="menuitem"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            navigate("/dashboard");
+                          }}
+                        >
+                          {t("nav.dashboard")}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="icon-control-option user-menu-logout"
+                          role="menuitem"
+                          onClick={() => {
+                            void handleLogout();
+                          }}
+                        >
+                          {t("auth.nav.logout")}
+                        </button>
+
+                        {logoutError ? (
+                          <p className="user-menu-error" role="alert">
+                            {logoutError}
+                          </p>
+                        ) : null}
                       </div>
-
-                      <div className="user-menu-divider" role="presentation" />
-
-                      <button
-                        type="button"
-                        className="icon-control-option"
-                        role="menuitem"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                          navigate("/dashboard");
-                        }}
-                      >
-                        {t("nav.dashboard")}
-                      </button>
-
-                      <button
-                        type="button"
-                        className="icon-control-option user-menu-logout"
-                        role="menuitem"
-                        onClick={() => {
-                          void handleLogout();
-                        }}
-                      >
-                        {t("auth.nav.logout")}
-                      </button>
-
-                      {logoutError ? (
-                        <p className="user-menu-error" role="alert">
-                          {logoutError}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                    ) : null}
+                  </div>
+                </>
               )
             )}
           </div>
