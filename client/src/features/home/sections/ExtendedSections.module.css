@@ -1,0 +1,277 @@
+.metricValue {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+.aiScoreHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.aiScoreHeader h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.aiScoreBadge {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.aiScoreBar {
+  height: 0.5rem;
+  background: var(--color-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: var(--space-3);
+}
+
+.aiScoreProgress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  border-radius: 9999px;
+  transition: width 1s var(--ease-spring);
+}
+
+.aiScoreProgress87 {
+  width: 87%;
+}
+
+.aiScoreContext {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.aiFactorsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.aiFactorsList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.aiFactorCheck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: var(--color-success);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.biMetricCard {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.biMetricCard:hover {
+  transform: translateY(-2px);
+}
+
+.biMetricHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.biMetricHeader h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.biMetricTrend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+}
+
+.biMetricTrendDown {
+  color: var(--color-text-tertiary);
+  background: var(--color-border);
+}
+
+.biMetricContext {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  margin: var(--space-2) 0 0;
+}
+
+.trustCard {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.trustIcon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-primary);
+}
+
+.trustIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.trustCard p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.testimonialCard {
+  position: relative;
+}
+
+.testimonialCard blockquote {
+  position: relative;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--color-text);
+  font-style: italic;
+  margin: 0 0 var(--space-5);
+}
+
+.testimonialFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.testimonialAvatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.testimonialMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.cardMeta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.testimonialRole {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.finalCtaSection {
+  padding-bottom: clamp(4rem, 10vw, 7rem);
+}
+
+.finalCtaCard {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(2.5rem, 5vw, 4rem);
+  background: var(--color-text);
+  border: 1px solid var(--color-text);
+  color: var(--color-text-inverse);
+  text-align: center;
+}
+
+.finalCtaCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.15), transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(14, 165, 233, 0.1), transparent 50%);
+  pointer-events: none;
+}
+
+.finalCtaCard h2 {
+  position: relative;
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 700;
+  max-width: 28ch;
+  margin-inline: auto;
+}
+
+.finalCtaCard p {
+  position: relative;
+  color: var(--color-text-inverse);
+  font-size: 1.0625rem;
+  max-width: 44ch;
+  margin-inline: auto;
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-6);
+  opacity: 0.9;
+}
+
+.ctaActions {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.finalCtaButton {
+  background: var(--color-text-inverse);
+  color: var(--color-text);
+  border-color: var(--color-text-inverse);
+}
+
+.finalCtaButton:hover {
+  background: var(--color-surface-lowered);
+  border-color: var(--color-surface-lowered);
+  color: var(--color-text);
+}
+
+@media (max-width: 768px) {
+  .trustCard {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .aiScoreHeader {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+}

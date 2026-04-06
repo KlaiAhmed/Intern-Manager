@@ -1,0 +1,115 @@
+.roleSelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+  padding: 0.375rem;
+  background: var(--color-surface-lowered);
+  border-radius: var(--radius-lg);
+  max-width: fit-content;
+  margin-inline: auto;
+}
+
+.roleTab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.roleTab:hover {
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.roleTab.isActive {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.roleTabIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: currentColor;
+}
+
+.roleTabIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.roleTabLabel {
+  display: inline-flex;
+}
+
+.roleContentCard {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.roleContentIcon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+}
+
+.roleContentIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.rolePreviewCard {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.rolePreviewHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.rolePreviewBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.rolePreviewCurrent {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.rolePreviewBody {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.rolePreviewDescription {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .roleSelector {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .roleTab {
+    flex: 1;
+    justify-content: center;
+  }
+}

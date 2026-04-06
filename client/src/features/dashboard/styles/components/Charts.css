@@ -1,0 +1,60 @@
+.chart-empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--space-8);
+}
+
+.bar-chart-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bar-chart-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bar-chart-label {
+  flex: 0 0 100px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bar-chart-bar-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bar-chart-bar {
+  height: 24px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: var(--radius-sm);
+  min-width: 4px;
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.bar-chart-value {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 40px;
+}
+
+.donut-chart-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.donut-chart {
+  width: 140px;
+  height: 140px;
+}

@@ -1,6 +1,7 @@
 import { useI18n } from '../../../locales/I18nContext'
 import { Card } from '../../../components/ui/Card'
 import { Section } from '../../../components/ui/Section'
+import styles from './LifecycleSection.module.css'
 
 const lifecycleItems = [
   {
@@ -22,10 +23,10 @@ export function LifecycleSection() {
 
   return (
     <Section id="lifecycle" title={t('lifecycle.title')}>
-      <ol className="lifecycle-list">
+      <ol className={styles.lifecycleList}>
         {lifecycleItems.map((item) => (
           <li key={item.titleKey}>
-            <Card as="div" className="lifecycle-card">
+            <Card as="div" className={styles.lifecycleCard}>
               <h3>{t(item.titleKey)}</h3>
               <p>{t(item.textKey)}</p>
             </Card>

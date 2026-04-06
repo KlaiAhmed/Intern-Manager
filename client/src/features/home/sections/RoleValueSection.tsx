@@ -5,6 +5,8 @@ import { Card } from '../../../components/ui/Card'
 import { Section } from '../../../components/ui/Section'
 import type { UserRole } from '../../../types/role'
 import type { TranslationKey } from '../../../locales/I18nContext'
+import { classNames } from '../../../utils/classNames'
+import styles from './RoleValueSection.module.css'
 
 const roleContentKeys: Record<UserRole, { title: TranslationKey; description: TranslationKey }> = {
   supervisor: { title: 'roles.supervisorTitle', description: 'roles.supervisorText' },
@@ -46,7 +48,7 @@ export function RoleValueSection() {
   return (
     <Section id="roles" title={t('roles.title')} subtitle={t('roles.subtitle')}>
       <div
-        className="role-selector"
+        className={styles.roleSelector}
         role="tablist"
         aria-label={t('role.label')}
       >
@@ -57,25 +59,23 @@ export function RoleValueSection() {
             role="tab"
             aria-selected={activeRole === role}
             onClick={() => handleRoleChange(role)}
-            className={
-              activeRole === role ? 'role-tab is-active' : 'role-tab'
-            }
+            className={classNames(styles.roleTab, activeRole === role && styles.isActive)}
           >
-            <span className="role-tab-icon" aria-hidden="true">
+            <span className={styles.roleTabIcon} aria-hidden="true">
               {roleIcons[role]}
             </span>
-            <span className="role-tab-label">{t(`role.${role}`)}</span>
+            <span className={styles.roleTabLabel}>{t(`role.${role}`)}</span>
           </button>
         ))}
       </div>
 
       <div className="cards-grid cards-grid-2">
         <Card
-          className="role-content-card"
+          className={styles.roleContentCard}
           as="div"
           aria-live="polite"
         >
-          <div className="role-content-icon" aria-hidden="true">
+          <div className={styles.roleContentIcon} aria-hidden="true">
             {roleIcons[activeRole]}
           </div>
           <h3>{t(selectedRoleContent.title)}</h3>
@@ -83,15 +83,15 @@ export function RoleValueSection() {
         </Card>
 
         <Card
-          className="surface-card-emphasis role-preview-card"
+          className={classNames('surface-card-emphasis', styles.rolePreviewCard)}
           as="div"
         >
-          <div className="role-preview-header">
-            <span className="role-preview-badge">{t('role.label')}</span>
-            <span className="role-preview-current">{t(`role.${activeRole}`)}</span>
+          <div className={styles.rolePreviewHeader}>
+            <span className={styles.rolePreviewBadge}>{t('role.label')}</span>
+            <span className={styles.rolePreviewCurrent}>{t(`role.${activeRole}`)}</span>
           </div>
-          <div className="role-preview-body">
-            <p className="role-preview-description">
+          <div className={styles.rolePreviewBody}>
+            <p className={styles.rolePreviewDescription}>
               Experience the platform from the perspective of a {t(`role.${activeRole}`).toLowerCase()}.
               Each role has a tailored dashboard and workflow designed for their specific needs.
             </p>

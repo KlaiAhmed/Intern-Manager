@@ -1,0 +1,14 @@
+.benefitCard {
+  padding-top: var(--space-6);
+}
+
+.benefitIcon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-primary);
+}
+
+.benefitIcon svg {
+  width: 100%;
+  height: 100%;
+}

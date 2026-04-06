@@ -9,6 +9,7 @@ import { ThemeSwitcher } from "../../ui/ThemeSwitcher";
 import { Button } from "../../ui/Button";
 import { classNames } from "../../../utils/classNames";
 import { NotificationBell } from "../../../features/notifications";
+import styles from "./index.module.css";
 
 const anchorNavItems = [
   { id: "benefits", labelKey: "nav.product" },
@@ -156,22 +157,22 @@ export function Header() {
   return (
     <header
       className={classNames(
-        "site-header",
-        isHeaderScrolled && "is-scrolled",
-        !isHeaderVisible && "is-hidden",
+        styles.siteHeader,
+        isHeaderScrolled && styles.isScrolled,
+        !isHeaderVisible && styles.isHidden,
       )}
     >
-      <div className="container header-content">
-        <a className="brand" href="/" aria-label="Axia Intern Manager">
-          <span className="brand-mark" aria-hidden="true">
+      <div className={classNames("container", styles.headerContent)}>
+        <a className={styles.brand} href="/" aria-label="Axia Intern Manager">
+          <span className={styles.brandMark} aria-hidden="true">
             SA
           </span>
-          <span className="brand-text">Axia Intern Manager</span>
+          <span className={styles.brandText}>Axia Intern Manager</span>
         </a>
 
         <button
           type="button"
-          className="mobile-menu-button"
+          className={styles.mobileMenuButton}
           onClick={() => setIsMobileMenuOpen((prevState) => !prevState)}
           aria-expanded={isMobileMenuOpen}
           aria-controls="main-navigation"
@@ -181,11 +182,11 @@ export function Header() {
         </button>
 
         <div
-          className={classNames("header-panels", isMobileMenuOpen && "is-open")}
+          className={classNames(styles.headerPanels, isMobileMenuOpen && styles.isOpen)}
         >
           <nav id="main-navigation" aria-label="Main navigation">
             {/* Desktop navigation - anchor links only on homepage */}
-            <ul className="main-nav-list desktop-nav">
+            <ul className={classNames(styles.mainNavList, styles.desktopNav)}>
               {isHomePage
                 ? anchorNavItems.map((item) => (
                     <li key={item.id}>
@@ -205,7 +206,7 @@ export function Header() {
 
             {/* Mobile menu items - shown only when hamburger menu is open */}
             {isMobileMenuOpen && (
-              <ul className="mobile-menu-list">
+              <ul className={styles.mobileMenuList}>
                 {/* Navigation items first (when on homepage) */}
                 {isHomePage &&
                   anchorNavItems.map((item) => (
@@ -213,7 +214,7 @@ export function Header() {
                       <a
                         href={`#${item.id}`}
                         onClick={closeMenu}
-                        className="mobile-menu-nav-item"
+                        className={styles.mobileMenuNavItem}
                       >
                         {t(item.labelKey)}
                       </a>
@@ -225,7 +226,7 @@ export function Header() {
                   <li>
                     <button
                       type="button"
-                      className="mobile-menu-dashboard"
+                      className={styles.mobileMenuDashboard}
                       onClick={() => {
                         closeMenu();
                         navigate("/dashboard");
@@ -241,28 +242,28 @@ export function Header() {
                   <button
                     type="button"
                     className={classNames(
-                      "mobile-submenu-trigger",
-                      mobileSubmenu === "theme" && "is-open",
+                      styles.mobileSubmenuTrigger,
+                      mobileSubmenu === "theme" && styles.isOpen,
                     )}
                     onClick={() => toggleMobileSubmenu("theme")}
                     aria-expanded={mobileSubmenu === "theme"}
                   >
-                    <span className="mobile-submenu-label">
+                    <span className={styles.mobileSubmenuLabel}>
                       {t("theme.label")}
                     </span>
-                    <span className="mobile-submenu-chevron" aria-hidden="true">
+                    <span className={styles.mobileSubmenuChevron} aria-hidden="true">
                       {mobileSubmenu === "theme" ? "▾" : "▸"}
                     </span>
                   </button>
                   {mobileSubmenu === "theme" && (
-                    <ul className="mobile-submenu-items">
+                    <ul className={styles.mobileSubmenuItems}>
                       {themeModes.map((mode) => (
                         <li key={mode}>
                           <button
                             type="button"
                             className={classNames(
-                              "mobile-submenu-option",
-                              themeMode === mode && "is-active",
+                              styles.mobileSubmenuOption,
+                              themeMode === mode && styles.isActive,
                             )}
                             onClick={() => {
                               setThemeMode(mode);
@@ -286,28 +287,28 @@ export function Header() {
                   <button
                     type="button"
                     className={classNames(
-                      "mobile-submenu-trigger",
-                      mobileSubmenu === "language" && "is-open",
+                      styles.mobileSubmenuTrigger,
+                      mobileSubmenu === "language" && styles.isOpen,
                     )}
                     onClick={() => toggleMobileSubmenu("language")}
                     aria-expanded={mobileSubmenu === "language"}
                   >
-                    <span className="mobile-submenu-label">
+                    <span className={styles.mobileSubmenuLabel}>
                       {t("language.label")}
                     </span>
-                    <span className="mobile-submenu-chevron" aria-hidden="true">
+                    <span className={styles.mobileSubmenuChevron} aria-hidden="true">
                       {mobileSubmenu === "language" ? "▾" : "▸"}
                     </span>
                   </button>
                   {mobileSubmenu === "language" && (
-                    <ul className="mobile-submenu-items">
+                    <ul className={styles.mobileSubmenuItems}>
                       {languageOptions.map((option) => (
                         <li key={option.value}>
                           <button
                             type="button"
                             className={classNames(
-                              "mobile-submenu-option",
-                              locale === option.value && "is-active",
+                              styles.mobileSubmenuOption,
+                              locale === option.value && styles.isActive,
                             )}
                             onClick={() => {
                               setLocale(option.value);
@@ -324,11 +325,11 @@ export function Header() {
                 {/* Logout button - styled red */}
                 {isLoggedIn && (
                   <>
-                    <li className="mobile-menu-divider" />
+                    <li className={styles.mobileMenuDivider} />
                     <li>
                       <button
                         type="button"
-                        className="mobile-menu-logout"
+                        className={styles.mobileMenuLogout}
                         onClick={() => void handleLogout()}
                       >
                         {t("auth.nav.logout")}
@@ -336,7 +337,7 @@ export function Header() {
                     </li>
                     {logoutError && (
                       <li>
-                        <p className="mobile-menu-error" role="alert">
+                        <p className={styles.mobileMenuError} role="alert">
                           {logoutError}
                         </p>
                       </li>
@@ -347,7 +348,7 @@ export function Header() {
             )}
           </nav>
 
-          <div className="header-controls">
+          <div className={styles.headerControls}>
             {!isMobileMenuOpen && (
               <>
                 <LanguageSwitcher shouldClose={!isHeaderVisible} />
@@ -357,7 +358,7 @@ export function Header() {
             {!isLoggedIn ? (
               <>
                 <Button
-                  className="header-auth-button header-login"
+                  className={classNames(styles.headerAuthButton, styles.headerLogin)}
                   size="sm"
                   variant="ghost"
                   onClick={() => navigate("/login")}
@@ -365,7 +366,7 @@ export function Header() {
                   {t("nav.login")}
                 </Button>
                 <Button
-                  className="header-auth-button header-signup"
+                  className={classNames(styles.headerAuthButton, styles.headerSignup)}
                   size="sm"
                   variant="primary"
                   onClick={() => navigate("/signup")}
@@ -386,13 +387,13 @@ export function Header() {
                     ref={userMenuRef}
                     className={classNames(
                       "icon-control-dropdown",
-                      "user-menu-dropdown",
-                      isUserMenuOpen && "is-open",
+                      styles.userMenuDropdown,
+                      isUserMenuOpen && styles.isOpen,
                     )}
                   >
                     <button
                       type="button"
-                      className={classNames("icon-control", "user-menu-trigger")}
+                      className={classNames("icon-control", styles.userMenuTrigger)}
                       onClick={() => {
                         setLogoutError(null);
                         setIsUserMenuOpen((prevState) => !prevState);
@@ -416,19 +417,19 @@ export function Header() {
 
                     {isUserMenuOpen ? (
                       <div
-                        className="icon-control-menu user-menu-panel"
+                        className={classNames("icon-control-menu", styles.userMenuPanel)}
                         role="menu"
                         aria-label={t("auth.nav.userMenu")}
                       >
-                        <div className="user-menu-profile" role="presentation">
-                          <p className="user-menu-title">
+                        <div className={styles.userMenuProfile} role="presentation">
+                          <p className={styles.userMenuTitle}>
                             {t("auth.nav.profile")}
                           </p>
-                          <p className="user-menu-name">{userDisplayName}</p>
-                          <p className="user-menu-email">{userDisplayEmail}</p>
+                          <p className={styles.userMenuName}>{userDisplayName}</p>
+                          <p className={styles.userMenuEmail}>{userDisplayEmail}</p>
                         </div>
 
-                        <div className="user-menu-divider" role="presentation" />
+                        <div className={styles.userMenuDivider} role="presentation" />
 
                         <button
                           type="button"
@@ -444,7 +445,7 @@ export function Header() {
 
                         <button
                           type="button"
-                          className="icon-control-option user-menu-logout"
+                          className={classNames("icon-control-option", styles.userMenuLogout)}
                           role="menuitem"
                           onClick={() => {
                             void handleLogout();
@@ -454,7 +455,7 @@ export function Header() {
                         </button>
 
                         {logoutError ? (
-                          <p className="user-menu-error" role="alert">
+                          <p className={styles.userMenuError} role="alert">
                             {logoutError}
                           </p>
                         ) : null}

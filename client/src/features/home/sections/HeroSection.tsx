@@ -5,6 +5,8 @@ import { Section } from '../../../components/ui/Section'
 import { useI18n } from '../../../locales/I18nContext'
 import { useAuth } from '../../../stores/AuthContext'
 import { useEffect, useState } from 'react'
+import { classNames } from '../../../utils/classNames'
+import styles from './HeroSection.module.css'
 
 const heroStats = [
   { key: 'hero.statTeams', value: '24+' },
@@ -52,7 +54,7 @@ function AnimatedStat({ value, labelKey, delay }: { value: string; labelKey: typ
     : `${Math.round(count)}${suffix}`
 
   return (
-    <li className="hero-stat-item reveal-on-scroll">
+    <li className={classNames(styles.heroStatItem, 'reveal-on-scroll')}>
       <strong>{isVisible ? displayValue : '0'}</strong>
       <span>{t(labelKey)}</span>
     </li>
@@ -65,24 +67,23 @@ export function HeroSection() {
   const navigate = useNavigate()
 
   return (
-    <Section className="hero-section">
-      <div className="hero-grid container">
-        <div className="hero-copy">
+    <Section className={styles.heroSection}>
+      <div className={classNames(styles.heroGrid, 'container')}>
+        <div className={styles.heroCopy}>
           <div
-            className="hero-badge-wrapper"
+            className={styles.heroBadgeWrapper}
           >
             <Badge>{t('hero.badge')}</Badge>
           </div>
-          <p className="hero-kicker">Axia</p>
-          <h1 className="hero-title">{t('hero.title')}</h1>
-          <p className="hero-description">{t('hero.description')}</p>
+          <p className={styles.heroKicker}>Axia</p>
+          <h1 className={styles.heroTitle}>{t('hero.title')}</h1>
+          <p className={styles.heroDescription}>{t('hero.description')}</p>
           {!isLoggedIn && (
-            <div className="hero-actions">
+            <div className={styles.heroActions}>
               <Button
                 size="md"
                 variant="primary"
                 onClick={() => navigate('/signup')}
-                className="hero-cta"
               >
                 {t('nav.getStarted')}
               </Button>
@@ -97,8 +98,8 @@ export function HeroSection() {
           )}
         </div>
 
-        <aside className="hero-panel" aria-label="Platform impact metrics">
-          <ul className="hero-stats-list">
+        <aside className={styles.heroPanel} aria-label="Platform impact metrics">
+          <ul className={styles.heroStatsList}>
             {heroStats.map((stat, index) => (
               <AnimatedStat
                 key={stat.key}

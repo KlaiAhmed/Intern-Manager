@@ -1,6 +1,7 @@
 import { useI18n } from '../../../locales/I18nContext'
 import { Card } from '../../../components/ui/Card'
 import { Section } from '../../../components/ui/Section'
+import styles from './BenefitsSection.module.css'
 
 const benefitItems = [
   {
@@ -43,10 +44,10 @@ export function BenefitsSection() {
         {benefitItems.map((item) => (
           <Card
             key={item.titleKey}
-            className="benefit-card"
+            className={styles.benefitCard}
           >
             <div
-              className="benefit-icon"
+              className={styles.benefitIcon}
               aria-hidden="true"
             >
               {item.icon}

@@ -3,9 +3,11 @@
 
 @import './dashboard-tokens.css';
 @import './components/AuditLogSection.css';
+@import './components/Charts.css';
 @import './components/DashboardButton.css';
 @import './components/DashboardLayout.css';
 @import './components/ErrorState.css';
+@import './components/KPICard.css';
 @import './components/Modal.css';
 @import './components/Panel.css';
 @import './components/PlaceholderSection.css';
@@ -14,8 +16,62 @@
 @import './components/SuperAdminSidebar.css';
 @import './components/SuperAdminStatCard.css';
 @import './components/UserManagementSection.css';
+@import './pages/DashboardPage.css';
 
 /* Shared dashboard utilities */
+
+.dashboard-container {
+  width: min(1200px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.dashboard-header {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.dashboard-section {
+  margin-bottom: var(--space-10);
+}
+
+.dashboard-section-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+}
+
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Dashboard Grid Layouts */
 .dash-grid {

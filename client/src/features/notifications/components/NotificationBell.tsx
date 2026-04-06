@@ -4,6 +4,7 @@ import { useI18n } from '../../../locales/I18nContext'
 import { classNames } from '../../../utils/classNames'
 import { useNotifications } from '../hooks/useNotifications'
 import type { Notification } from '../types/notification'
+import styles from './NotificationBell.module.css'
 
 type NotificationBellProps = {
   role: string | null | undefined
@@ -302,34 +303,34 @@ export function NotificationBell({ role, shouldClose = false }: NotificationBell
   const badgeLabel = unreadCount > 9 ? '9+' : unreadCount.toString()
 
   return (
-    <div ref={menuRef} className={classNames('icon-control-dropdown', 'notification-dropdown', isPanelOpen && 'is-open')}>
+    <div ref={menuRef} className={classNames('icon-control-dropdown', styles.notificationDropdown, isPanelOpen && styles.isOpen)}>
       <button
         type="button"
-        className={classNames('icon-control', 'notification-bell-trigger', isPanelOpen && 'active')}
+        className={classNames('icon-control', styles.notificationBellTrigger)}
         onClick={togglePanel}
         aria-label={t('notifications.aria.toggle')}
         title={t('notifications.aria.toggle')}
         aria-haspopup="menu"
         aria-expanded={isPanelOpen}
       >
-        <span className={classNames('icon-control-mark', 'notification-bell-icon', isBellAnimating && 'is-attention')} aria-hidden="true">
+        <span className={classNames('icon-control-mark', styles.notificationBellIcon, isBellAnimating && styles.isAttention)} aria-hidden="true">
           <BellIcon />
         </span>
 
         {showBadge ? (
-          <span className={classNames('notification-dot', !showCountBadge && 'is-dot')} aria-hidden="true">
+          <span className={classNames(styles.notificationDot, !showCountBadge && styles.isDot)} aria-hidden="true">
             {showCountBadge ? badgeLabel : null}
           </span>
         ) : null}
       </button>
 
       {isPanelRendered ? (
-        <div className={classNames('notification-panel', isPanelOpen && 'is-open')} role="menu" aria-label={t('notifications.title')}>
-          <div className="notification-panel-header">
-            <h3 className="notification-panel-title">{t('notifications.title')}</h3>
+        <div className={classNames(styles.notificationPanel, isPanelOpen && styles.isOpen)} role="menu" aria-label={t('notifications.title')}>
+          <div className={styles.notificationPanelHeader}>
+            <h3 className={styles.notificationPanelTitle}>{t('notifications.title')}</h3>
             <button
               type="button"
-              className="notification-panel-action"
+              className={styles.notificationPanelAction}
               onClick={() => { void handleMarkAllRead() }}
               disabled={unreadCount === 0}
             >
@@ -338,39 +339,39 @@ export function NotificationBell({ role, shouldClose = false }: NotificationBell
           </div>
 
           {isLoading ? (
-            <div className="notification-panel-state notification-panel-loading" role="status">
-              <div className="notification-panel-state-icon" aria-hidden="true">
+            <div className={styles.notificationPanelState} role="status">
+              <div className={styles.notificationPanelStateIcon} aria-hidden="true">
                 <BellIcon />
               </div>
-              <p className="notification-panel-state-text">{t('notifications.loading')}</p>
+              <p className={styles.notificationPanelStateText}>{t('notifications.loading')}</p>
             </div>
           ) : notifications.length === 0 ? (
-            <div className="notification-panel-state notification-panel-empty" role="status">
-              <div className="notification-panel-state-icon" aria-hidden="true">
+            <div className={styles.notificationPanelState} role="status">
+              <div className={styles.notificationPanelStateIcon} aria-hidden="true">
                 <BellIcon />
               </div>
-              <p className="notification-panel-state-text">{t('notifications.empty')}</p>
+              <p className={styles.notificationPanelStateText}>{t('notifications.empty')}</p>
             </div>
           ) : (
-            <ul className="notification-list">
+            <ul className={styles.notificationList}>
               {notifications.map((notification, index) => (
                 <li key={notification.id}>
                   <button
                     type="button"
-                    className={classNames('notification-item', !notification.isRead && 'is-unread')}
+                    className={classNames(styles.notificationItem, !notification.isRead && styles.isUnread)}
                     style={getItemDelayStyle(index)}
                     onClick={() => { void handleNotificationClick(notification) }}
                   >
-                    <span className={classNames('notification-item-unread-indicator', notification.isRead && 'is-hidden')} aria-hidden="true" />
-                    <span className="notification-item-type-icon" aria-hidden="true">
+                    <span className={classNames(styles.notificationItemUnreadIndicator, notification.isRead && styles.isHidden)} aria-hidden="true" />
+                    <span className={styles.notificationItemTypeIcon} aria-hidden="true">
                       {resolveNotificationIcon(notification.type)}
                     </span>
 
-                    <span className="notification-item-content">
-                      <span className="notification-item-title">{notification.title}</span>
-                      <span className="notification-item-message">{notification.message}</span>
-                      <span className="notification-item-meta">
-                        <time className="notification-item-date" dateTime={notification.createdAt}>
+                    <span className={styles.notificationItemContent}>
+                      <span className={styles.notificationItemTitle}>{notification.title}</span>
+                      <span className={styles.notificationItemMessage}>{notification.message}</span>
+                      <span className={styles.notificationItemMeta}>
+                        <time className={styles.notificationItemDate} dateTime={notification.createdAt}>
                           {formatRelativeTimestamp(notification.createdAt)}
                         </time>
                       </span>
@@ -381,10 +382,10 @@ export function NotificationBell({ role, shouldClose = false }: NotificationBell
             </ul>
           )}
 
-          <div className="notification-panel-footer">
+          <div className={styles.notificationPanelFooter}>
             <Link
               to="/dashboard"
-              className="notification-panel-action"
+              className={styles.notificationPanelAction}
               onClick={() => {
                 closePanel()
               }}
