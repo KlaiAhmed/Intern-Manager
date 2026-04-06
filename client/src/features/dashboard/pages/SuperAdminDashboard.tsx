@@ -55,8 +55,8 @@
  */
 
 import type { ReactNode } from 'react'
-import { useState, useEffect, useCallback } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useState, useCallback } from 'react'
+import { useI18n } from '../../../locales/I18nContext'
 import { useSuperAdminStats } from '../hooks/useSuperAdminStats'
 import { SuperAdminSidebar, type SuperAdminSection } from '../components/SuperAdminSidebar'
 import { SuperAdminStatCard } from '../components/SuperAdminStatCard'
@@ -68,7 +68,7 @@ import { BarChart } from '../components/BarChart'
 import { DonutChart } from '../components/DonutChart'
 import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
-import './SuperAdminDashboard.css'
+import '../styles/pages/SuperAdminDashboard.css'
 
 // SVG Icon Component
 const Icon = ({ children }: { children: ReactNode }) => (
@@ -215,19 +215,19 @@ function OverviewSection() {
             </div>
           ) : (
             <>
-              <div className="chart-card" style={{ animationDelay: '150ms' }}>
+              <div className="chart-card chart-card-delay-150">
                 <h3 className="chart-title">{t('dashboard.chart.internsByDepartment')}</h3>
                 <div className="chart-content">
                   <BarChart data={charts.internsByDepartment} />
                 </div>
               </div>
-              <div className="chart-card" style={{ animationDelay: '210ms' }}>
+              <div className="chart-card chart-card-delay-210">
                 <h3 className="chart-title">{t('dashboard.chart.internshipsByStatus')}</h3>
                 <div className="chart-content">
                   <DonutChart data={charts.internshipsByStatus} />
                 </div>
               </div>
-              <div className="chart-card" style={{ animationDelay: '270ms' }}>
+              <div className="chart-card chart-card-delay-270">
                 <h3 className="chart-title">{t('dashboard.chart.internshipsByType')}</h3>
                 <div className="chart-content">
                   <BarChart data={charts.internshipsByType} />
@@ -261,12 +261,13 @@ export function SuperAdminDashboard() {
   const [activeSettingsSubSection, setActiveSettingsSubSection] = useState<SettingsSubSection>('departments')
   const [settingsExpanded, setSettingsExpanded] = useState(false)
 
-  // Close settings when switching away
-  useEffect(() => {
-    if (activeSection !== 'settings') {
+  const handleSectionChange = useCallback((nextSection: SuperAdminSection) => {
+    setActiveSection(nextSection)
+
+    if (nextSection !== 'settings') {
       setSettingsExpanded(false)
     }
-  }, [activeSection])
+  }, [])
 
   const renderContent = useCallback(() => {
     switch (activeSection) {
@@ -322,12 +323,12 @@ export function SuperAdminDashboard() {
     <div className="super-admin-dashboard">
       <SuperAdminSidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
         activeSettingsSubSection={activeSettingsSubSection}
         onSettingsSubSectionChange={setActiveSettingsSubSection}
         settingsExpanded={settingsExpanded}
         onSettingsToggle={() => {
-          setSettingsExpanded(!settingsExpanded)
+          setSettingsExpanded((currentValue) => !currentValue)
           if (activeSection !== 'settings') {
             setActiveSection('settings')
           }
@@ -348,3 +349,4 @@ export function SuperAdminDashboard() {
     </div>
   )
 }
+

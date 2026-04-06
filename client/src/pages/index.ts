@@ -1,0 +1,6 @@
+export { DashboardPage } from './DashboardPage'
+export { ErrorPage } from './ErrorPage'
+export { HomePage } from './HomePage'
+export { LoginPage } from './LoginPage'
+export { NotFoundPage } from './NotFoundPage'
+export { SignUpPage } from './SignUpPage'

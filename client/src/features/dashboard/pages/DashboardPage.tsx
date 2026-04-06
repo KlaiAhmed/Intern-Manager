@@ -1,12 +1,12 @@
-import { useAuth } from '../../../shared/state/AuthContext'
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import { usePageMetadata } from '../../../shared/seo/usePageMetadata'
+import { useAuth } from '../../../stores/AuthContext'
+import { useI18n } from '../../../locales/I18nContext'
+import { usePageMetadata } from '../../../hooks/usePageMetadata'
 import { SuperAdminDashboard } from './SuperAdminDashboard'
 import { AdminDashboard } from './AdminDashboard'
 import { ManagerDashboard } from './ManagerDashboard'
 import { SupervisorDashboard } from './SupervisorDashboard'
 import { InternDashboard } from './InternDashboard'
-import '../styles/dashboard-tokens.css'
+import '../styles/dashboard.css'
 
 type DashboardRole = 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'intern'
 
@@ -76,3 +76,4 @@ export function DashboardPage() {
     </main>
   )
 }
+

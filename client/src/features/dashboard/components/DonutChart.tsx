@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 
 interface DonutChartProps {
   data: Array<{ name: string; value: number }>
@@ -16,25 +16,39 @@ export function DonutChart({ data }: DonutChartProps) {
 
   const total = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
 
+  const segments = useMemo(() => {
+    if (data.length === 0 || total === 0) {
+      return []
+    }
+
+    return data.reduce<Array<{
+      name: string
+      value: number
+      percent: number
+      startPercent: number
+      color: string
+    }>>((accumulator, item, index) => {
+      const previousSegment = accumulator[accumulator.length - 1]
+      const startPercent = previousSegment
+        ? previousSegment.startPercent + previousSegment.percent
+        : 0
+      const percent = (item.value / total) * 100
+
+      return [
+        ...accumulator,
+        {
+          ...item,
+          percent,
+          startPercent,
+          color: COLORS[index % COLORS.length],
+        },
+      ]
+    }, [])
+  }, [data, total])
+
   if (data.length === 0 || total === 0) {
     return <p className="chart-empty">{t('dashboard.noData')}</p>
   }
-
-  // Calculate segments for the donut
-  const segments = useMemo(() => {
-    let cumulativePercent = 0
-    return data.map((item, index) => {
-      const percent = (item.value / total) * 100
-      const segment = {
-        ...item,
-        percent,
-        startPercent: cumulativePercent,
-        color: COLORS[index % COLORS.length],
-      }
-      cumulativePercent += percent
-      return segment
-    })
-  }, [data, total])
 
   const radius = 80
   const strokeWidth = 30
@@ -78,3 +92,4 @@ export function DonutChart({ data }: DonutChartProps) {
     </div>
   )
 }
+

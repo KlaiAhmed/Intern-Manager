@@ -1,5 +1,4 @@
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import './PlaceholderSection.css'
+import { useI18n } from '../../../locales/I18nContext'
 
 interface PlaceholderSectionProps {
   title: string
@@ -26,3 +25,4 @@ export function PlaceholderSection({ title, subtitle, icon = '🚧' }: Placehold
     </section>
   )
 }
+

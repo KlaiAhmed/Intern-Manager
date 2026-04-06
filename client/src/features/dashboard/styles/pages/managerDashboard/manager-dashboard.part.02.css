@@ -1,0 +1,251 @@
+.supervisor-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.supervisor-name {
+  font-weight: 500;
+  color: var(--dash-text);
+  font-size: 1rem;
+}
+
+.supervisor-department {
+  font-size: 0.875rem;
+  color: var(--dash-text-muted);
+}
+
+.supervisor-stats {
+  display: flex;
+  padding-top: var(--dash-space-md);
+  border-top: 1px solid var(--dash-border);
+}
+
+.supervisor-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+}
+
+.supervisor-stat-value {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 1.5rem;
+  color: var(--dash-text);
+}
+
+.supervisor-stat-label {
+  font-size: 0.8125rem;
+  color: var(--dash-text-muted);
+}
+
+/* Department Cards */
+.dept-card {
+  background: var(--dash-bg-primary);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  padding: var(--dash-space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-lg);
+  transition: border-color var(--dash-duration-fast) var(--dash-ease);
+}
+
+.dept-card:hover {
+  border-color: var(--dash-border-hover);
+}
+
+.dept-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.dept-card-name {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 1.125rem;
+  color: var(--dash-text);
+  margin: 0;
+}
+
+.dept-ring {
+  position: relative;
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.dept-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.dept-ring-bg {
+  fill: none;
+  stroke: var(--dash-bg-secondary);
+  stroke-width: 3;
+}
+
+.dept-ring-fill {
+  fill: none;
+  stroke: var(--dash-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray var(--dash-duration-medium) var(--dash-ease);
+}
+
+.dept-ring-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--dash-text-secondary);
+}
+
+.dept-card-stats {
+  display: flex;
+  gap: var(--dash-space-lg);
+  padding-top: var(--dash-space-md);
+  border-top: 1px solid var(--dash-border);
+}
+
+.dept-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+}
+
+.dept-stat-value {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 1.5rem;
+  color: var(--dash-text);
+}
+
+.dept-stat-label {
+  font-size: 0.8125rem;
+  color: var(--dash-text-muted);
+}
+
+/* Intern Modal Content */
+.intern-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xl);
+}
+
+.intern-modal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-md);
+  padding-bottom: var(--dash-space-lg);
+  border-bottom: 1px solid var(--dash-border);
+}
+
+.intern-modal-avatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: grid;
+  place-items: center;
+  background: var(--dash-accent);
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 500;
+  border-radius: var(--dash-radius-md);
+}
+
+.intern-modal-info h3 {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 1.125rem;
+  color: var(--dash-text);
+  margin: 0 0 2px 0;
+}
+
+.intern-modal-email {
+  font-size: 0.875rem;
+  color: var(--dash-text-muted);
+  margin: 0;
+}
+
+.intern-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--dash-space-xl);
+}
+
+@media (max-width: 768px) {
+  .intern-modal-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.intern-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+}
+
+.intern-modal-label {
+  font-size: 0.8125rem;
+  color: var(--dash-text-muted);
+}
+
+.intern-modal-value {
+  font-size: 0.9375rem;
+  color: var(--dash-text);
+}
+
+.intern-modal-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-md);
+  padding: var(--dash-space-lg);
+  background: var(--dash-bg-secondary);
+  border-radius: var(--dash-radius-md);
+}
+
+.intern-modal-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.intern-modal-progress-value {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 1.5rem;
+  color: var(--dash-accent);
+}
+
+.intern-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--dash-space-md);
+  padding-top: var(--dash-space-lg);
+  border-top: 1px solid var(--dash-border);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 640px) {
+  .dash-filter-row {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .dash-filter-row .dash-input {
+    width: 100%;
+  }
+
+  .intern-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dept-card-stats,
+  .supervisor-stats {
+    flex-direction: row;
+  }
+}

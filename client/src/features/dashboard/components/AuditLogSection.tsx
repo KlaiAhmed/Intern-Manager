@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 import { useAuditLogs } from '../hooks/useAuditLogs'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Search, X, Filter, Download } from './IconComponents'
-import './AuditLogSection.css'
 
 const actionOptions = [
   { value: '', label: 'All Actions' },
@@ -119,12 +118,11 @@ export function AuditLogSection() {
           <p>No audit logs found.</p>
           {(filter.actor || filter.action) && (
             <button
-              className="dash-btn dash-btn-secondary dash-btn-md"
+              className="dash-btn dash-btn-secondary dash-btn-md audit-clear-filters-btn"
               onClick={() => {
                 setActorInput('')
                 setFilter({ actor: '', action: '' })
               }}
-              style={{ marginTop: '1rem' }}
             >
               Clear Filters
             </button>
@@ -196,3 +194,4 @@ export function AuditLogSection() {
     </section>
   )
 }
+

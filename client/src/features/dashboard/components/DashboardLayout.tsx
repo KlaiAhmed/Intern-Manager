@@ -1,5 +1,4 @@
 import { useState, useEffect, type ReactNode } from 'react'
-import './DashboardLayout.css'
 
 interface NavItem {
   id: string
@@ -107,7 +106,7 @@ export function DashboardLayout({
 
         <nav className="dash-nav" aria-label="Dashboard tabs">
           <ul className="dash-nav-list" role="tablist">
-            {navItems.map((item, index) => (
+            {navItems.map((item) => (
               <li key={item.id} role="presentation">
                 <button
                   role="tab"
@@ -116,7 +115,6 @@ export function DashboardLayout({
                   id={`tab-${item.id}`}
                   className={`dash-nav-item ${activeTab === item.id ? 'dash-nav-item-active' : ''}`}
                   onClick={() => handleNavClick(item.id)}
-                  style={{ animationDelay: `${index * 40}ms` }}
                 >
                   <span className="dash-nav-icon" aria-hidden="true">
                     {renderIcon(item.icon)}

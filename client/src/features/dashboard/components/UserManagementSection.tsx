@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 import { useUserManagement, type User } from '../hooks/useUserManagement'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
 import { Plus, Edit, Archive, Search, X } from './IconComponents'
-import './UserManagementSection.css'
 
 export function UserManagementSection() {
   const { t } = useI18n()
@@ -414,3 +413,4 @@ export function UserManagementSection() {
     </section>
   )
 }
+

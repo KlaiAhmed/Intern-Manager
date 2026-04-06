@@ -2,9 +2,20 @@
 /* Import all dashboard CSS in order of specificity */
 
 @import './dashboard-tokens.css';
+@import './components/AuditLogSection.css';
+@import './components/DashboardButton.css';
+@import './components/DashboardLayout.css';
+@import './components/ErrorState.css';
+@import './components/Modal.css';
+@import './components/Panel.css';
+@import './components/PlaceholderSection.css';
+@import './components/SettingsPanel.css';
+@import './components/StatCard.css';
+@import './components/SuperAdminSidebar.css';
+@import './components/SuperAdminStatCard.css';
+@import './components/UserManagementSection.css';
 
-/* Component styles will be imported individually via their CSS modules */
-/* This file exists for global dashboard utilities */
+/* Shared dashboard utilities */
 
 /* Dashboard Grid Layouts */
 .dash-grid {

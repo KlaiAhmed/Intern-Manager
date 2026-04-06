@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import { useRolePreference } from '../../../shared/state/RolePreferenceContext'
-import { Card } from '../../../shared/ui/Card'
-import { Section } from '../../../shared/ui/Section'
-import type { UserRole } from '../../../shared/types/role'
-import type { TranslationKey } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
+import { useRolePreference } from '../../../stores/RolePreferenceContext'
+import { Card } from '../../../components/ui/Card'
+import { Section } from '../../../components/ui/Section'
+import type { UserRole } from '../../../types/role'
+import type { TranslationKey } from '../../../locales/I18nContext'
 
 const roleContentKeys: Record<UserRole, { title: TranslationKey; description: TranslationKey }> = {
   supervisor: { title: 'roles.supervisorTitle', description: 'roles.supervisorText' },
@@ -101,3 +101,4 @@ export function RoleValueSection() {
     </Section>
   )
 }
+

@@ -1,5 +1,4 @@
 import type { ReactNode, ButtonHTMLAttributes } from 'react'
-import './DashboardButton.css'
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
 type ButtonSize = 'sm' | 'md'

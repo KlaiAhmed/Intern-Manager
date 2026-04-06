@@ -1,0 +1,255 @@
+/* Manager Dashboard Specific Styles */
+/* These extend the shared dashboard design system */
+
+@import '../../dashboard-tokens.css';
+@import '../../components/DashboardLayout.css';
+@import '../../components/StatCard.css';
+@import '../../components/Panel.css';
+@import '../../components/DashboardButton.css';
+
+/* Department Progress List */
+.dept-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dept-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dash-space-lg);
+  padding: var(--dash-space-md) 0;
+  border-bottom: 1px solid var(--dash-border);
+}
+
+.dept-item:last-child {
+  border-bottom: none;
+}
+
+.dept-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+  flex: 1;
+}
+
+.dept-name {
+  font-family: var(--dash-font-body);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--dash-text);
+}
+
+.dept-meta {
+  font-size: 0.8125rem;
+  color: var(--dash-text-muted);
+}
+
+.dept-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-sm);
+  min-width: 120px;
+}
+
+.dept-progress-value {
+  font-family: var(--dash-font-body);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--dash-text);
+  min-width: 2rem;
+  text-align: right;
+}
+
+/* Activity Feed */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-md);
+}
+
+.activity-item {
+  display: flex;
+  gap: var(--dash-space-md);
+  padding: var(--dash-space-md) 0;
+}
+
+.activity-icon {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  border-radius: var(--dash-radius-md);
+}
+
+.activity-icon-submission {
+  background: color-mix(in srgb, var(--dash-success) 10%, var(--dash-bg-secondary));
+  color: var(--dash-success);
+}
+
+.activity-icon-evaluation {
+  background: color-mix(in srgb, var(--dash-accent) 10%, var(--dash-bg-secondary));
+  color: var(--dash-accent);
+}
+
+.activity-icon-mission_created {
+  background: color-mix(in srgb, var(--dash-accent) 10%, var(--dash-bg-secondary));
+  color: var(--dash-accent);
+}
+
+.activity-icon-meeting {
+  background: color-mix(in srgb, var(--dash-warning) 10%, var(--dash-bg-secondary));
+  color: var(--dash-warning);
+}
+
+.activity-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+  flex: 1;
+}
+
+.activity-description {
+  font-size: 0.9375rem;
+  color: var(--dash-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.activity-description strong {
+  font-weight: 500;
+  color: var(--dash-text);
+}
+
+.activity-time {
+  font-size: 0.8125rem;
+  color: var(--dash-text-muted);
+}
+
+/* Filter Row */
+.dash-filter-row {
+  display: flex;
+  gap: var(--dash-space-md);
+}
+
+.dash-input-search-wide {
+  width: 240px;
+}
+
+/* Intern Cell in Table */
+.intern-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-md);
+}
+
+.intern-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: var(--dash-radius-md);
+  flex-shrink: 0;
+}
+
+.intern-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intern-name {
+  font-weight: 500;
+  color: var(--dash-text);
+  font-size: 0.9375rem;
+}
+
+.intern-email {
+  font-size: 0.8125rem;
+  color: var(--dash-text-muted);
+}
+
+/* Table Progress */
+.table-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-sm);
+  max-width: 120px;
+}
+
+.table-progress .dash-progress {
+  flex: 1;
+}
+
+/* Success variant for progress fill */
+.dash-progress-fill-success {
+  background: var(--dash-success);
+}
+
+/* View Button */
+.view-button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--dash-accent);
+  font-family: var(--dash-font-body);
+  font-size: 0.875rem;
+  font-weight: 400;
+  padding: var(--dash-space-xs) var(--dash-space-sm);
+  border-radius: var(--dash-radius-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--dash-duration-fast) var(--dash-ease),
+    color var(--dash-duration-fast) var(--dash-ease);
+}
+
+.view-button:hover {
+  background: var(--dash-accent-subtle);
+  color: var(--dash-accent);
+}
+
+.view-button:focus-visible {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 2px;
+}
+
+/* Supervisor Cards */
+.supervisor-card {
+  background: var(--dash-bg-primary);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  padding: var(--dash-space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-lg);
+  transition: border-color var(--dash-duration-fast) var(--dash-ease);
+}
+
+.supervisor-card:hover {
+  border-color: var(--dash-border-hover);
+}
+
+.supervisor-header {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-md);
+}
+
+.supervisor-avatar {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: var(--dash-radius-md);
+}
+

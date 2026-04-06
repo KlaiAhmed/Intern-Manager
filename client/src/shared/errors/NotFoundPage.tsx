@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useI18n } from '../i18n/I18nContext'
-import { usePageMetadata } from '../seo/usePageMetadata'
+import { useI18n } from '../../locales/I18nContext'
+import { usePageMetadata } from '../../hooks/usePageMetadata'
 import styles from './StatusPage.module.css'
 
 /**

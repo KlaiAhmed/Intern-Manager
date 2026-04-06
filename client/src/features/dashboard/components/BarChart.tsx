@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 
 // Note: Install recharts with `npm install recharts` for proper chart rendering
 // This component provides a fallback bar representation if recharts is not available
@@ -23,27 +23,23 @@ export function BarChart({ data }: BarChartProps) {
     return <p className="chart-empty">{t('dashboard.noData')}</p>
   }
 
-  // Try to use recharts if available, otherwise use CSS fallback
-  try {
-    // Dynamic import would go here if recharts is installed
-    // For now, using CSS-based fallback
-    return (
-      <div className="bar-chart-fallback">
-        {data.map((item, index) => (
-          <div key={index} className="bar-chart-row">
-            <span className="bar-chart-label">{item.name}</span>
-            <div className="bar-chart-bar-container">
-              <div
-                className="bar-chart-bar"
-                style={{ width: `${(item.value / maxValue) * 100}%` }}
-              />
-              <span className="bar-chart-value">{item.value}</span>
-            </div>
+  // Dynamic import would go here if recharts is installed.
+  // For now, render the CSS-based fallback.
+  return (
+    <div className="bar-chart-fallback">
+      {data.map((item, index) => (
+        <div key={index} className="bar-chart-row">
+          <span className="bar-chart-label">{item.name}</span>
+          <div className="bar-chart-bar-container">
+            <div
+              className="bar-chart-bar"
+              style={{ width: `${(item.value / maxValue) * 100}%` }}
+            />
+            <span className="bar-chart-value">{item.value}</span>
           </div>
-        ))}
-      </div>
-    )
-  } catch {
-    return <p className="chart-error">Chart unavailable</p>
-  }
+        </div>
+      ))}
+    </div>
+  )
 }
+

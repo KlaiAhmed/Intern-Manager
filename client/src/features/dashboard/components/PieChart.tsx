@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 
 interface PieChartProps {
   data: Array<{ name: string; value: number }>
@@ -16,25 +16,37 @@ export function PieChart({ data }: PieChartProps) {
 
   const total = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
 
+  const slices = useMemo(() => {
+    if (data.length === 0 || total === 0) {
+      return []
+    }
+
+    return data.reduce<Array<{
+      name: string
+      value: number
+      startAngle: number
+      endAngle: number
+      color: string
+    }>>((accumulator, item, index) => {
+      const previousSlice = accumulator[accumulator.length - 1]
+      const startAngle = previousSlice ? previousSlice.endAngle : 0
+      const angle = (item.value / total) * 360
+
+      return [
+        ...accumulator,
+        {
+          ...item,
+          startAngle,
+          endAngle: startAngle + angle,
+          color: COLORS[index % COLORS.length],
+        },
+      ]
+    }, [])
+  }, [data, total])
+
   if (data.length === 0 || total === 0) {
     return <p className="chart-empty">{t('dashboard.noData')}</p>
   }
-
-  // Calculate pie slices
-  const slices = useMemo(() => {
-    let cumulativeAngle = 0
-    return data.map((item, index) => {
-      const angle = (item.value / total) * 360
-      const slice = {
-        ...item,
-        startAngle: cumulativeAngle,
-        endAngle: cumulativeAngle + angle,
-        color: COLORS[index % COLORS.length],
-      }
-      cumulativeAngle += angle
-      return slice
-    })
-  }, [data, total])
 
   const getPath = (startAngle: number, endAngle: number) => {
     const cx = 100
@@ -78,3 +90,4 @@ export function PieChart({ data }: PieChartProps) {
     </div>
   )
 }
+

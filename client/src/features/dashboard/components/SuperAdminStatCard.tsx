@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import './SuperAdminStatCard.css'
 
 interface SuperAdminStatCardProps {
   label: string
@@ -24,6 +23,10 @@ export function SuperAdminStatCard({
   variant = 'default',
   animationDelay = 0,
 }: SuperAdminStatCardProps) {
+  const animationDelayClass = animationDelay > 0
+    ? `super-admin-stat-card-delay-${animationDelay}`
+    : ''
+
   const changeClass = change !== undefined
     ? change > 0
       ? 'super-admin-stat-change-positive'
@@ -34,8 +37,7 @@ export function SuperAdminStatCard({
 
   return (
     <article
-      className={`super-admin-stat-card super-admin-stat-card-${variant}`}
-      style={{ animationDelay: `${animationDelay}ms` }}
+      className={`super-admin-stat-card super-admin-stat-card-${variant} ${animationDelayClass}`.trim()}
     >
       <div className="super-admin-stat-header">
         {icon && (

@@ -1,0 +1,186 @@
+/* SuperAdminStatCard Styles */
+
+.super-admin-stat-card {
+  background: var(--dash-bg-primary);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  padding: var(--dash-space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-md);
+  transition:
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .super-admin-stat-card {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: fadeSlideUp 200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+}
+
+@keyframes fadeSlideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.super-admin-stat-card-delay-60 {
+  animation-delay: 60ms;
+}
+
+.super-admin-stat-card-delay-120 {
+  animation-delay: 120ms;
+}
+
+.super-admin-stat-card-delay-180 {
+  animation-delay: 180ms;
+}
+
+.super-admin-stat-card-delay-240 {
+  animation-delay: 240ms;
+}
+
+.super-admin-stat-card-delay-300 {
+  animation-delay: 300ms;
+}
+
+.super-admin-stat-card-delay-360 {
+  animation-delay: 360ms;
+}
+
+.super-admin-stat-card:hover {
+  border-color: var(--dash-border-hover);
+  background: color-mix(in srgb, var(--dash-bg-primary) 97%, var(--dash-accent) 3%);
+}
+
+/* Header with icon */
+.super-admin-stat-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.super-admin-stat-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--dash-radius-md);
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text-muted);
+  font-size: 0.875rem;
+}
+
+.super-admin-stat-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+/* Content */
+.super-admin-stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+}
+
+.super-admin-stat-label {
+  font-family: var(--dash-font-body);
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: var(--dash-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.super-admin-stat-value {
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 2rem;
+  color: var(--dash-text);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-top: var(--dash-space-xs);
+}
+
+/* Change/delta indicator */
+.super-admin-stat-change {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-xs);
+  font-size: 0.8125rem;
+  margin-top: var(--dash-space-xs);
+}
+
+.super-admin-stat-change-value {
+  font-family: var(--dash-font-body);
+  font-weight: 500;
+}
+
+.super-admin-stat-change-label {
+  font-family: var(--dash-font-body);
+  font-weight: 400;
+  color: var(--dash-text-muted);
+}
+
+/* Change variants */
+.super-admin-stat-change-positive .super-admin-stat-change-value {
+  color: var(--dash-success);
+}
+
+.super-admin-stat-change-negative .super-admin-stat-change-value {
+  color: var(--dash-error);
+}
+
+.super-admin-stat-change-neutral .super-admin-stat-change-value {
+  color: var(--dash-text-muted);
+}
+
+/* Card variants */
+.super-admin-stat-card-primary .super-admin-stat-icon {
+  color: var(--dash-accent);
+  background: var(--dash-accent-subtle);
+}
+
+.super-admin-stat-card-success .super-admin-stat-icon {
+  color: var(--dash-success);
+  background: color-mix(in srgb, var(--dash-success) 10%, var(--dash-bg-secondary));
+}
+
+.super-admin-stat-card-warning .super-admin-stat-icon {
+  color: var(--dash-warning);
+  background: color-mix(in srgb, var(--dash-warning) 10%, var(--dash-bg-secondary));
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .super-admin-stat-card {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 639px) {
+  .super-admin-stat-card {
+    padding: var(--dash-space-lg);
+  }
+
+  .super-admin-stat-value {
+    font-size: 1.75rem;
+  }
+
+  .super-admin-stat-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .super-admin-stat-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+}

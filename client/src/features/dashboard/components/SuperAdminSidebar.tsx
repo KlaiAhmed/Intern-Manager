@@ -1,5 +1,4 @@
 import { useState, useEffect, type ReactNode, useCallback } from 'react'
-import './SuperAdminSidebar.css'
 import {
   Overview,
   Users,
@@ -147,10 +146,7 @@ export function SuperAdminSidebar({
               aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
               aria-expanded={sidebarOpen}
             >
-              <span
-                className="super-admin-toggle-icon"
-                style={{ transform: sidebarOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-              >
+              <span className={`super-admin-toggle-icon ${sidebarOpen ? 'is-rotated' : ''}`}>
                 <ChevronRight />
               </span>
             </button>
@@ -169,8 +165,8 @@ export function SuperAdminSidebar({
         {/* Navigation */}
         <nav className="super-admin-nav" aria-label="Main navigation">
           <ul className="super-admin-nav-list" role="tablist">
-            {navItems.map((item, index) => (
-              <li key={item.id} role="presentation" style={{ animationDelay: `${index * 40}ms` }}>
+            {navItems.map((item) => (
+              <li key={item.id} role="presentation">
                 <button
                   role="tab"
                   aria-selected={activeSection === item.id}
@@ -201,10 +197,7 @@ export function SuperAdminSidebar({
                   <Settings />
                 </span>
                 <span className="super-admin-nav-label">Settings</span>
-                <span
-                  className="super-admin-expand-icon"
-                  style={{ transform: settingsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                >
+                <span className={`super-admin-expand-icon ${settingsExpanded ? 'is-rotated' : ''}`}>
                   <ChevronDown />
                 </span>
                 {isSettingsActive && <span className="super-admin-active-indicator" />}
@@ -233,7 +226,7 @@ export function SuperAdminSidebar({
             </li>
 
             {/* Audit & Security */}
-            <li role="presentation" style={{ animationDelay: `${navItems.length * 40}ms` }}>
+            <li role="presentation">
               <button
                 role="tab"
                 aria-selected={activeSection === 'audit'}

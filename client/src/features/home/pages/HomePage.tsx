@@ -1,6 +1,6 @@
 import { Suspense, lazy, useLayoutEffect } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import { usePageMetadata } from '../../../shared/seo/usePageMetadata'
+import { useI18n } from '../../../locales/I18nContext'
+import { usePageMetadata } from '../../../hooks/usePageMetadata'
 import { HeroSection } from '../sections/HeroSection'
 import { BenefitsSection } from '../sections/BenefitsSection'
 import { RoleValueSection } from '../sections/RoleValueSection'
@@ -49,3 +49,4 @@ export function HomePage() {
     </main>
   )
 }
+

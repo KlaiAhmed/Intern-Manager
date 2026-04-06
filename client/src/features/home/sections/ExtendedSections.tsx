@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import { useAuth } from '../../../shared/state/AuthContext'
-import { Button } from '../../../shared/ui/Button'
-import { Card } from '../../../shared/ui/Card'
-import { Section } from '../../../shared/ui/Section'
+import { useI18n } from '../../../locales/I18nContext'
+import { useAuth } from '../../../stores/AuthContext'
+import { Button } from '../../../components/ui/Button'
+import { Card } from '../../../components/ui/Card'
+import { Section } from '../../../components/ui/Section'
 
 const proofCards = [
   { quote: 'proof.quote1', author: 'proof.author1', role: 'Training Lead' },
@@ -62,7 +62,7 @@ export default function ExtendedSections() {
               <span className="ai-score-badge">87</span>
             </div>
             <div className="ai-score-bar">
-              <div className="ai-score-progress" style={{ width: '87%' }} />
+              <div className="ai-score-progress ai-score-progress-87" />
             </div>
             <p className="ai-score-context">
               Based on skill alignment, availability, and historical performance metrics.
@@ -187,3 +187,4 @@ export default function ExtendedSections() {
     </>
   )
 }
+

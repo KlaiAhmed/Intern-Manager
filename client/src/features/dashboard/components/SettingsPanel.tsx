@@ -4,7 +4,6 @@ import { useDashboardApi } from '../hooks/useDashboardApi'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
-import './SettingsPanel.css'
 
 export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'statuses'
 
@@ -186,9 +185,8 @@ export function SettingsPanel({
         <div className="dash-empty">
           <p>No {activeTab.label.toLowerCase()} configured yet.</p>
           <button
-            className="dash-btn dash-btn-secondary dash-btn-md"
+            className="dash-btn dash-btn-secondary dash-btn-md settings-add-first-btn"
             onClick={() => setIsModalOpen(true)}
-            style={{ marginTop: '1rem' }}
           >
             Add your first {activeTab.label.slice(0, -1).toLowerCase()}
           </button>

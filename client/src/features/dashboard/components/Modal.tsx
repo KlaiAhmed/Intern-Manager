@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from 'react'
 import { useEffect, useRef } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import './Modal.css'
+import { useI18n } from '../../../locales/I18nContext'
 
 interface ModalProps {
   isOpen: boolean
@@ -79,3 +78,4 @@ export function Modal({ isOpen, onClose, title, children }: PropsWithChildren<Mo
     </div>
   )
 }
+

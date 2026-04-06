@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { apiFetch } from '../../../shared/api/apiClient'
+import { apiFetch } from '../../../lib/apiClient'
 import { getCsrfCookieToken } from '../../../lib/auth'
 
 type JsonRecord = Record<string, unknown>

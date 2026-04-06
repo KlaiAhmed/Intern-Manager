@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 import { KPICard } from '../components/KPICard'
 import { DataTable } from '../components/DataTable'
 import { Modal } from '../components/Modal'
@@ -472,3 +472,4 @@ export function AdminDashboard() {
     </div>
   )
 }
+

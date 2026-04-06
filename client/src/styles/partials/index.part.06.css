@@ -1,0 +1,468 @@
+
+.chart-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.chart-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+}
+
+.chart-empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--space-8);
+}
+
+/* Bar Chart Fallback */
+.bar-chart-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bar-chart-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bar-chart-label {
+  flex: 0 0 100px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bar-chart-bar-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bar-chart-bar {
+  height: 24px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: var(--radius-sm);
+  min-width: 4px;
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.bar-chart-value {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 40px;
+}
+
+/* Donut Chart */
+.donut-chart-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.donut-chart {
+  width: 140px;
+  height: 140px;
+}
+
+/* Dashboard Responsive */
+@media (max-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================
+ENHANCED HOME PAGE COMPONENTS
+===================================================== */
+
+/* Benefit Cards */
+.benefit-card {
+  padding-top: var(--space-6);
+}
+
+.benefit-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-primary);
+}
+
+.benefit-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Role Tabs */
+.role-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+  padding: 0.375rem;
+  background: var(--color-surface-lowered);
+  border-radius: var(--radius-lg);
+  max-width: fit-content;
+  margin-inline: auto;
+}
+
+.role-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.role-tab:hover {
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.role-tab.is-active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.role-tab-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: currentColor;
+}
+
+.role-tab-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.role-content-card {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.role-content-card.is-transitioning {
+  opacity: 0.5;
+}
+
+.role-content-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+}
+
+.role-content-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.role-preview-card {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.role-preview-card.is-transitioning {
+  opacity: 0.5;
+}
+
+.role-preview-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.role-preview-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.role-preview-current {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.role-preview-body {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* Lifecycle Cards */
+.lifecycle-card {
+  --lifecycle-accent: var(--color-primary);
+}
+
+.lifecycle-card h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* AI Section */
+.ai-score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.ai-score-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ai-score-badge {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.ai-score-bar {
+  height: 0.5rem;
+  background: var(--color-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: var(--space-3);
+}
+
+.ai-score-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  border-radius: 9999px;
+  transition: width 1s var(--ease-spring);
+}
+
+.ai-score-progress-87 {
+  width: 87%;
+}
+
+.ai-score-context {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.ai-factors-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ai-factors-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.ai-factor-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: var(--color-success);
+  color: white;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+/* BI Metrics */
+.bi-metric-card {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.bi-metric-card:hover {
+  transform: translateY(-2px);
+}
+
+.bi-metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.bi-metric-header h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.bi-metric-trend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+}
+
+.bi-metric-trend--down {
+  color: var(--color-text-tertiary);
+  background: var(--color-border);
+}
+
+.bi-metric-context {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  margin: var(--space-2) 0 0;
+}
+
+/* Trust Cards */
+.trust-card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.trust-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-primary);
+}
+
+.trust-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.trust-card p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* Testimonials */
+.testimonial-card {
+  position: relative;
+}
+
+.testimonial-card blockquote {
+  position: relative;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--color-text);
+  margin: 0 0 var(--space-5);
+}
+
+.testimonial-card blockquote::before {
+  content: '';
+}
+
+.testimonial-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.testimonial-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-primary);
+  color: white;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.testimonial-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.testimonial-meta .card-meta {
+  margin: 0;
+}
+
+.testimonial-role {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+/* Responsive adjustments for enhanced components */
+@media (max-width: 768px) {
+  .trust-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .ai-score-header {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .role-selector {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .role-tab {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+.mobile-menu-nav-item {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: start;
+  text-decoration: none;
+  display: block;
+}

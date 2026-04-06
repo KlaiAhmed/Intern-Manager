@@ -1,6 +1,6 @@
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import { Card } from '../../../shared/ui/Card'
-import { Section } from '../../../shared/ui/Section'
+import { useI18n } from '../../../locales/I18nContext'
+import { Card } from '../../../components/ui/Card'
+import { Section } from '../../../components/ui/Section'
 
 const benefitItems = [
   {
@@ -59,3 +59,4 @@ export function BenefitsSection() {
     </Section>
   )
 }
+

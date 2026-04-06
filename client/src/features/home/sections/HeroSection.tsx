@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { Badge } from '../../../shared/ui/Badge'
-import { Button } from '../../../shared/ui/Button'
-import { Section } from '../../../shared/ui/Section'
-import { useI18n } from '../../../shared/i18n/I18nContext'
-import { useAuth } from '../../../shared/state/AuthContext'
+import { Badge } from '../../../components/ui/Badge'
+import { Button } from '../../../components/ui/Button'
+import { Section } from '../../../components/ui/Section'
+import { useI18n } from '../../../locales/I18nContext'
+import { useAuth } from '../../../stores/AuthContext'
 import { useEffect, useState } from 'react'
 
 const heroStats = [
@@ -52,10 +52,7 @@ function AnimatedStat({ value, labelKey, delay }: { value: string; labelKey: typ
     : `${Math.round(count)}${suffix}`
 
   return (
-    <li
-      className="hero-stat-item reveal-on-scroll"
-      style={{ '--reveal-delay': `${delay * 100}ms` } as React.CSSProperties}
-    >
+    <li className="hero-stat-item reveal-on-scroll">
       <strong>{isVisible ? displayValue : '0'}</strong>
       <span>{t(labelKey)}</span>
     </li>
@@ -116,3 +113,4 @@ export function HeroSection() {
     </Section>
   )
 }
+

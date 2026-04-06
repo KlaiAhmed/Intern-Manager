@@ -1,5 +1,4 @@
 import { DashboardButton } from './DashboardButton'
-import './ErrorState.css'
 
 interface ErrorStateProps {
   message: string

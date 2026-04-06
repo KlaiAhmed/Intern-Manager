@@ -1,0 +1,371 @@
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useI18n } from '../../../locales/I18nContext'
+import { availableRoles } from '../../../types/role'
+import { usePageMetadata } from '../../../hooks/usePageMetadata'
+import { useAuth } from '../../../stores/AuthContext'
+import { ApiRequestError } from '../../../lib/authApi'
+import type {
+  AuthVariant,
+  FormErrors,
+  FormValues,
+  LoginFieldName,
+  RegisterErrors,
+  RegisterFieldName,
+  RegisterValues,
+} from '../types/authScreen'
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function useAuthScreenLogic(variant: AuthVariant) {
+  const { t } = useI18n()
+  const navigate = useNavigate()
+  const { login, signup } = useAuth()
+  const roleMenuRef = useRef<HTMLDivElement | null>(null)
+
+  const [values, setValues] = useState<FormValues>({
+    email: '',
+    password: '',
+    rememberMe: false,
+  })
+
+  const [registerValues, setRegisterValues] = useState<RegisterValues>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'intern',
+  })
+
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [registerErrors, setRegisterErrors] = useState<RegisterErrors>({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
+  const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false)
+  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
+  const [isRoleMenuUpward, setIsRoleMenuUpward] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const isSignUpVariant = variant === 'signup'
+  const pageTitle = isSignUpVariant ? t('auth.meta.signinTitle') : t('auth.meta.loginTitle')
+  const heading = isSignUpVariant ? t('auth.heading.signin') : t('auth.heading.login')
+  const description = t('auth.description.shared')
+  const submitLabel = isSignUpVariant ? t('auth.action.createAccount') : t('auth.action.login')
+
+  usePageMetadata({
+    title: pageTitle,
+    description: t('auth.meta.description'),
+    path: isSignUpVariant ? '/signup' : '/login',
+  })
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent): void => {
+      if (!roleMenuRef.current) {
+        return
+      }
+
+      const target = event.target
+      if (!(target instanceof Node)) {
+        return
+      }
+
+      if (!roleMenuRef.current.contains(target)) {
+        setIsRoleMenuOpen(false)
+      }
+    }
+
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setIsRoleMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', onPointerDown)
+    window.addEventListener('keydown', onEscape)
+
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown)
+      window.removeEventListener('keydown', onEscape)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isRoleMenuOpen) {
+      return
+    }
+
+    const updateRoleMenuDirection = (): void => {
+      if (!roleMenuRef.current) {
+        return
+      }
+
+      const roleCount = availableRoles.length
+      const estimatedMenuHeight = roleCount * 42 + 20
+      const rect = roleMenuRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      setIsRoleMenuUpward(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow)
+    }
+
+    updateRoleMenuDirection()
+    window.addEventListener('resize', updateRoleMenuDirection)
+
+    return () => {
+      window.removeEventListener('resize', updateRoleMenuDirection)
+    }
+  }, [isRoleMenuOpen])
+
+  const toggleRoleMenu = (): void => {
+    setIsRoleMenuOpen((previous) => {
+      if (!previous && roleMenuRef.current) {
+        const roleCount = availableRoles.length
+        const estimatedMenuHeight = roleCount * 42 + 20
+        const rect = roleMenuRef.current.getBoundingClientRect()
+        const spaceBelow = window.innerHeight - rect.bottom
+        const spaceAbove = rect.top
+
+        setIsRoleMenuUpward(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow)
+      }
+
+      return !previous
+    })
+  }
+
+  const validateLoginField = (field: LoginFieldName, value: string): string | undefined => {
+    if (field === 'email') {
+      if (!value.trim()) {
+        return t('auth.validation.emailRequired')
+      }
+
+      if (!emailPattern.test(value.trim())) {
+        return t('auth.validation.emailInvalid')
+      }
+
+      return undefined
+    }
+
+    if (!value.trim()) {
+      return t('auth.validation.passwordRequired')
+    }
+
+    return undefined
+  }
+
+  const validateRegisterField = (
+    field: RegisterFieldName,
+    fieldValue: string,
+    allValues: RegisterValues,
+  ): string | undefined => {
+    if (field === 'firstName') {
+      return fieldValue.trim() ? undefined : t('auth.validation.firstNameRequired')
+    }
+
+    if (field === 'lastName') {
+      return fieldValue.trim() ? undefined : t('auth.validation.lastNameRequired')
+    }
+
+    if (field === 'email') {
+      if (!fieldValue.trim()) {
+        return t('auth.validation.emailRequired')
+      }
+
+      if (!emailPattern.test(fieldValue.trim())) {
+        return t('auth.validation.emailInvalid')
+      }
+
+      return undefined
+    }
+
+    if (field === 'password') {
+      if (!fieldValue.trim()) {
+        return t('auth.validation.passwordRequired')
+      }
+
+      if (fieldValue.length < 8) {
+        return t('auth.validation.passwordMin')
+      }
+
+      return undefined
+    }
+
+    if (!fieldValue.trim()) {
+      return t('auth.validation.confirmPasswordRequired')
+    }
+
+    if (allValues.password !== fieldValue) {
+      return t('auth.validation.passwordsMismatch')
+    }
+
+    return undefined
+  }
+
+  const validateForm = (): FormErrors => {
+    const nextErrors: FormErrors = {}
+
+    const emailError = validateLoginField('email', values.email)
+    const passwordError = validateLoginField('password', values.password)
+
+    if (emailError) {
+      nextErrors.email = emailError
+    }
+
+    if (passwordError) {
+      nextErrors.password = passwordError
+    }
+
+    return nextErrors
+  }
+
+  const validateRegisterForm = (): RegisterErrors => {
+    const nextErrors: RegisterErrors = {}
+
+    const firstNameError = validateRegisterField('firstName', registerValues.firstName, registerValues)
+    const lastNameError = validateRegisterField('lastName', registerValues.lastName, registerValues)
+    const emailError = validateRegisterField('email', registerValues.email, registerValues)
+    const passwordError = validateRegisterField('password', registerValues.password, registerValues)
+    const confirmPasswordError = validateRegisterField(
+      'confirmPassword',
+      registerValues.confirmPassword,
+      registerValues,
+    )
+
+    if (firstNameError) {
+      nextErrors.firstName = firstNameError
+    }
+
+    if (lastNameError) {
+      nextErrors.lastName = lastNameError
+    }
+
+    if (emailError) {
+      nextErrors.email = emailError
+    }
+
+    if (passwordError) {
+      nextErrors.password = passwordError
+    }
+
+    if (confirmPasswordError) {
+      nextErrors.confirmPassword = confirmPasswordError
+    }
+
+    return nextErrors
+  }
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault()
+    setSubmitError(null)
+
+    const nextErrors = validateForm()
+    setErrors(nextErrors)
+
+    if (Object.keys(nextErrors).length > 0) {
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      await login(values.email.trim(), values.password, values.rememberMe)
+      navigate('/', { replace: true })
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 401) {
+          setSubmitError(t('auth.error.invalidCredentials'))
+        } else {
+          setSubmitError(error.message || t('auth.error.unexpected'))
+        }
+      } else if (error instanceof TypeError) {
+        setSubmitError(t('auth.error.network'))
+      } else if (error instanceof Error && error.message === 'AUTH_PROFILE_UNAVAILABLE') {
+        setSubmitError(t('auth.error.profileUnavailable'))
+      } else {
+        setSubmitError(t('auth.error.unexpected'))
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRegister = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault()
+    setSubmitError(null)
+
+    const nextErrors = validateRegisterForm()
+    setRegisterErrors(nextErrors)
+
+    if (Object.keys(nextErrors).length > 0) {
+      return
+    }
+
+    const payload = {
+      firstName: registerValues.firstName.trim(),
+      lastName: registerValues.lastName.trim(),
+      email: registerValues.email.trim(),
+      password: registerValues.password,
+      role: registerValues.role,
+    }
+
+    setIsLoading(true)
+
+    try {
+      await signup(payload.firstName, payload.lastName, payload.email, payload.password, payload.role)
+      navigate('/', { replace: true })
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 409) {
+          setSubmitError(t('auth.error.emailAlreadyExists'))
+        } else {
+          setSubmitError(error.message || t('auth.error.unexpected'))
+        }
+      } else if (error instanceof TypeError) {
+        setSubmitError(t('auth.error.network'))
+      } else if (error instanceof Error && error.message === 'AUTH_PROFILE_UNAVAILABLE') {
+        setSubmitError(t('auth.error.profileUnavailable'))
+      } else {
+        setSubmitError(t('auth.error.unexpected'))
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return {
+    t,
+    roleMenuRef,
+    values,
+    setValues,
+    registerValues,
+    setRegisterValues,
+    errors,
+    setErrors,
+    registerErrors,
+    setRegisterErrors,
+    isLoading,
+    isPasswordVisible,
+    setIsPasswordVisible,
+    isConfirmPasswordVisible,
+    setIsConfirmPasswordVisible,
+    isLoginPasswordVisible,
+    setIsLoginPasswordVisible,
+    isRoleMenuOpen,
+    setIsRoleMenuOpen,
+    isRoleMenuUpward,
+    submitError,
+    setSubmitError,
+    isSignUpVariant,
+    heading,
+    description,
+    submitLabel,
+    toggleRoleMenu,
+    validateLoginField,
+    validateRegisterField,
+    handleLogin,
+    handleRegister,
+  }
+}
+

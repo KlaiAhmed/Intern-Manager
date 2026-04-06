@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useI18n } from '../../../shared/i18n/I18nContext'
+import { useI18n } from '../../../locales/I18nContext'
 
 interface Column {
   key: string
@@ -80,3 +80,4 @@ export function DataTable({ columns, data, page, totalPages, onPageChange }: Dat
     </div>
   )
 }
+
