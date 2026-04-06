@@ -1,12 +1,12 @@
 # Axia Intern Manager
 
-An internship management platform built with ASP.NET Core 10 and React/typecript.
+An internship management platform built with ASP.NET Core 10 and React/TypeScript.
 
 ## Getting Started
 
 ### 1. Clone and Setup
 
-In your terminal: 
+In your terminal:
 ```bash
 git clone https://github.com/KlaiAhmed/Intern-Manager
 
@@ -18,10 +18,10 @@ cd "Intern Manager"
 
 Create these two files with any editor:
 
-| File | Purpose | values |
+| File | Purpose | Example |
 | --- | --- | --- |
 | `api/.env` | API and database settings | `api/.env.example` |
-| `client/.env` | Frontend API URL | `api/.env.example` |
+| `client/.env` | Frontend API URL | `client/.env.example` |
 
 
 ### 3. Start SQL EXPRESS Server
@@ -83,58 +83,119 @@ Modern view:
 
 ```text
 intern-manager/
-├── client/                             # React frontend application
-│   ├── src/                            # Main frontend source code
-│   │   ├── app/                        # App shell, providers, and routing
-│   │   │   ├── App.tsx                 # App wrapper used by routing
-│   │   │   ├── providers/              # Root providers for auth, theme, and i18n
-│   │   │   └── routes/                 # Route definitions and guards
-│   │   ├── assets/                     # Imported images, icons, and media
-│   │   ├── components/                 # Reusable UI components
-│   │   ├── features/                   # Feature-based screens and logic
-│   │   │   ├── auth/                   # Login, signup, and session flows
-│   │   │   ├── dashboard/              # Role-based dashboard pages
-│   │   │   └── home/                   # Public landing page content
-│   │   ├── hooks/                      # Shared React hooks
-│   │   ├── lib/                        # Helper functions and library wrappers
-│   │   ├── shared/                     # Cross-cutting UI, state, theme, i18n, and utilities
-│   │   │   ├── api/                    # API client and request helpers
-│   │   │   ├── config/                 # App configuration
-│   │   │   ├── constants/              # Shared constants
-│   │   │   ├── errors/                 # Error helpers and error UI
-│   │   │   ├── i18n/                   # Translations and localization helpers
-│   │   │   ├── layout/                 # Shared layout components
-│   │   │   ├── seo/                    # Metadata and page title helpers
-│   │   │   ├── state/                  # Shared state management
-│   │   │   ├── theme/                  # Theme setup and design tokens
-│   │   │   ├── types/                  # Shared TypeScript types for shared code
-│   │   │   ├── ui/                     # Generic UI primitives
-│   │   │   └── utils/                  # General-purpose utility helpers
-│   │   ├── types/                      # Frontend-wide TypeScript types
-│   │   ├── App.tsx                     # Root React component
-│   │   ├── main.tsx                    # Frontend entry point
-│   │   ├── App.css                     # App-specific styles
-│   │   └── index.css                   # Global styles
-│   ├── public/                         # Static files served by Vite
-│   ├── package.json                    # Frontend scripts and dependencies
-│   └── vite.config.ts                  # Vite build configuration
+├── client/                    # React frontend application
+│   ├── src/                  # Main frontend source code
+│   │   ├── app/             # App shell, providers, and routing
+│   │   │   ├── App.tsx      # App wrapper used by routing
+│   │   │   └── providers/   # Root providers for auth, theme, and i18n
+│   │   ├── assets/          # Imported images, icons, and media
+│   │   ├── components/      # Reusable UI components
+│   │   │   ├── layout/     # AppShell, Header, Footer
+│   │   │   └── ui/         # Badge, Button, Card, Section, ThemeSwitcher
+│   │   ├── config/          # App configuration and constants
+│   │   ├── features/        # Feature-based screens and logic
+│   │   │   ├── auth/       # Login, signup, and session flows
+│   │   │   │   ├── api/    # Auth API calls
+│   │   │   │   ├── components/ # AuthScreen, LoginView, SignUpView
+│   │   │   │   ├── hooks/  # useAuthScreenLogic
+│   │   │   │   ├── locales/ # ar, en, fr translations
+│   │   │   │   ├── types/  # Auth-specific types
+│   │   │   │   └── styles/ # Auth-specific styles
+│   │   │   ├── dashboard/   # Role-based dashboard pages
+│   │   │   │   ├── api/    # Dashboard API calls
+│   │   │   │   ├── components/ # Charts, cards, tables
+│   │   │   │   │   └── intern/ # Intern-specific dashboard cards
+│   │   │   │   ├── hooks/  # Dashboard data hooks
+│   │   │   │   ├── locales/ # Dashboard translations
+│   │   │   │   ├── pages/  # Manager, Supervisor dashboards
+│   │   │   │   ├── styles/ # Dashboard CSS
+│   │   │   │   └── types/  # Dashboard types
+│   │   │   ├── home/       # Public landing page content
+│   │   │   │   ├── locales/ # Home translations
+│   │   │   │   └── sections/ # Hero, Benefits, Lifecycle
+│   │   │   └── notifications/ # Notification components
+│   │   │       ├── api/    # Notification API
+│   │   │       ├── components/ # NotificationBell
+│   │   │       ├── hooks/  # useNotifications
+│   │   │       └── locales/ # Notification translations
+│   │   ├── hooks/           # Shared React hooks
+│   │   ├── lib/             # Helper functions and library wrappers
+│   │   │   ├── apiClient.ts # Axios instance and helpers
+│   │   │   └── authApi.ts   # Auth API functions
+│   │   ├── locales/         # Global i18n translations
+│   │   │   ├── I18nContext.tsx # I18n provider
+│   │   │   ├── ar.ts, en.ts, fr.ts
+│   │   │   └── index.ts     # Translation aggregator
+│   │   ├── pages/           # Page components (routing targets)
+│   │   │   ├── DashboardPage/
+│   │   │   ├── HomePage/
+│   │   │   ├── LoginPage/
+│   │   │   ├── SignUpPage/
+│   │   │   ├── ErrorPage/
+│   │   │   └── NotFoundPage/
+│   │   ├── routes/          # Routing configuration
+│   │   │   ├── AppRouter.tsx # Main router
+│   │   │   ├── guards/      # ProtectedRoute
+│   │   │   ├── lazyPages.ts # Lazy-loaded pages
+│   │   │   └── routeConfig.ts # Route definitions
+│   │   ├── shared/          # Cross-cutting concerns
+│   │   │   └── errors/      # ErrorPage, NotFoundPage
+│   │   ├── stores/          # Global state management
+│   │   │   ├── AuthContext.tsx # Auth state provider
+│   │   │   ├── RolePreferenceContext.tsx # Role selection
+│   │   │   └── ThemeContext.tsx # Theme state provider
+│   │   ├── styles/          # Global styles
+│   │   │   ├── index.css    # Main stylesheet
+│   │   │   └── partials/    # CSS partials
+│   │   ├── types/           # Frontend-wide TypeScript types
+│   │   │   └── role.ts      # Role types
+│   │   ├── utils/           # General-purpose utility helpers
+│   │   │   └── classNames.ts # Class name helper
+│   │   ├── main.tsx         # Frontend entry point
+│   │   └── vite-env.d.ts    # Vite TypeScript declarations
+│   ├── public/              # Static files served by Vite
+│   ├── package.json         # Frontend scripts and dependencies
+│   ├── tsconfig.json        # TypeScript config
+│   ├── vite.config.ts       # Vite build configuration
+│   └── .env                 # Frontend environment variables
 │
-├── api/                                # ASP.NET Core backend
-│   ├── Controllers/                    # API endpoints grouped by feature
-│   ├── Data/                           # DbContext, migrations, and seeding
-│   ├── Models/                         # Entities, DTOs, requests, and responses
-│   ├── Services/                       # Business logic and workflows
-│   ├── Common/                         # Shared enums, options, and helpers
-│   ├── Extensions/                     # Dependency injection and startup helpers
-│   ├── Middleware/                     # Custom request pipeline components
-│   ├── Properties/                     # Launch profiles and project metadata
-│   ├── Program.cs                      # Backend entry point
-│   ├── appsettings.json                # Base configuration
-│   ├── appsettings.Development.json    # Development configuration overrides
-│   └── uploads/                        # Stored uploaded files
+├── api/                     # ASP.NET Core backend
+│   ├── Controllers/         # API endpoints grouped by feature
+│   ├── Data/                # DbContext, migrations, and seeding
+│   ├── Models/              # Entities, DTOs, requests, and responses
+│   ├── Services/            # Business logic and workflows
+│   ├── Common/              # Shared enums, options, and helpers
+│   ├── Extensions/          # Dependency injection and startup helpers
+│   ├── Middleware/          # Custom request pipeline components
+│   ├── Properties/          # Launch profiles and project metadata
+│   ├── Program.cs           # Backend entry point
+│   ├── appsettings.json     # Base configuration
+│   ├── appsettings.Development.json # Development configuration overrides
+│   ├── uploads/             # Stored uploaded files
+│   └── .env                 # Backend environment variables
 │
-└── README.md                           # Quick start and overview
+└── README.md                # Quick start and overview
 ```
+
+## Client Architecture Highlights
+
+The client follows a **feature-first architecture**:
+
+- **`src/features/`**: Contains business logic organized by domain (auth, dashboard, home, notifications)
+- **`src/components/`**: Shared, reusable UI components (layout, buttons, cards, etc.)
+- **`src/stores/`**: Global state management (Auth, Theme, RolePreference)
+- **`src/lib/`**: Third-party library wrappers and helpers (API client, auth API)
+- **`src/locales/`**: Global internationalization (ar, en, fr)
+- **`src/pages/`**: Page components used by the router
+- **`src/routes/`**: Routing configuration and guards
+
+Each feature module is self-contained with:
+- `api/` - API calls specific to the feature
+- `components/` - UI components for the feature
+- `hooks/` - Custom React hooks for the feature
+- `locales/` - Translations for the feature
+- `types/` - TypeScript types for the feature
+- `styles/` - CSS specific to the feature
 
 ## API Reference
 
@@ -183,7 +244,7 @@ Think of it as a simple gate:
 - Wrong role -> send the user to `/dashboard`
 - Allowed -> render the page
 
-## Rate Limiting 
+## Rate Limiting
 
 Use rate limits to protect busy actions.
 
@@ -218,4 +279,3 @@ Add the matching policy name to the action you want to protect, for example `upl
 
 ## Testing the API
 Swagger UI is available at `http://localhost:5184/swagger`
-
