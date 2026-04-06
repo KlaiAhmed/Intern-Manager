@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, type ChangeEvent, type KeyboardEvent } from 'react'
-import './index.module.css'
 
 export interface SelectOption {
   value: string
@@ -14,6 +13,7 @@ interface CustomSelectProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void
   disabled?: boolean
   className?: string
+  placeholder?: string
 }
 
 export function CustomSelect({
@@ -24,6 +24,7 @@ export function CustomSelect({
   onChange,
   disabled = false,
   className = '',
+  placeholder = 'Select an option',
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -35,12 +36,19 @@ export function CustomSelect({
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false)
+        setHighlightedIndex(-1)
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      setHighlightedIndex(-1)
+    }
+  }, [isOpen])
 
   const handleToggle = () => {
     if (!disabled) {
@@ -58,6 +66,7 @@ export function CustomSelect({
 
     onChange(event)
     setIsOpen(false)
+    setHighlightedIndex(-1)
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -77,6 +86,7 @@ export function CustomSelect({
         e.preventDefault()
         if (!isOpen) {
           setIsOpen(true)
+          setHighlightedIndex(0)
         } else {
           setHighlightedIndex(prev => (prev < options.length - 1 ? prev + 1 : prev))
         }
@@ -89,6 +99,11 @@ export function CustomSelect({
         break
       case 'Escape':
         setIsOpen(false)
+        setHighlightedIndex(-1)
+        break
+      case 'Tab':
+        setIsOpen(false)
+        setHighlightedIndex(-1)
         break
     }
   }
@@ -107,18 +122,22 @@ export function CustomSelect({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-labelledby={`${id}-label`}
       >
-        <span className="custom-select-value">{selectedOption?.label || ''}</span>
+        <span className="custom-select-value">
+          {selectedOption?.label || placeholder}
+        </span>
         <svg
           className="custom-select-chevron"
-          width="12"
-          height="8"
-          viewBox="0 0 12 8"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <path
-            d="M1 1.5L6 6.5L11 1.5"
+            d="M4 6L8 10L12 6"
             stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
@@ -127,20 +146,28 @@ export function CustomSelect({
         </svg>
       </button>
 
-      <div className="custom-select-dropdown" role="listbox" aria-labelledby={id}>
-        {options.map((option, index) => (
-          <button
-            key={option.value}
-            type="button"
-            className={`custom-select-option ${option.value === value ? 'selected' : ''} ${index === highlightedIndex ? 'highlighted' : ''}`}
-            onClick={() => handleSelect(option.value)}
-            role="option"
-            aria-selected={option.value === value}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {isOpen && (
+        <div
+          className="custom-select-dropdown"
+          role="listbox"
+          aria-labelledby={id}
+          tabIndex={-1}
+        >
+          {options.map((option, index) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`custom-select-option ${option.value === value ? 'selected' : ''} ${index === highlightedIndex ? 'highlighted' : ''}`}
+              onClick={() => handleSelect(option.value)}
+              role="option"
+              aria-selected={option.value === value}
+              tabIndex={-1}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <input type="hidden" name={name} value={value} />
     </div>

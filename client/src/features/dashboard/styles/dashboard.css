@@ -18,6 +18,7 @@
 @import './components/UserManagementSection.css';
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
+@import './components/CustomSelect.css';
 @import './pages/DashboardPage.css';
 
 /* Shared dashboard utilities */
