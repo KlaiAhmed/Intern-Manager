@@ -1,6 +1,8 @@
 export { Badge } from './Badge'
 export { Button } from './Button'
 export { Card } from './Card'
+export { CustomSelect } from './CustomSelect'
+export { CustomRadio } from './CustomRadio'
 export { IconDropdown } from './IconDropdown'
 export { LanguageSwitcher } from './LanguageSwitcher'
 export { RoleSwitcher } from './RoleSwitcher'

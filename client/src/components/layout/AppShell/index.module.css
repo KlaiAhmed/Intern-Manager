@@ -1,2 +1,7 @@
-﻿/* Co-located CSS Module placeholder (Mission 5). */
+.appShell {
+  min-height: 100vh;
+}
 
+.appShellContent {
+  padding-top: var(--header-height, 64px);
+}

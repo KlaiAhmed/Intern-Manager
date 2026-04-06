@@ -10,9 +10,9 @@ import {
 } from '../components/intern/InternDashboardCards'
 import {
   IncompleteStatusView,
-  PendingStatusView,
   StatusGateLoading,
 } from '../components/intern/InternStatusViews'
+import { MultiStepApplicationForm } from '../components/intern/MultiStepApplicationForm'
 import { useInternDashboard } from '../hooks/intern/useInternDashboard'
 import '../styles/pages/InternDashboard.css'
 
@@ -30,8 +30,6 @@ export function InternDashboard() {
     nextMeeting,
     meetingsCount,
     internLifecycleStatus,
-    pendingNotificationMessage,
-    pendingProfile,
 
     isJournalModalOpen,
     journalContent,
@@ -109,9 +107,12 @@ export function InternDashboard() {
 
   if (internLifecycleStatus === 'PENDING') {
     return (
-      <PendingStatusView
-        notificationMessage={pendingNotificationMessage}
-        profile={pendingProfile}
+      <MultiStepApplicationForm
+        internId={user.id}
+        onSubmitted={() => {
+          // Refresh the lifecycle status after form submission
+          loadInternLifecycleStatus()
+        }}
       />
     )
   }

@@ -1,0 +1,226 @@
+/* Multi-Step Application Form Styles */
+
+/* Step Indicator */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: var(--dash-space-2xl);
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+}
+
+.step-circle {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border: 2px solid var(--dash-border);
+  background: var(--dash-bg-primary);
+  color: var(--dash-text-muted);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.step-circle.active {
+  border-color: var(--dash-accent);
+  background: var(--dash-accent-subtle);
+  color: var(--dash-accent);
+}
+
+.step-circle.completed {
+  border-color: var(--dash-success);
+  background: var(--dash-success);
+  color: white;
+}
+
+.step-line {
+  width: 3rem;
+  height: 2px;
+  background: var(--dash-border);
+  margin: 0 0.5rem;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.step-line.completed {
+  background: var(--dash-success);
+}
+
+/* CV Upload Zone */
+.cv-upload-zone {
+  border: 2px dashed var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  padding: var(--dash-space-3xl);
+  text-align: center;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+  cursor: pointer;
+}
+
+.cv-upload-zone:hover {
+  border-color: var(--dash-accent);
+  background: var(--dash-accent-subtle);
+}
+
+.cv-upload-zone.dragging {
+  border-color: var(--dash-accent);
+  background: color-mix(in srgb, var(--dash-accent) 5%, var(--dash-bg-primary));
+}
+
+.cv-upload-zone.error {
+  border-color: var(--dash-error);
+  background: color-mix(in srgb, var(--dash-error) 3%, var(--dash-bg-primary));
+}
+
+.cv-file-input {
+  display: none;
+}
+
+.cv-upload-label {
+  cursor: pointer;
+  display: block;
+}
+
+.cv-upload-icon {
+  font-size: 3rem;
+  margin-bottom: var(--dash-space-lg);
+}
+
+.cv-upload-text strong {
+  font-size: 1.125rem;
+  color: var(--color-text);
+  display: block;
+  margin-bottom: var(--dash-space-xs);
+}
+
+.cv-upload-text p {
+  font-size: 0.875rem;
+  color: var(--dash-text-muted);
+  margin: 0;
+}
+
+/* Confirmation Screen */
+.confirmation-content {
+  text-align: center;
+  padding: var(--dash-space-xl) 0;
+}
+
+.confirmation-icon {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dash-success) 15%, transparent);
+  color: var(--dash-success);
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--dash-space-xl);
+  animation: scaleIn 0.3s var(--ease-spring);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.confirmation-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--dash-space-md);
+}
+
+.confirmation-message {
+  font-size: 1rem;
+  color: var(--dash-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--dash-space-2xl);
+}
+
+.submission-summary {
+  text-align: left;
+  background: var(--dash-bg-secondary);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-md);
+  padding: var(--dash-space-xl);
+}
+
+.submission-summary h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--dash-space-lg);
+  padding-bottom: var(--dash-space-sm);
+  border-bottom: 1px solid var(--dash-border);
+}
+
+.summary-item {
+  padding: var(--dash-space-sm) 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.summary-item strong {
+  color: var(--color-text);
+  font-weight: 600;
+  margin-right: var(--dash-space-sm);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .step-circle {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.8125rem;
+  }
+
+  .step-line {
+    width: 2rem;
+  }
+
+  .cv-upload-zone {
+    padding: var(--dash-space-xl);
+  }
+
+  .confirmation-icon {
+    width: 4rem;
+    height: 4rem;
+    font-size: 2rem;
+  }
+
+  .confirmation-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-circle,
+  .step-line,
+  .cv-upload-zone,
+  .confirmation-icon {
+    transition: none;
+  }
+
+  .confirmation-icon {
+    animation: none;
+  }
+}

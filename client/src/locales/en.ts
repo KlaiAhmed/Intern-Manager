@@ -289,6 +289,26 @@ export const commonEn = {
   'dashboard.intern.accepted': 'Accepted',
   'dashboard.intern.rejected': 'Rejected',
 
+// Dashboard - Intern Application Form
+'dashboard.intern.application.title': 'Complete Your Application',
+'dashboard.intern.application.subtitle': 'Please provide your academic and availability information',
+'dashboard.intern.application.university': 'University/Institution',
+'dashboard.intern.application.major': 'Major/Field of Study',
+'dashboard.intern.application.currentYear': 'Current Year of Study',
+'dashboard.intern.application.yearLicence': 'Licence',
+'dashboard.intern.application.yearMaster': 'Master',
+'dashboard.intern.application.yearDoctorate': 'Doctorat',
+'dashboard.intern.application.expectedGraduation': 'Expected Graduation Date',
+'dashboard.intern.application.availableStart': 'Available Start Date',
+'dashboard.intern.application.availableEnd': 'Available End Date',
+'dashboard.intern.application.workPreference': 'Work Preference',
+'dashboard.intern.application.remote': 'Remote',
+'dashboard.intern.application.hybrid': 'Hybrid',
+'dashboard.intern.application.onsite': 'On-site',
+'dashboard.intern.application.apply': 'Apply',
+'dashboard.intern.application.required': 'This field is required',
+'dashboard.intern.application.submitting': 'Submitting...',
+
   // Dashboard - Table headers
   'dashboard.table.name': 'Name',
   'dashboard.table.email': 'Email',

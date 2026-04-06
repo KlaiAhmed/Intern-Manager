@@ -289,6 +289,26 @@ export const commonAr = {
   'dashboard.intern.accepted': 'مقبول',
   'dashboard.intern.rejected': 'مرفوض',
 
+// Dashboard - Intern Application Form
+'dashboard.intern.application.title': 'أكمل طلبك',
+'dashboard.intern.application.subtitle': 'يرجى تقديم معلوماتك الأكاديمية والتوفر',
+'dashboard.intern.application.university': 'الجامعة/المؤسسة',
+'dashboard.intern.application.major': 'التخصص/مجال الدراسة',
+'dashboard.intern.application.currentYear': 'السنة الدراسية الحالية',
+'dashboard.intern.application.yearLicence': 'الإجازة',
+'dashboard.intern.application.yearMaster': 'الماجستير',
+'dashboard.intern.application.yearDoctorate': 'الدكتوراه',
+'dashboard.intern.application.expectedGraduation': 'تاريخ التخرج المتوقع',
+'dashboard.intern.application.availableStart': 'تاريخ البدء المتاح',
+'dashboard.intern.application.availableEnd': 'تاريخ الانتهاء المتاح',
+'dashboard.intern.application.workPreference': 'تفضيل العمل',
+'dashboard.intern.application.remote': 'عن بعد',
+'dashboard.intern.application.hybrid': 'هجين',
+'dashboard.intern.application.onsite': 'في الموقع',
+'dashboard.intern.application.apply': 'تقديم',
+'dashboard.intern.application.required': 'هذا الحقل مطلوب',
+'dashboard.intern.application.submitting': 'جاري التقديم...',
+
   // Dashboard - Table headers
   'dashboard.table.name': 'الاسم',
   'dashboard.table.email': 'البريد الالكتروني',
