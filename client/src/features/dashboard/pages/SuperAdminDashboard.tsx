@@ -1,61 +1,61 @@
 /*
- * CODEBASE_AUDIT.md
- * Date: 2025-04-01
- * Auditor: Claude Code
- *
- * ## Typography
- * - Primary font: 'DM Sans' for headings (500 weight only)
- * - Body font: 'IBM Plex Sans' for body text (400 weight)
- * - Defined via CSS variables: --dash-font-heading, --dash-font-body
- *
- * ## Color System
- * - Uses semantic CSS variables from index.css and dashboard-tokens.css
- * - Surfaces: --dash-bg-primary, --dash-bg-secondary, --dash-bg-tertiary
- * - Text: --dash-text, --dash-text-muted (55% opacity light / 50% dark)
- * - Accent: --dash-accent (blue), derived from --color-primary
- * - Borders: 1px solid at 15% opacity, 30% on hover
- * - Status colors: --dash-success, --dash-warning, --dash-error
- *
- * ## Spacing Scale
- * - xs: 0.5rem (8px)
- * - sm: 0.75rem (12px)
- * - md: 1rem (16px)
- * - lg: 1.25rem (20px) - MIN padding for cards
- * - xl: 1.5rem (24px)
- * - 2xl: 2rem (32px)
- * - 3xl: 3rem (48px)
- *
- * ## Border Radius
- * - sm: 0.5rem (8px)
- * - md: 0.75rem (12px)
- * - lg: 1rem (16px)
- *
- * ## Animation Timing
- * - Fast: 120ms (micro-interactions)
- * - Medium: 200ms (content transitions)
- * - Slow: 300ms (entry animations)
- * - Easing: cubic-bezier(0.4, 0, 0.2, 1)
- *
- * ## Existing Components
- * - DashboardLayout.tsx: Base layout with sidebar
- * - StatCard.tsx/css: Metric cards with trend indicators
- * - Panel.tsx/css: Section containers
- * - Modal.tsx/css: Dialog boxes
- * - DataTable.tsx: Paginated tables
- * - BarChart.tsx, DonutChart.tsx, PieChart.tsx: CSS-based charts
- * - Skeleton.tsx: Loading state with shimmer
- * - ErrorState.tsx/css: Error display
- *
- * ## Design Rules Followed
- * - Zero hardcoded hex values - ALL from CSS variables
- * - No box-shadow, drop-shadow, or decorative gradients
- * - Font-weight 400 for body, 500 for headings only
- * - Reduced motion queries on all animations
- * - Border 1px solid at 15% opacity
- */
+* CODEBASE_AUDIT.md
+* Date: 2025-04-01
+* Auditor: Claude Code
+*
+* ## Typography
+* - Primary font: 'DM Sans' for headings (500 weight only)
+* - Body font: 'IBM Plex Sans' for body text (400 weight)
+* - Defined via CSS variables: --dash-font-heading, --dash-font-body
+*
+* ## Color System
+* - Uses semantic CSS variables from index.css and dashboard-tokens.css
+* - Surfaces: --dash-bg-primary, --dash-bg-secondary, --dash-bg-tertiary
+* - Text: --dash-text, --dash-text-muted (55% opacity light / 50% dark)
+* - Accent: --dash-accent (blue), derived from --color-primary
+* - Borders: 1px solid at 15% opacity, 30% on hover
+* - Status colors: --dash-success, --dash-warning, --dash-error
+*
+* ## Spacing Scale
+* - xs: 0.5rem (8px)
+* - sm: 0.75rem (12px)
+* - md: 1rem (16px)
+* - lg: 1.25rem (20px) - MIN padding for cards
+* - xl: 1.5rem (24px)
+* - 2xl: 2rem (32px)
+* - 3xl: 3rem (48px)
+*
+* ## Border Radius
+* - sm: 0.5rem (8px)
+* - md: 0.75rem (12px)
+* - lg: 1rem (16px)
+*
+* ## Animation Timing
+* - Fast: 120ms (micro-interactions)
+* - Medium: 200ms (content transitions)
+* - Slow: 300ms (entry animations)
+* - Easing: cubic-bezier(0.4, 0, 0.2, 1)
+*
+* ## Existing Components
+* - DashboardLayout.tsx: Base layout with sidebar
+* - StatCard.tsx/css: Metric cards with trend indicators
+* - Panel.tsx/css: Section containers
+* - Modal.tsx/css: Dialog boxes
+* - DataTable.tsx: Paginated tables
+* - BarChart.tsx, DonutChart.tsx, PieChart.tsx: CSS-based charts
+* - Skeleton.tsx: Loading state with shimmer
+* - ErrorState.tsx/css: Error display
+*
+* ## Design Rules Followed
+* - Zero hardcoded hex values - ALL from CSS variables
+* - No box-shadow, drop-shadow, or decorative gradients
+* - Font-weight 400 for body, 500 for headings only
+* - Reduced motion queries on all animations
+* - Border 1px solid at 15% opacity
+*/
 
 import type { ReactNode } from 'react'
-import { useState, useCallback } from 'react'
+import { Suspense, lazy, useState, useCallback } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 import { useSuperAdminStats } from '../hooks/useSuperAdminStats'
 import { SuperAdminSidebar, type SuperAdminSection } from '../components/SuperAdminSidebar'
@@ -64,11 +64,17 @@ import { UserManagementSection } from '../components/UserManagementSection'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import { AuditLogSection } from '../components/AuditLogSection'
 import { PlaceholderSection } from '../components/PlaceholderSection'
-import { BarChart } from '../components/BarChart'
-import { DonutChart } from '../components/DonutChart'
 import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
 import '../styles/pages/SuperAdminDashboard.css'
+
+// Lazy-load chart components - only loaded when Overview section renders charts
+const BarChart = lazy(() =>
+  import('../components/BarChart').then((m) => ({ default: m.BarChart })),
+)
+const DonutChart = lazy(() =>
+  import('../components/DonutChart').then((m) => ({ default: m.DonutChart })),
+)
 
 // SVG Icon Component
 const Icon = ({ children }: { children: ReactNode }) => (
@@ -103,6 +109,11 @@ const Icons = {
     <polyline points="14 2 14 8 20 8" />
     <path d="m9 15 2 2 4-4" />
   </Icon>,
+}
+
+// Chart loading fallback
+function ChartFallback() {
+  return <Skeleton height="280px" />
 }
 
 // Overview Section with KPI cards and charts
@@ -218,19 +229,25 @@ function OverviewSection() {
               <div className="chart-card chart-card-delay-150">
                 <h3 className="chart-title">{t('dashboard.chart.internsByDepartment')}</h3>
                 <div className="chart-content">
-                  <BarChart data={charts.internsByDepartment} />
+                  <Suspense fallback={<ChartFallback />}>
+                    <BarChart data={charts.internsByDepartment} />
+                  </Suspense>
                 </div>
               </div>
               <div className="chart-card chart-card-delay-210">
                 <h3 className="chart-title">{t('dashboard.chart.internshipsByStatus')}</h3>
                 <div className="chart-content">
-                  <DonutChart data={charts.internshipsByStatus} />
+                  <Suspense fallback={<ChartFallback />}>
+                    <DonutChart data={charts.internshipsByStatus} />
+                  </Suspense>
                 </div>
               </div>
               <div className="chart-card chart-card-delay-270">
                 <h3 className="chart-title">{t('dashboard.chart.internshipsByType')}</h3>
                 <div className="chart-content">
-                  <BarChart data={charts.internshipsByType} />
+                  <Suspense fallback={<ChartFallback />}>
+                    <BarChart data={charts.internshipsByType} />
+                  </Suspense>
                 </div>
               </div>
             </>
@@ -349,4 +366,3 @@ export function SuperAdminDashboard() {
     </div>
   )
 }
-

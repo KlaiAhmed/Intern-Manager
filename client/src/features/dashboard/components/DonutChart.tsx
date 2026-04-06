@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 
 interface DonutChartProps {
@@ -11,7 +11,7 @@ const COLORS = ['var(--color-primary)', 'var(--color-accent)', 'var(--color-warn
  * Graphique donut (anneau).
  * Utilise une représentation CSS/SVG simple.
  */
-export function DonutChart({ data }: DonutChartProps) {
+export const DonutChart = memo(function DonutChart({ data }: DonutChartProps) {
   const { t } = useI18n()
 
   const total = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
@@ -91,5 +91,5 @@ export function DonutChart({ data }: DonutChartProps) {
       </div>
     </div>
   )
-}
+})
 

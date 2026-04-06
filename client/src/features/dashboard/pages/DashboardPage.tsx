@@ -1,14 +1,35 @@
+import { Suspense, lazy, useMemo } from 'react'
 import { useAuth } from '../../../stores/AuthContext'
 import { useI18n } from '../../../locales/I18nContext'
 import { usePageMetadata } from '../../../hooks/usePageMetadata'
-import { SuperAdminDashboard } from './SuperAdminDashboard'
-import { AdminDashboard } from './AdminDashboard'
-import { ManagerDashboard } from './ManagerDashboard'
-import { SupervisorDashboard } from './SupervisorDashboard'
-import { InternDashboard } from './InternDashboard'
 import '../styles/dashboard.css'
 
+// Lazy-load dashboard variants - only the user's role dashboard is loaded
+const SuperAdminDashboard = lazy(() =>
+  import('./SuperAdminDashboard').then((m) => ({ default: m.SuperAdminDashboard })),
+)
+const AdminDashboard = lazy(() =>
+  import('./AdminDashboard').then((m) => ({ default: m.AdminDashboard })),
+)
+const ManagerDashboard = lazy(() =>
+  import('./ManagerDashboard/ManagerDashboard').then((m) => ({ default: m.ManagerDashboard })),
+)
+const SupervisorDashboard = lazy(() =>
+  import('./SupervisorDashboard').then((m) => ({ default: m.SupervisorDashboard })),
+)
+const InternDashboard = lazy(() =>
+  import('./InternDashboard').then((m) => ({ default: m.InternDashboard })),
+)
+
 type DashboardRole = 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'intern'
+
+const dashboardComponents = {
+  super_admin: SuperAdminDashboard,
+  admin: AdminDashboard,
+  manager: ManagerDashboard,
+  supervisor: SupervisorDashboard,
+  intern: InternDashboard,
+} as const
 
 function normalizeDashboardRole(rawRole: string | undefined): DashboardRole | null {
   if (!rawRole) {
@@ -34,6 +55,17 @@ function normalizeDashboardRole(rawRole: string | undefined): DashboardRole | nu
   }
 }
 
+/** Loading fallback for dashboard */
+function DashboardLoadingFallback() {
+  return (
+    <main id="main-content" className="dashboard-page" tabIndex={-1}>
+      <div className="dashboard-loading">
+        <div className="dashboard-loading-spinner" />
+      </div>
+    </main>
+  )
+}
+
 /**
  * Page de tableau de bord qui affiche une vue différente selon le rôle de l'utilisateur.
  */
@@ -49,31 +81,26 @@ export function DashboardPage() {
 
   const role = normalizeDashboardRole(user?.role)
 
-  const renderDashboard = () => {
-    switch (role) {
-      case 'super_admin':
-        return <SuperAdminDashboard />
-      case 'admin':
-        return <AdminDashboard />
-      case 'manager':
-        return <ManagerDashboard />
-      case 'supervisor':
-        return <SupervisorDashboard />
-      case 'intern':
-        return <InternDashboard />
-      default:
-        return (
-          <div className="dashboard-unknown-role">
-            <p>{t('dashboard.noData')}</p>
-          </div>
-        )
+  const DashboardComponent = useMemo(() => {
+    if (role && role in dashboardComponents) {
+      return dashboardComponents[role as DashboardRole]
     }
+    return null
+  }, [role])
+
+  if (!DashboardComponent) {
+    return (
+      <main id="main-content" className="dashboard-page" tabIndex={-1}>
+        <div className="dashboard-unknown-role">
+          <p>{t('dashboard.noData')}</p>
+        </div>
+      </main>
+    )
   }
 
   return (
-    <main id="main-content" className="dashboard-page" tabIndex={-1}>
-      {renderDashboard()}
-    </main>
+    <Suspense fallback={<DashboardLoadingFallback />}>
+      <DashboardComponent />
+    </Suspense>
   )
 }
-

@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import type { PropsWithChildren } from 'react'
 import { storageKeys } from '../config/storageKeys'
 import {
   supportedLocales,
-  translationDictionaries,
+  loadLocaleDictionary,
+  getFallbackDictionary,
   type SupportedLocale,
   type TranslationKey,
 } from './index'
@@ -12,6 +13,7 @@ import type { TranslationMap } from './types'
 interface I18nContextValue {
   locale: SupportedLocale
   isRtl: boolean
+  isLoading: boolean
   setLocale: (nextLocale: SupportedLocale) => void
   t: (key: TranslationKey) => string
 }
@@ -61,14 +63,71 @@ function readTranslation(dictionary: TranslationMap, key: TranslationKey): strin
   return null
 }
 
-export function I18nProvider({ children }: PropsWithChildren) {
-  const [locale, setLocale] = useState<SupportedLocale>(() => detectInitialLocale())
+const fallbackDictionary = getFallbackDictionary()
 
+export function I18nProvider({ children }: PropsWithChildren) {
+  const [locale, setLocaleState] = useState<SupportedLocale>(() => detectInitialLocale())
+  const [dictionary, setDictionary] = useState<TranslationMap>(() => {
+    // If initial locale is English, use pre-loaded dictionary
+    const initialLocale = detectInitialLocale()
+    if (initialLocale === 'en') {
+      return fallbackDictionary
+    }
+    // For other locales, start with fallback and load async
+    return fallbackDictionary
+  })
+  const [isLoading, setIsLoading] = useState(() => locale !== 'en')
+
+  // Load locale dictionary when locale changes
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadDictionary = async () => {
+      if (locale === 'en') {
+        if (!isCancelled) {
+          setDictionary(fallbackDictionary)
+          setIsLoading(false)
+        }
+        return
+      }
+
+      setIsLoading(true)
+
+      try {
+        const loadedDictionary = await loadLocaleDictionary(locale)
+        if (!isCancelled) {
+          setDictionary(loadedDictionary)
+        }
+      } catch (error) {
+        console.error(`Failed to load locale ${locale}:`, error)
+        // Fall back to English on error
+        if (!isCancelled) {
+          setDictionary(fallbackDictionary)
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadDictionary()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [locale])
+
+  // Persist locale and update document attributes
   useEffect(() => {
     window.localStorage.setItem(storageKeys.locale, locale)
     document.documentElement.lang = locale
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
   }, [locale])
+
+  const setLocale = useCallback((nextLocale: SupportedLocale) => {
+    setLocaleState(nextLocale)
+  }, [])
 
   const contextValue = useMemo<I18nContextValue>(() => {
     const isRtl = locale === 'ar'
@@ -76,15 +135,16 @@ export function I18nProvider({ children }: PropsWithChildren) {
     return {
       locale,
       isRtl,
+      isLoading,
       setLocale,
       t: (key: TranslationKey): string => {
-        const localizedValue = readTranslation(translationDictionaries[locale], key)
-        const fallbackValue = readTranslation(translationDictionaries.en, key)
+        const localizedValue = readTranslation(dictionary, key)
+        const fallbackValue = readTranslation(fallbackDictionary, key)
 
         return localizedValue ?? fallbackValue ?? key
       },
     }
-  }, [locale])
+  }, [locale, isLoading, setLocale, dictionary])
 
   return <I18nContext.Provider value={contextValue}>{children}</I18nContext.Provider>
 }

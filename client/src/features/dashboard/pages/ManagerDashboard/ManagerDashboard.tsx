@@ -1,13 +1,35 @@
+import { Suspense, lazy, useCallback } from 'react'
 import { DashboardButton } from '../../components/DashboardButton'
 import { DashboardLayout } from '../../components/DashboardLayout'
-import { DepartmentsTab } from './DepartmentsTab'
-import { InternDetailsModal } from './InternDetailsModal'
-import { InternsTab } from './InternsTab'
-import { OverviewTab } from './OverviewTab'
-import { SupervisorsTab } from './SupervisorsTab'
 import type { ManagerTabId } from './types'
 import { useManagerDashboardState } from './useManagerDashboardState'
 import '../../styles/pages/ManagerDashboard.css'
+
+// Lazy-load tab components - only loaded when tab is active
+const DepartmentsTab = lazy(() =>
+  import('./DepartmentsTab').then((m) => ({ default: m.DepartmentsTab })),
+)
+const InternsTab = lazy(() =>
+  import('./InternsTab').then((m) => ({ default: m.InternsTab })),
+)
+const OverviewTab = lazy(() =>
+  import('./OverviewTab').then((m) => ({ default: m.OverviewTab })),
+)
+const SupervisorsTab = lazy(() =>
+  import('./SupervisorsTab').then((m) => ({ default: m.SupervisorsTab })),
+)
+// Lazy-load modal - only loaded when opened
+const InternDetailsModal = lazy(() =>
+  import('./InternDetailsModal').then((m) => ({ default: m.InternDetailsModal })),
+)
+
+function TabLoadingFallback() {
+  return (
+    <div className="tab-loading">
+      <div className="tab-loading-spinner" />
+    </div>
+  )
+}
 
 export function ManagerDashboard() {
   const state = useManagerDashboardState()
@@ -54,6 +76,104 @@ export function ManagerDashboard() {
     closeInternModal,
   } = state
 
+  const renderTabContent = useCallback(() => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <OverviewTab
+            loadingKPIs={loadingKPIs}
+            loadingDepartments={loadingDepartments}
+            loadingActivity={loadingActivity}
+            kpisError={kpisError}
+            departmentsError={departmentsError}
+            activityError={activityError}
+            internsCount={internsCount}
+            activeMissionsCount={activeMissionsCount}
+            avgCompletion={avgCompletion}
+            pendingReviews={pendingReviews}
+            departments={departments}
+            activities={activities}
+            loadKPIs={loadKPIs}
+            loadDepartments={loadDepartments}
+            loadActivity={loadActivity}
+            getActivityIcon={getActivityIcon}
+            formatActivityDate={formatActivityDate}
+          />
+        )
+      case 'interns':
+        return (
+          <InternsTab
+            loadingInterns={loadingInterns}
+            internsError={internsError}
+            filteredInterns={filteredInterns}
+            selectedDepartment={selectedDepartment}
+            setSelectedDepartment={setSelectedDepartment}
+            internsSearch={internsSearch}
+            setInternsSearch={setInternsSearch}
+            departmentOptions={departmentOptions}
+            getInitials={getInitials}
+            openInternModal={openInternModal}
+            loadInterns={loadInterns}
+          />
+        )
+      case 'supervisors':
+        return (
+          <SupervisorsTab
+            loadingSupervisors={loadingSupervisors}
+            supervisorsError={supervisorsError}
+            supervisors={supervisors}
+            getInitials={getInitials}
+            loadSupervisors={loadSupervisors}
+          />
+        )
+      case 'departments':
+        return (
+          <DepartmentsTab
+            loadingDepartments={loadingDepartments}
+            departmentsError={departmentsError}
+            departments={departments}
+            loadDepartments={loadDepartments}
+          />
+        )
+      default:
+        return null
+    }
+  }, [
+    activeTab,
+    loadingKPIs,
+    loadingDepartments,
+    loadingActivity,
+    kpisError,
+    departmentsError,
+    activityError,
+    internsCount,
+    activeMissionsCount,
+    avgCompletion,
+    pendingReviews,
+    departments,
+    activities,
+    loadKPIs,
+    loadDepartments,
+    loadActivity,
+    getActivityIcon,
+    formatActivityDate,
+    loadingInterns,
+    internsError,
+    filteredInterns,
+    selectedDepartment,
+    setSelectedDepartment,
+    internsSearch,
+    setInternsSearch,
+    departmentOptions,
+    getInitials,
+    openInternModal,
+    loadInterns,
+    loadingSupervisors,
+    supervisorsError,
+    supervisors,
+    loadSupervisors,
+  ])
+
   return (
     <DashboardLayout
       title="Manager Dashboard"
@@ -68,69 +188,18 @@ export function ManagerDashboard() {
         </DashboardButton>
       }
     >
-      {activeTab === 'overview' && (
-        <OverviewTab
-          loadingKPIs={loadingKPIs}
-          loadingDepartments={loadingDepartments}
-          loadingActivity={loadingActivity}
-          kpisError={kpisError}
-          departmentsError={departmentsError}
-          activityError={activityError}
-          internsCount={internsCount}
-          activeMissionsCount={activeMissionsCount}
-          avgCompletion={avgCompletion}
-          pendingReviews={pendingReviews}
-          departments={departments}
-          activities={activities}
-          loadKPIs={loadKPIs}
-          loadDepartments={loadDepartments}
-          loadActivity={loadActivity}
-          getActivityIcon={getActivityIcon}
-          formatActivityDate={formatActivityDate}
-        />
-      )}
+      <Suspense fallback={<TabLoadingFallback />}>{renderTabContent()}</Suspense>
 
-      {activeTab === 'interns' && (
-        <InternsTab
-          loadingInterns={loadingInterns}
-          internsError={internsError}
-          filteredInterns={filteredInterns}
-          selectedDepartment={selectedDepartment}
-          setSelectedDepartment={setSelectedDepartment}
-          internsSearch={internsSearch}
-          setInternsSearch={setInternsSearch}
-          departmentOptions={departmentOptions}
-          getInitials={getInitials}
-          openInternModal={openInternModal}
-          loadInterns={loadInterns}
-        />
+      {isInternModalOpen && (
+        <Suspense fallback={null}>
+          <InternDetailsModal
+            isOpen={isInternModalOpen}
+            intern={selectedIntern}
+            onClose={closeInternModal}
+            getInitials={getInitials}
+          />
+        </Suspense>
       )}
-
-      {activeTab === 'supervisors' && (
-        <SupervisorsTab
-          loadingSupervisors={loadingSupervisors}
-          supervisorsError={supervisorsError}
-          supervisors={supervisors}
-          getInitials={getInitials}
-          loadSupervisors={loadSupervisors}
-        />
-      )}
-
-      {activeTab === 'departments' && (
-        <DepartmentsTab
-          loadingDepartments={loadingDepartments}
-          departmentsError={departmentsError}
-          departments={departments}
-          loadDepartments={loadDepartments}
-        />
-      )}
-
-      <InternDetailsModal
-        isOpen={isInternModalOpen}
-        intern={selectedIntern}
-        onClose={closeInternModal}
-        getInitials={getInitials}
-      />
     </DashboardLayout>
   )
 }

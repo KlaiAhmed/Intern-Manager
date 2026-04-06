@@ -1,4 +1,4 @@
-import type { ReactNode, ButtonHTMLAttributes } from 'react'
+import { memo, type ReactNode, type ButtonHTMLAttributes } from 'react'
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
 type ButtonSize = 'sm' | 'md'
@@ -14,7 +14,7 @@ interface DashboardButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  * DashboardButton — Refined button with subtle micro-interactions
  * scale(0.98) on active press, no gratuitous effects
  */
-export function DashboardButton({
+export const DashboardButton = memo(function DashboardButton({
   children,
   variant = 'secondary',
   size = 'md',
@@ -33,4 +33,4 @@ export function DashboardButton({
       <span className="dash-btn-text">{children}</span>
     </button>
   )
-}
+})

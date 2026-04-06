@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 interface SkeletonProps {
   width?: string
   height?: string
@@ -8,7 +10,7 @@ interface SkeletonProps {
  * Skeleton — Loading placeholder with shimmer animation
  * Uses CSS custom properties for smooth color transitions
  */
-export function Skeleton({ width = '100%', height = '20px', circle = false }: SkeletonProps) {
+export const Skeleton = memo(function Skeleton({ width = '100%', height = '20px', circle = false }: SkeletonProps) {
   return (
     <div
       className={`dash-skeleton ${circle ? 'dash-skeleton-circle' : ''}`}
@@ -19,4 +21,4 @@ export function Skeleton({ width = '100%', height = '20px', circle = false }: Sk
       aria-hidden="true"
     />
   )
-}
+})

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 
 interface PlaceholderSectionProps {
@@ -6,7 +7,7 @@ interface PlaceholderSectionProps {
   icon?: string
 }
 
-export function PlaceholderSection({ title, subtitle, icon = '🚧' }: PlaceholderSectionProps) {
+export const PlaceholderSection = memo(function PlaceholderSection({ title, subtitle, icon = '🚧' }: PlaceholderSectionProps) {
   const { t } = useI18n()
 
   return (
@@ -24,5 +25,5 @@ export function PlaceholderSection({ title, subtitle, icon = '🚧' }: Placehold
       </div>
     </section>
   )
-}
+})
 

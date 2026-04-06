@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 
 interface PanelProps {
   title: string
@@ -11,7 +11,7 @@ interface PanelProps {
  * Panel — A section container for dashboard content
  * Clean, minimal borders with generous padding
  */
-export function Panel({ title, children, actions, className = '' }: PanelProps) {
+export const Panel = memo(function Panel({ title, children, actions, className = '' }: PanelProps) {
   return (
     <section className={`dash-panel ${className}`}>
       <header className="dash-panel-header">
@@ -23,4 +23,4 @@ export function Panel({ title, children, actions, className = '' }: PanelProps) 
       </div>
     </section>
   )
-}
+})

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 
 // Note: Install recharts with `npm install recharts` for proper chart rendering
@@ -12,7 +12,7 @@ interface BarChartProps {
  * Graphique à barres horizontales.
  * Si recharts n'est pas installé, affiche une représentation CSS simple.
  */
-export function BarChart({ data }: BarChartProps) {
+export const BarChart = memo(function BarChart({ data }: BarChartProps) {
   const { t } = useI18n()
 
   const maxValue = useMemo(() => {
@@ -41,5 +41,5 @@ export function BarChart({ data }: BarChartProps) {
       ))}
     </div>
   )
-}
+})
 
