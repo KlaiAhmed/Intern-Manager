@@ -123,6 +123,17 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validate file type
+      if (file.type !== 'application/pdf') {
+        setErrors((prev) => ({ ...prev, cvFile: 'Only PDF files are accepted' }))
+        return
+      }
+      // Validate file size (2MB max)
+      const maxSize = 2 * 1024 * 1024 // 2MB in bytes
+      if (file.size > maxSize) {
+        setErrors((prev) => ({ ...prev, cvFile: 'File size must be less than 2MB' }))
+        return
+      }
       setFormData((prev) => ({ ...prev, cvFile: file }))
       if (errors.cvFile) {
         setErrors((prev) => ({ ...prev, cvFile: undefined }))
@@ -145,12 +156,27 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     setIsDragging(false)
 
     const file = e.dataTransfer.files?.[0]
-    if (file && (file.type === 'application/pdf' || file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+    if (file) {
+      // Validate file type
+      if (file.type !== 'application/pdf') {
+        setErrors((prev) => ({ ...prev, cvFile: 'Only PDF files are accepted' }))
+        return
+      }
+      // Validate file size (2MB max)
+      const maxSize = 2 * 1024 * 1024 // 2MB in bytes
+      if (file.size > maxSize) {
+        setErrors((prev) => ({ ...prev, cvFile: 'File size must be less than 2MB' }))
+        return
+      }
       setFormData((prev) => ({ ...prev, cvFile: file }))
       if (errors.cvFile) {
         setErrors((prev) => ({ ...prev, cvFile: undefined }))
       }
     }
+  }
+
+  const handleFileUploadClick = () => {
+    document.getElementById('cv-upload-input')?.click()
   }
 
   const handleNext = () => {
@@ -348,39 +374,51 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
           {/* Step 2: Upload CV */}
           {currentStep === 2 && (
             <>
+              {/* Drag & Drop Zone */}
               <div
                 className={`cv-upload-zone ${isDragging ? 'dragging' : ''} ${errors.cvFile ? 'error' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleFileChange}
-                  disabled={isSubmitting}
-                  className="cv-file-input"
-                  id="cv-upload"
-                />
-                <label htmlFor="cv-upload" className="cv-upload-label">
-                  <div className="cv-upload-icon">
-                    {formData.cvFile ? '📄' : '📁'}
-                  </div>
-                  <div className="cv-upload-text">
-                    {formData.cvFile ? (
-                      <>
-                        <strong>{formData.cvFile.name}</strong>
-                        <p>Click to replace</p>
-                      </>
-                    ) : (
-                      <>
-                        <strong>Drag & drop your CV here</strong>
-                        <p>or click to browse (PDF, DOC, DOCX)</p>
-                      </>
-                    )}
-                  </div>
-                </label>
+                <div className="cv-upload-icon">
+                  {formData.cvFile ? '📄' : '📁'}
+                </div>
+                <div className="cv-upload-text">
+                  {formData.cvFile ? (
+                    <>
+                      <strong>{formData.cvFile.name}</strong>
+                      <p>Drag & drop to replace or use button below</p>
+                    </>
+                  ) : (
+                    <>
+                      <strong>Drag & drop your CV here</strong>
+                      <p>PDF only, max 2MB</p>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handleFileChange}
+                disabled={isSubmitting}
+                className="cv-file-input-hidden"
+                id="cv-upload-input"
+              />
+
+              {/* Upload Button */}
+              <button
+                type="button"
+                onClick={handleFileUploadClick}
+                disabled={isSubmitting}
+                className="cv-upload-button"
+              >
+                {formData.cvFile ? 'Replace CV' : 'Select CV File'}
+              </button>
+
               {errors.cvFile && <span className="field-error">{errors.cvFile}</span>}
 
               {/* Navigation Buttons */}
