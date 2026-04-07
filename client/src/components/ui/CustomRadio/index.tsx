@@ -1,5 +1,4 @@
 import { type ChangeEvent } from 'react'
-import './index.module.css'
 
 interface RadioOption {
   value: string
@@ -24,9 +23,12 @@ export function CustomRadio({
   className = '',
 }: CustomRadioProps) {
   return (
-    <div className={`custom-radio-group ${disabled ? 'disabled' : ''} ${className}`}>
-      {options.map(option => (
-        <label key={option.value} className="custom-radio-label">
+    <div
+      className={`custom-radio-group ${disabled ? 'disabled' : ''} ${className}`}
+      role="radiogroup"
+    >
+      {options.map((option) => (
+        <label key={option.value} className="custom-radio-container">
           <input
             type="radio"
             name={name}
@@ -36,10 +38,12 @@ export function CustomRadio({
             disabled={disabled}
             className="custom-radio-input"
           />
-          <span className="custom-radio-circle">
-            <span className="custom-radio-dot" />
+          <span className="custom-radio-visual">
+            <span className="custom-radio-outer">
+              <span className="custom-radio-inner" />
+            </span>
           </span>
-          <span className="custom-radio-text">{option.label}</span>
+          <span className="custom-radio-label-text">{option.label}</span>
         </label>
       ))}
     </div>

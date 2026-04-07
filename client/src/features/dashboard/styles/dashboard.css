@@ -20,6 +20,7 @@
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';
 @import './components/CustomDatePicker.css';
+@import './components/CustomRadio.css';
 @import './pages/DashboardPage.css';
 
 /* Shared dashboard utilities */
