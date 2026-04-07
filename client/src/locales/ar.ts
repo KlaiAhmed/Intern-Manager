@@ -387,4 +387,68 @@ export const commonAr = {
   'dashboard.chart.summer': 'صيفي',
   'dashboard.chart.observation': 'مراقبة',
   'dashboard.chart.other': 'اخر',
+
+  // Dashboard - Intern Application Form - Step 2 (Upload CV)
+  'dashboard.intern.application.step2.title': 'ارفع سيرتك الذاتية',
+  'dashboard.intern.application.step2.subtitle': 'يرجى رفع سيرتك الذاتية/الملخص لإكمال طلبك',
+  'dashboard.intern.application.step2.dragDropReplace': 'اسحب وأفل للإستبدال أو استخدم الزر أدناه',
+  'dashboard.intern.application.step2.dragDropHere': 'اسحب وأفل سيرتك الذاتية هنا',
+  'dashboard.intern.application.step2.pdfOnly': 'PDF فقط، بحد أقصى 2 ميجابايت',
+  'dashboard.intern.application.step2.selectCV': 'اختر ملف السيرة الذاتية',
+  'dashboard.intern.application.step2.replaceCV': 'استبدل السيرة الذاتية',
+  'dashboard.intern.application.step2.onlyPdf': 'يتم قبول ملفات PDF فقط',
+  'dashboard.intern.application.step2.maxSize': 'يجب أن يكون حجم الملف أقل من 2 ميجابايت',
+  'dashboard.intern.application.step2.uploadCV': 'يرجى رفع سيرتك الذاتية',
+
+  // Dashboard - Intern Application Form - Step 3 (Confirmation)
+  'dashboard.intern.application.step3.title': 'تم تقديم الطلب!',
+  'dashboard.intern.application.step3.subtitle': 'طلبك قيد المراجعة الآن',
+  'dashboard.intern.application.step3.complete': 'اكتمال الطلب!',
+  'dashboard.intern.application.step3.message': 'تم تقديم طلبك وهو قيد المراجعة الآن. سيتم إعلامك بمجرد معالجته.',
+  'dashboard.intern.application.step3.summary': 'الملخص',
+  'dashboard.intern.application.step3.university': 'الجامعة:',
+  'dashboard.intern.application.step3.major': 'التخصص:',
+  'dashboard.intern.application.step3.currentYear': 'السنة الحالية:',
+  'dashboard.intern.application.step3.expectedGraduation': 'التخرج المتوقع:',
+  'dashboard.intern.application.step3.availability': 'التوفر:',
+  'dashboard.intern.application.step3.workPreference': 'تفضيل العمل:',
+  'dashboard.intern.application.step3.cv': 'السيرة الذاتية:',
+
+  // Dashboard - Intern Application Form - Validation Errors
+  'dashboard.intern.application.error.universityMin': 'يجب أن يكون اسم الجامعة 3 أحرف على الأقل',
+  'dashboard.intern.application.error.majorMin': 'يجب أن يكون التخصص 3 أحرف على الأقل',
+  'dashboard.intern.application.error.graduationPast': 'لا يمكن أن يكون تاريخ التخرج في الماضي',
+  'dashboard.intern.application.error.startPast': 'لا يمكن أن يكون تاريخ البدء في الماضي',
+  'dashboard.intern.application.error.endPast': 'لا يمكن أن يكون تاريخ الانتهاء في الماضي',
+  'dashboard.intern.application.error.endAfterStart': 'يجب أن يكون تاريخ الانتهاء بعد تاريخ البدء',
+  'dashboard.intern.application.error.submitFailed': 'فشل التقديم. يرجى المحاولة مرة أخرى.',
+
+  // Dashboard - Intern Application Form - Buttons & Navigation
+  'dashboard.intern.application.next': 'التالي',
+  'dashboard.intern.application.back': 'الرجوع',
+  'dashboard.intern.application.submit': 'تقديم الطلب',
+
+  // Dashboard - Intern Application Form - Placeholders
+  'dashboard.intern.application.placeholder.university': 'مثال، جامعة التكنولوجيا',
+  'dashboard.intern.application.placeholder.major': 'مثال، علوم الحاسوب',
+
+  // Dashboard - Status Gate Card
+  'dashboard.intern.statusGate.loading': 'جاري تحميل حالة تدريبك...',
+  'dashboard.intern.statusGate.incomplete.title': 'أكمل ملفك الشخصي',
+  'dashboard.intern.statusGate.incomplete.subtitle': 'ارفع سيرتك الذاتية لإرسال ملفك للمشرف للمراجعة',
+  'dashboard.intern.statusGate.incomplete.clickOrDrag': 'انقر أو اسحب وأفل سيرتك الذاتية',
+  'dashboard.intern.statusGate.incomplete.pdfOnly': 'ملفات PDF فقط، بحد أقصى 10 ميجابايت',
+  'dashboard.intern.statusGate.incomplete.onlyPdfAllowed': 'يُسمح بملفات PDF فقط.',
+  'dashboard.intern.statusGate.incomplete.uploadError': 'تعذر رفع السيرة الذاتية حاليا.',
+  'dashboard.intern.statusGate.pending.title': 'قيد المراجعة',
+  'dashboard.intern.statusGate.pending.subtitle': 'تم تقديم سيرتك الذاتية وهي قيد المراجعة من قبل فريقنا',
+  'dashboard.intern.statusGate.pending.viewProfile': 'عرض ملفي',
+  'dashboard.intern.statusGate.pending.hideProfile': 'إخفاء الملف',
+  'dashboard.intern.statusGate.pending.school': 'المدرسة',
+  'dashboard.intern.statusGate.pending.specialty': 'التخصص',
+  'dashboard.intern.statusGate.pending.experience': 'الخبرة',
+  'dashboard.intern.statusGate.pending.cvFile': 'ملف السيرة الذاتية',
+  'dashboard.intern.statusGate.pending.viewCv': 'عرض السيرة الذاتية المرفوعة',
+  'dashboard.intern.statusGate.pending.notProvided': 'غير مقدم',
+  'dashboard.intern.statusGate.pending.notUploaded': 'غير مرفوع',
 } as const

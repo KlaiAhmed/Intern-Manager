@@ -64,12 +64,12 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     if (!formData.university.trim()) {
       newErrors.university = t('dashboard.intern.application.required')
     } else if (formData.university.trim().length < 3) {
-      newErrors.university = 'University name must be at least 3 characters'
+      newErrors.university = t('dashboard.intern.application.error.universityMin')
     }
     if (!formData.major.trim()) {
       newErrors.major = t('dashboard.intern.application.required')
     } else if (formData.major.trim().length < 3) {
-      newErrors.major = 'Major must be at least 3 characters'
+      newErrors.major = t('dashboard.intern.application.error.majorMin')
     }
     if (!formData.currentYear) {
       newErrors.currentYear = t('dashboard.intern.application.required')
@@ -77,21 +77,21 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     if (!formData.expectedGraduation) {
       newErrors.expectedGraduation = t('dashboard.intern.application.required')
     } else if (formData.expectedGraduation < today) {
-      newErrors.expectedGraduation = 'Graduation date cannot be in the past'
+      newErrors.expectedGraduation = t('dashboard.intern.application.error.graduationPast')
     }
     if (!formData.availableStart) {
       newErrors.availableStart = t('dashboard.intern.application.required')
     } else if (formData.availableStart < today) {
-      newErrors.availableStart = 'Start date cannot be in the past'
+      newErrors.availableStart = t('dashboard.intern.application.error.startPast')
     }
     if (!formData.availableEnd) {
       newErrors.availableEnd = t('dashboard.intern.application.required')
     } else if (formData.availableEnd < today) {
-      newErrors.availableEnd = 'End date cannot be in the past'
+      newErrors.availableEnd = t('dashboard.intern.application.error.endPast')
     }
 
     if (formData.availableStart && formData.availableEnd && formData.availableEnd <= formData.availableStart) {
-      newErrors.availableEnd = 'End date must be after start date'
+      newErrors.availableEnd = t('dashboard.intern.application.error.endAfterStart')
     }
     if (!formData.workPreference) {
       newErrors.workPreference = t('dashboard.intern.application.required')
@@ -105,7 +105,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     const newErrors: Partial<Record<keyof InternApplicationFormData, string>> = {}
 
     if (!formData.cvFile) {
-      newErrors.cvFile = 'Please upload your CV'
+      newErrors.cvFile = t('dashboard.intern.application.step2.uploadCV')
     }
 
     setErrors(newErrors)
@@ -125,13 +125,13 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     if (file) {
       // Validate file type
       if (file.type !== 'application/pdf') {
-        setErrors((prev) => ({ ...prev, cvFile: 'Only PDF files are accepted' }))
+        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.onlyPdf') }))
         return
       }
       // Validate file size (2MB max)
       const maxSize = 2 * 1024 * 1024 // 2MB in bytes
       if (file.size > maxSize) {
-        setErrors((prev) => ({ ...prev, cvFile: 'File size must be less than 2MB' }))
+        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.maxSize') }))
         return
       }
       setFormData((prev) => ({ ...prev, cvFile: file }))
@@ -159,13 +159,13 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     if (file) {
       // Validate file type
       if (file.type !== 'application/pdf') {
-        setErrors((prev) => ({ ...prev, cvFile: 'Only PDF files are accepted' }))
+        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.onlyPdf') }))
         return
       }
       // Validate file size (2MB max)
       const maxSize = 2 * 1024 * 1024 // 2MB in bytes
       if (file.size > maxSize) {
-        setErrors((prev) => ({ ...prev, cvFile: 'File size must be less than 2MB' }))
+        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.maxSize') }))
         return
       }
       setFormData((prev) => ({ ...prev, cvFile: file }))
@@ -207,7 +207,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
       onSubmitted('PENDING')
     } catch (error) {
       console.error('Failed to submit application:', error)
-      setErrors({ university: 'Failed to submit. Please try again.' })
+      setErrors({ university: t('dashboard.intern.application.error.submitFailed') })
     } finally {
       setIsSubmitting(false)
     }
@@ -231,13 +231,13 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
         <div className="application-form-header">
           <h1 className="status-gate-title">
             {currentStep === 1 && t('dashboard.intern.application.title')}
-            {currentStep === 2 && 'Upload Your CV'}
-            {currentStep === 3 && 'Application Submitted!'}
+            {currentStep === 2 && t('dashboard.intern.application.step2.title')}
+            {currentStep === 3 && t('dashboard.intern.application.step3.title')}
           </h1>
           <p className="status-gate-subtitle">
             {currentStep === 1 && t('dashboard.intern.application.subtitle')}
-            {currentStep === 2 && 'Please upload your CV/resume to complete your application'}
-            {currentStep === 3 && 'Your application is now under review'}
+            {currentStep === 2 && t('dashboard.intern.application.step2.subtitle')}
+            {currentStep === 3 && t('dashboard.intern.application.step3.subtitle')}
           </p>
         </div>
 
@@ -258,7 +258,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   className={`form-input ${errors.university ? 'input-error' : ''}`}
-                  placeholder="e.g., University of Technology"
+                  placeholder={t('dashboard.intern.application.placeholder.university')}
                 />
                 {errors.university && <span className="field-error">{errors.university}</span>}
               </div>
@@ -276,7 +276,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   className={`form-input ${errors.major ? 'input-error' : ''}`}
-                  placeholder="e.g., Computer Science"
+                  placeholder={t('dashboard.intern.application.placeholder.major')}
                 />
                 {errors.major && <span className="field-error">{errors.major}</span>}
               </div>
@@ -365,7 +365,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
               {/* Next Button */}
               <div className="form-actions">
                 <button type="button" onClick={handleNext} className="application-submit-btn">
-                  Next
+                  {t('dashboard.intern.application.next')}
                 </button>
               </div>
             </>
@@ -388,12 +388,12 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
                   {formData.cvFile ? (
                     <>
                       <strong>{formData.cvFile.name}</strong>
-                      <p>Drag & drop to replace or use button below</p>
+                      <p>{t('dashboard.intern.application.step2.dragDropReplace')}</p>
                     </>
                   ) : (
                     <>
-                      <strong>Drag & drop your CV here</strong>
-                      <p>PDF only, max 2MB</p>
+                      <strong>{t('dashboard.intern.application.step2.dragDropHere')}</strong>
+                      <p>{t('dashboard.intern.application.step2.pdfOnly')}</p>
                     </>
                   )}
                 </div>
@@ -416,7 +416,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
                 disabled={isSubmitting}
                 className="cv-upload-button"
               >
-                {formData.cvFile ? 'Replace CV' : 'Select CV File'}
+                {formData.cvFile ? t('dashboard.intern.application.step2.replaceCV') : t('dashboard.intern.application.step2.selectCV')}
               </button>
 
               {errors.cvFile && <span className="field-error">{errors.cvFile}</span>}
@@ -424,10 +424,10 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
               {/* Navigation Buttons */}
               <div className="form-actions">
                 <button type="button" onClick={handleBack} className="button button-secondary">
-                  Back
+                  {t('dashboard.intern.application.back')}
                 </button>
                 <button type="button" onClick={handleNext} className="application-submit-btn">
-                  Next
+                  {t('dashboard.intern.application.next')}
                 </button>
               </div>
             </>
@@ -438,33 +438,33 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
             <>
               <div className="confirmation-content">
                 <div className="confirmation-icon">✓</div>
-                <h2 className="confirmation-title">Application Complete!</h2>
+                <h2 className="confirmation-title">{t('dashboard.intern.application.step3.complete')}</h2>
                 <p className="confirmation-message">
-                  Your application has been submitted and is now under review. You will be notified once it's processed.
+                  {t('dashboard.intern.application.step3.message')}
                 </p>
 
                 <div className="submission-summary">
-                  <h3>Summary</h3>
+                  <h3>{t('dashboard.intern.application.step3.summary')}</h3>
                   <div className="summary-item">
-                    <strong>University:</strong> {formData.university}
+                    <strong>{t('dashboard.intern.application.step3.university')}</strong> {formData.university}
                   </div>
                   <div className="summary-item">
-                    <strong>Major:</strong> {formData.major}
+                    <strong>{t('dashboard.intern.application.step3.major')}</strong> {formData.major}
                   </div>
                   <div className="summary-item">
-                    <strong>Current Year:</strong> {yearOptions.find(y => y.value === formData.currentYear)?.label}
+                    <strong>{t('dashboard.intern.application.step3.currentYear')}</strong> {yearOptions.find(y => y.value === formData.currentYear)?.label}
                   </div>
                   <div className="summary-item">
-                    <strong>Expected Graduation:</strong> {formData.expectedGraduation}
+                    <strong>{t('dashboard.intern.application.step3.expectedGraduation')}</strong> {formData.expectedGraduation}
                   </div>
                   <div className="summary-item">
-                    <strong>Availability:</strong> {formData.availableStart} to {formData.availableEnd}
+                    <strong>{t('dashboard.intern.application.step3.availability')}</strong> {formData.availableStart} {t('dashboard.intern.application.step3.availability').includes(':') ? '' : 'to'} {formData.availableEnd}
                   </div>
                   <div className="summary-item">
-                    <strong>Work Preference:</strong> {workPreferenceOptions.find(w => w.value === formData.workPreference)?.label}
+                    <strong>{t('dashboard.intern.application.step3.workPreference')}</strong> {workPreferenceOptions.find(w => w.value === formData.workPreference)?.label}
                   </div>
                   <div className="summary-item">
-                    <strong>CV:</strong> {formData.cvFile?.name}
+                    <strong>{t('dashboard.intern.application.step3.cv')}</strong> {formData.cvFile?.name}
                   </div>
                 </div>
               </div>
@@ -472,10 +472,10 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
               {/* Submit Button */}
               <div className="form-actions">
                 <button type="button" onClick={handleBack} className="button button-secondary">
-                  Back
+                  {t('dashboard.intern.application.back')}
                 </button>
                 <button type="submit" disabled={isSubmitting} className="application-submit-btn">
-                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                  {isSubmitting ? t('dashboard.intern.application.submitting') : t('dashboard.intern.application.submit')}
                 </button>
               </div>
             </>

@@ -1,13 +1,16 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useI18n } from '../../../../locales/I18nContext'
 import { uploadInternCvWithProgress } from '../../api/internCvApi'
 import type { InternLifecycleStatus, InternProfileReadOnly } from '../../types/internDashboard'
 
 export function StatusGateLoading() {
+  const { t } = useI18n()
+
   return (
     <div className="intern-dashboard status-gate-page">
       <div className="status-gate-card">
         <div className="status-gate-spinner" />
-        <h1 className="status-gate-title">Loading your internship status...</h1>
+        <h1 className="status-gate-title">{t('dashboard.intern.statusGate.loading')}</h1>
       </div>
     </div>
   )
@@ -20,6 +23,7 @@ function CvUpload({
   internId: string
   onUploaded: (status: InternLifecycleStatus) => void
 }) {
+  const { t } = useI18n()
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -29,7 +33,7 @@ function CvUpload({
   const validateAndUpload = async (file: File) => {
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) {
-      setError('Only PDF files are allowed.')
+      setError(t('dashboard.intern.statusGate.incomplete.onlyPdfAllowed'))
       return false
     }
 
@@ -45,7 +49,7 @@ function CvUpload({
       if (uploadError instanceof Error && uploadError.message.trim()) {
         setError(uploadError.message)
       } else {
-        setError('Unable to upload CV right now.')
+        setError(t('dashboard.intern.statusGate.incomplete.uploadError'))
       }
       return false
     } finally {
@@ -110,8 +114,8 @@ function CvUpload({
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
         </div>
-        <p className="cv-upload-dropzone-text">Click or drag and drop your CV</p>
-        <p className="cv-upload-dropzone-hint">PDF files only, up to 10MB</p>
+        <p className="cv-upload-dropzone-text">{t('dashboard.intern.statusGate.incomplete.clickOrDrag')}</p>
+        <p className="cv-upload-dropzone-hint">{t('dashboard.intern.statusGate.incomplete.pdfOnly')}</p>
 
         {error && <div className="cv-upload-dropzone-error">{error}</div>}
       </label>
@@ -135,6 +139,8 @@ export function IncompleteStatusView({
   internId: string
   onUploaded: (status: InternLifecycleStatus) => void
 }) {
+  const { t } = useI18n()
+
   return (
     <div className="intern-dashboard status-gate-page">
       <div className="status-gate-card">
@@ -146,9 +152,9 @@ export function IncompleteStatusView({
             <line x1="9" y1="15" x2="15" y2="15" />
           </svg>
         </div>
-        <h1 className="status-gate-title">Complete your profile</h1>
+        <h1 className="status-gate-title">{t('dashboard.intern.statusGate.incomplete.title')}</h1>
         <p className="status-gate-subtitle">
-          Upload your CV to move your profile to supervisor review
+          {t('dashboard.intern.statusGate.incomplete.subtitle')}
         </p>
         <CvUpload internId={internId} onUploaded={onUploaded} />
       </div>
@@ -163,6 +169,7 @@ export function PendingStatusView({
   notificationMessage: string
   profile: InternProfileReadOnly | null
 }) {
+  const { t } = useI18n()
   const [showProfile, setShowProfile] = useState(false)
 
   return (
@@ -170,10 +177,10 @@ export function PendingStatusView({
       <div className="status-gate-card pending-status-card">
         <div className="pending-status-header">
           <div className="pending-indicator" aria-hidden="true" />
-          <h1 className="status-gate-title">Under review</h1>
+          <h1 className="status-gate-title">{t('dashboard.intern.statusGate.pending.title')}</h1>
         </div>
         <p className="status-gate-subtitle">
-          Your CV has been submitted and is being reviewed by our team
+          {t('dashboard.intern.statusGate.pending.subtitle')}
         </p>
         <p className="pending-notification-message">{notificationMessage}</p>
 
@@ -183,7 +190,7 @@ export function PendingStatusView({
             className="pending-btn pending-btn-primary"
             onClick={() => setShowProfile((currentValue) => !currentValue)}
           >
-            {showProfile ? 'Hide profile' : 'View my profile'}
+            {showProfile ? t('dashboard.intern.statusGate.pending.hideProfile') : t('dashboard.intern.statusGate.pending.viewProfile')}
           </button>
         </div>
 
@@ -191,30 +198,30 @@ export function PendingStatusView({
           <div className="pending-profile-panel" aria-live="polite">
             <div className="pending-profile-panel-grid">
               <div className="pending-profile-row">
-                <span className="pending-profile-label">School</span>
+                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.school')}</span>
                 <span className="pending-profile-value">
-                  {profile?.school || <span className="pending-profile-value-empty">Not provided</span>}
+                  {profile?.school || <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>}
                 </span>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">Specialty</span>
+                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.specialty')}</span>
                 <span className="pending-profile-value">
-                  {profile?.specialty || <span className="pending-profile-value-empty">Not provided</span>}
+                  {profile?.specialty || <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>}
                 </span>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">Experience</span>
+                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.experience')}</span>
                 <span className="pending-profile-value">
-                  {profile?.experience || <span className="pending-profile-value-empty">Not provided</span>}
+                  {profile?.experience || <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>}
                 </span>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">CV File</span>
+                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.cvFile')}</span>
                 <span className="pending-profile-value">
                   {profile?.cvFileUrl ? (
-                    <a href={profile.cvFileUrl} target="_blank" rel="noreferrer">View uploaded CV</a>
+                    <a href={profile.cvFileUrl} target="_blank" rel="noreferrer">{t('dashboard.intern.statusGate.pending.viewCv')}</a>
                   ) : (
-                    <span className="pending-profile-value-empty">Not uploaded</span>
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notUploaded')}</span>
                   )}
                 </span>
               </div>

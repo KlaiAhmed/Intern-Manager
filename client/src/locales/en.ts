@@ -387,4 +387,68 @@ export const commonEn = {
   'dashboard.chart.summer': 'Summer',
   'dashboard.chart.observation': 'Observation',
   'dashboard.chart.other': 'Other',
+
+  // Dashboard - Intern Application Form - Step 2 (Upload CV)
+  'dashboard.intern.application.step2.title': 'Upload Your CV',
+  'dashboard.intern.application.step2.subtitle': 'Please upload your CV/resume to complete your application',
+  'dashboard.intern.application.step2.dragDropReplace': 'Drag & drop to replace or use button below',
+  'dashboard.intern.application.step2.dragDropHere': 'Drag & drop your CV here',
+  'dashboard.intern.application.step2.pdfOnly': 'PDF only, max 2MB',
+  'dashboard.intern.application.step2.selectCV': 'Select CV File',
+  'dashboard.intern.application.step2.replaceCV': 'Replace CV',
+  'dashboard.intern.application.step2.onlyPdf': 'Only PDF files are accepted',
+  'dashboard.intern.application.step2.maxSize': 'File size must be less than 2MB',
+  'dashboard.intern.application.step2.uploadCV': 'Please upload your CV',
+
+  // Dashboard - Intern Application Form - Step 3 (Confirmation)
+  'dashboard.intern.application.step3.title': 'Application Submitted!',
+  'dashboard.intern.application.step3.subtitle': 'Your application is now under review',
+  'dashboard.intern.application.step3.complete': 'Application Complete!',
+  'dashboard.intern.application.step3.message': 'Your application has been submitted and is now under review. You will be notified once it\'s processed.',
+  'dashboard.intern.application.step3.summary': 'Summary',
+  'dashboard.intern.application.step3.university': 'University:',
+  'dashboard.intern.application.step3.major': 'Major:',
+  'dashboard.intern.application.step3.currentYear': 'Current Year:',
+  'dashboard.intern.application.step3.expectedGraduation': 'Expected Graduation:',
+  'dashboard.intern.application.step3.availability': 'Availability:',
+  'dashboard.intern.application.step3.workPreference': 'Work Preference:',
+  'dashboard.intern.application.step3.cv': 'CV:',
+
+  // Dashboard - Intern Application Form - Validation Errors
+  'dashboard.intern.application.error.universityMin': 'University name must be at least 3 characters',
+  'dashboard.intern.application.error.majorMin': 'Major must be at least 3 characters',
+  'dashboard.intern.application.error.graduationPast': 'Graduation date cannot be in the past',
+  'dashboard.intern.application.error.startPast': 'Start date cannot be in the past',
+  'dashboard.intern.application.error.endPast': 'End date cannot be in the past',
+  'dashboard.intern.application.error.endAfterStart': 'End date must be after start date',
+  'dashboard.intern.application.error.submitFailed': 'Failed to submit. Please try again.',
+
+  // Dashboard - Intern Application Form - Buttons & Navigation
+  'dashboard.intern.application.next': 'Next',
+  'dashboard.intern.application.back': 'Back',
+  'dashboard.intern.application.submit': 'Submit Application',
+
+  // Dashboard - Intern Application Form - Placeholders
+  'dashboard.intern.application.placeholder.university': 'e.g., University of Technology',
+  'dashboard.intern.application.placeholder.major': 'e.g., Computer Science',
+
+  // Dashboard - Status Gate Card
+  'dashboard.intern.statusGate.loading': 'Loading your internship status...',
+  'dashboard.intern.statusGate.incomplete.title': 'Complete your profile',
+  'dashboard.intern.statusGate.incomplete.subtitle': 'Upload your CV to move your profile to supervisor review',
+  'dashboard.intern.statusGate.incomplete.clickOrDrag': 'Click or drag and drop your CV',
+  'dashboard.intern.statusGate.incomplete.pdfOnly': 'PDF files only, up to 10MB',
+  'dashboard.intern.statusGate.incomplete.onlyPdfAllowed': 'Only PDF files are allowed.',
+  'dashboard.intern.statusGate.incomplete.uploadError': 'Unable to upload CV right now.',
+  'dashboard.intern.statusGate.pending.title': 'Under review',
+  'dashboard.intern.statusGate.pending.subtitle': 'Your CV has been submitted and is being reviewed by our team',
+  'dashboard.intern.statusGate.pending.viewProfile': 'View my profile',
+  'dashboard.intern.statusGate.pending.hideProfile': 'Hide profile',
+  'dashboard.intern.statusGate.pending.school': 'School',
+  'dashboard.intern.statusGate.pending.specialty': 'Specialty',
+  'dashboard.intern.statusGate.pending.experience': 'Experience',
+  'dashboard.intern.statusGate.pending.cvFile': 'CV File',
+  'dashboard.intern.statusGate.pending.viewCv': 'View uploaded CV',
+  'dashboard.intern.statusGate.pending.notProvided': 'Not provided',
+  'dashboard.intern.statusGate.pending.notUploaded': 'Not uploaded',
 } as const

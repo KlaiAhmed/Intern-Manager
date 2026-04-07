@@ -388,4 +388,68 @@ export const commonFr = {
   'dashboard.chart.summer': 'Ete',
   'dashboard.chart.observation': 'Observation',
   'dashboard.chart.other': 'Autre',
+
+  // Dashboard - Intern Application Form - Step 2 (Upload CV)
+  'dashboard.intern.application.step2.title': 'Telechargez Votre CV',
+  'dashboard.intern.application.step2.subtitle': 'Veuillez telecharger votre CV/resume pour completer votre candidature',
+  'dashboard.intern.application.step2.dragDropReplace': 'Glissez-deposez pour remplacer ou utilisez le bouton ci-dessous',
+  'dashboard.intern.application.step2.dragDropHere': 'Glissez-deposez votre CV ici',
+  'dashboard.intern.application.step2.pdfOnly': 'PDF uniquement, max 2 Mo',
+  'dashboard.intern.application.step2.selectCV': 'Selectionner un fichier CV',
+  'dashboard.intern.application.step2.replaceCV': 'Remplacer le CV',
+  'dashboard.intern.application.step2.onlyPdf': 'Seuls les fichiers PDF sont acceptes',
+  'dashboard.intern.application.step2.maxSize': 'La taille du fichier doit etre inferieure a 2 Mo',
+  'dashboard.intern.application.step2.uploadCV': 'Veuillez telecharger votre CV',
+
+  // Dashboard - Intern Application Form - Step 3 (Confirmation)
+  'dashboard.intern.application.step3.title': 'Candidature Soumise!',
+  'dashboard.intern.application.step3.subtitle': 'Votre candidature est en cours de verification',
+  'dashboard.intern.application.step3.complete': 'Candidature Terminee!',
+  'dashboard.intern.application.step3.message': 'Votre candidature a ete soumise et est en cours de verification. Vous serez informe une fois qu\'elle sera traitee.',
+  'dashboard.intern.application.step3.summary': 'Resume',
+  'dashboard.intern.application.step3.university': 'Universite:',
+  'dashboard.intern.application.step3.major': 'Filiere:',
+  'dashboard.intern.application.step3.currentYear': 'Niveau Actuel:',
+  'dashboard.intern.application.step3.expectedGraduation': 'Diplome Prevus:',
+  'dashboard.intern.application.step3.availability': 'Disponibilite:',
+  'dashboard.intern.application.step3.workPreference': 'Preference de Travail:',
+  'dashboard.intern.application.step3.cv': 'CV:',
+
+  // Dashboard - Intern Application Form - Validation Errors
+  'dashboard.intern.application.error.universityMin': 'Le nom de l\'universite doit contenir au moins 3 caracteres',
+  'dashboard.intern.application.error.majorMin': 'La filiere doit contenir au moins 3 caracteres',
+  'dashboard.intern.application.error.graduationPast': 'La date de diplome ne peut pas etre dans le passe',
+  'dashboard.intern.application.error.startPast': 'La date de debut ne peut pas etre dans le passe',
+  'dashboard.intern.application.error.endPast': 'La date de fin ne peut pas etre dans le passe',
+  'dashboard.intern.application.error.endAfterStart': 'La date de fin doit etre posterieure a la date de debut',
+  'dashboard.intern.application.error.submitFailed': 'Echec de la soumission. Veuillez reessayer.',
+
+  // Dashboard - Intern Application Form - Buttons & Navigation
+  'dashboard.intern.application.next': 'Suivant',
+  'dashboard.intern.application.back': 'Retour',
+  'dashboard.intern.application.submit': 'Soumettre la Candidature',
+
+  // Dashboard - Intern Application Form - Placeholders
+  'dashboard.intern.application.placeholder.university': 'ex., Universite de Technologie',
+  'dashboard.intern.application.placeholder.major': 'ex., Informatique',
+
+  // Dashboard - Status Gate Card
+  'dashboard.intern.statusGate.loading': 'Chargement de votre statut de stage...',
+  'dashboard.intern.statusGate.incomplete.title': 'Completer votre profil',
+  'dashboard.intern.statusGate.incomplete.subtitle': 'Telechargez votre CV pour soumettre votre profil a l\'examen de l\'encadrant',
+  'dashboard.intern.statusGate.incomplete.clickOrDrag': 'Cliquez ou glissez-deposez votre CV',
+  'dashboard.intern.statusGate.incomplete.pdfOnly': 'Fichiers PDF uniquement, jusqu\'a 10 Mo',
+  'dashboard.intern.statusGate.incomplete.onlyPdfAllowed': 'Seuls les fichiers PDF sont autorises.',
+  'dashboard.intern.statusGate.incomplete.uploadError': 'Impossible de telecharger le CV pour le moment.',
+  'dashboard.intern.statusGate.pending.title': 'En cours de verification',
+  'dashboard.intern.statusGate.pending.subtitle': 'Votre CV a ete soumis et est en cours de verification par notre equipe',
+  'dashboard.intern.statusGate.pending.viewProfile': 'Voir mon profil',
+  'dashboard.intern.statusGate.pending.hideProfile': 'Masquer le profil',
+  'dashboard.intern.statusGate.pending.school': 'Ecole',
+  'dashboard.intern.statusGate.pending.specialty': 'Specialite',
+  'dashboard.intern.statusGate.pending.experience': 'Experience',
+  'dashboard.intern.statusGate.pending.cvFile': 'Fichier CV',
+  'dashboard.intern.statusGate.pending.viewCv': 'Voir le CV telecharge',
+  'dashboard.intern.statusGate.pending.notProvided': 'Non renseigne',
+  'dashboard.intern.statusGate.pending.notUploaded': 'Non telecharge',
 } as const
