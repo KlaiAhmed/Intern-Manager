@@ -1,6 +1,6 @@
 import { useState, useMemo, type FormEvent, type ChangeEvent } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
-import { CustomSelect, CustomRadio } from '../../../../components/ui'
+import { CustomSelect, CustomRadio, CustomDatePicker } from '../../../../components/ui'
 
 type WorkPreference = 'remote' | 'hybrid' | 'onsite'
 type StudyYear = 'licence' | 'master' | 'doctorat'
@@ -186,15 +186,14 @@ export function InternApplicationForm({ internId, onSubmitted }: InternApplicati
             <label htmlFor="expectedGraduation" className="form-label">
               {t('dashboard.intern.application.expectedGraduation')}
             </label>
-            <input
+            <CustomDatePicker
               id="expectedGraduation"
-              type="date"
               name="expectedGraduation"
               value={formData.expectedGraduation}
               onChange={handleInputChange}
               disabled={isSubmitting}
               min={today}
-              className={`form-input ${errors.expectedGraduation ? 'input-error' : ''}`}
+              className={errors.expectedGraduation ? 'input-error' : ''}
             />
             {errors.expectedGraduation && <span className="field-error">{errors.expectedGraduation}</span>}
           </div>
@@ -204,15 +203,14 @@ export function InternApplicationForm({ internId, onSubmitted }: InternApplicati
             <label htmlFor="availableStart" className="form-label">
               {t('dashboard.intern.application.availableStart')}
             </label>
-            <input
+            <CustomDatePicker
               id="availableStart"
-              type="date"
               name="availableStart"
               value={formData.availableStart}
               onChange={handleInputChange}
               disabled={isSubmitting}
               min={today}
-              className={`form-input ${errors.availableStart ? 'input-error' : ''}`}
+              className={errors.availableStart ? 'input-error' : ''}
             />
             {errors.availableStart && <span className="field-error">{errors.availableStart}</span>}
           </div>
@@ -222,15 +220,14 @@ export function InternApplicationForm({ internId, onSubmitted }: InternApplicati
             <label htmlFor="availableEnd" className="form-label">
               {t('dashboard.intern.application.availableEnd')}
             </label>
-            <input
+            <CustomDatePicker
               id="availableEnd"
-              type="date"
               name="availableEnd"
               value={formData.availableEnd}
               onChange={handleInputChange}
               disabled={isSubmitting}
               min={today}
-              className={`form-input ${errors.availableEnd ? 'input-error' : ''}`}
+              className={errors.availableEnd ? 'input-error' : ''}
             />
             {errors.availableEnd && <span className="field-error">{errors.availableEnd}</span>}
           </div>

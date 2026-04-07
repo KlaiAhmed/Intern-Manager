@@ -19,6 +19,7 @@
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';
+@import './components/CustomDatePicker.css';
 @import './pages/DashboardPage.css';
 
 /* Shared dashboard utilities */
