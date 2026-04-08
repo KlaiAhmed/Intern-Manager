@@ -276,14 +276,9 @@ export function SuperAdminDashboard() {
   const { t } = useI18n()
   const [activeSection, setActiveSection] = useState<SuperAdminSection>('overview')
   const [activeSettingsSubSection, setActiveSettingsSubSection] = useState<SettingsSubSection>('departments')
-  const [settingsExpanded, setSettingsExpanded] = useState(false)
 
   const handleSectionChange = useCallback((nextSection: SuperAdminSection) => {
     setActiveSection(nextSection)
-
-    if (nextSection !== 'settings') {
-      setSettingsExpanded(false)
-    }
   }, [])
 
   const renderContent = useCallback(() => {
@@ -341,15 +336,7 @@ export function SuperAdminDashboard() {
       <SuperAdminSidebar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
-        activeSettingsSubSection={activeSettingsSubSection}
         onSettingsSubSectionChange={setActiveSettingsSubSection}
-        settingsExpanded={settingsExpanded}
-        onSettingsToggle={() => {
-          setSettingsExpanded((currentValue) => !currentValue)
-          if (activeSection !== 'settings') {
-            setActiveSection('settings')
-          }
-        }}
       />
 
       <main className="super-admin-main" id="main-content">

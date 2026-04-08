@@ -10,7 +10,6 @@ import {
   Settings,
   ShieldCheck,
   ChevronRight,
-  ChevronDown,
   X,
   Menu,
 } from './IconComponents'
@@ -37,10 +36,7 @@ interface NavItem {
 interface SuperAdminSidebarProps {
   activeSection: SuperAdminSection
   onSectionChange: (section: SuperAdminSection) => void
-  activeSettingsSubSection?: SettingsSubSection
   onSettingsSubSectionChange?: (subsection: SettingsSubSection) => void
-  settingsExpanded?: boolean
-  onSettingsToggle?: () => void
 }
 
 const navItems: NavItem[] = [
@@ -53,21 +49,10 @@ const navItems: NavItem[] = [
   { id: 'matching', label: 'Matching IA', icon: <Sparkles /> },
 ]
 
-const settingsSubItems: { id: SettingsSubSection; label: string }[] = [
-  { id: 'departments', label: 'Departments' },
-  { id: 'schools', label: 'Schools' },
-  { id: 'types', label: 'Types' },
-  { id: 'skills', label: 'Skills' },
-  { id: 'statuses', label: 'Statuses' },
-]
-
 export function SuperAdminSidebar({
   activeSection,
   onSectionChange,
-  activeSettingsSubSection = 'departments',
   onSettingsSubSectionChange,
-  settingsExpanded = false,
-  onSettingsToggle,
 }: SuperAdminSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -184,45 +169,25 @@ export function SuperAdminSidebar({
               </li>
             ))}
 
-            {/* Settings with expandable submenu */}
-            <li className="super-admin-nav-item-with-submenu" role="presentation">
+            {/* Settings - Direct link to departments */}
+            <li role="presentation">
               <button
                 role="tab"
                 aria-selected={isSettingsActive}
-                aria-expanded={settingsExpanded}
-                className={`super-admin-nav-item super-admin-nav-item-expandable ${isSettingsActive ? 'active' : ''}`}
-                onClick={onSettingsToggle}
+                id="nav-settings"
+                aria-controls="section-settings"
+                className={`super-admin-nav-item ${isSettingsActive ? 'active' : ''}`}
+                onClick={() => {
+                  handleNavClick('settings')
+                  onSettingsSubSectionChange?.('departments')
+                }}
               >
                 <span className="super-admin-nav-icon" aria-hidden="true">
                   <Settings />
                 </span>
                 <span className="super-admin-nav-label">Settings</span>
-                <span className={`super-admin-expand-icon ${settingsExpanded ? 'is-rotated' : ''}`}>
-                  <ChevronDown />
-                </span>
                 {isSettingsActive && <span className="super-admin-active-indicator" />}
               </button>
-
-              {/* Settings submenu */}
-              {(sidebarOpen || isMobile) && settingsExpanded && (
-                <ul className="super-admin-submenu" role="tablist">
-                  {settingsSubItems.map((subItem) => (
-                    <li key={subItem.id} role="presentation">
-                      <button
-                        role="tab"
-                        aria-selected={isSettingsActive && activeSettingsSubSection === subItem.id}
-                        className={`super-admin-submenu-item ${isSettingsActive && activeSettingsSubSection === subItem.id ? 'active' : ''}`}
-                        onClick={() => {
-                          handleNavClick('settings')
-                          onSettingsSubSectionChange?.(subItem.id)
-                        }}
-                      >
-                        {subItem.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </li>
 
             {/* Audit & Security */}
