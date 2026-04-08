@@ -11,6 +11,7 @@ export function UserManagementSection() {
   const {
     users,
     departments,
+    statuses,
     loading,
     error,
     page,
@@ -29,7 +30,9 @@ export function UserManagementSection() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'intern',
+    password: '',
+    confirmPassword: '',
+    role: 'admin',
     status: 'active' as 'active' | 'archived',
     department: '',
   })
@@ -39,14 +42,13 @@ export function UserManagementSection() {
   const roles = [
     { value: 'admin', label: t('role.admin') },
     { value: 'supervisor', label: t('role.supervisor') },
-    { value: 'intern', label: t('role.intern') },
     { value: 'manager', label: t('role.manager') },
   ]
 
-  const statuses = [
-    { value: 'active', label: t('dashboard.admin.statusActive') },
-    { value: 'archived', label: t('dashboard.admin.statusArchived') },
-  ]
+  const statusOptions = statuses.map((status) => ({
+    value: status.name.toLowerCase(),
+    label: status.name,
+  }))
 
   const getRoleBadgeClass = (role: string) => {
     const classes: Record<string, string> = {
@@ -64,6 +66,22 @@ export function UserManagementSection() {
     if (!formData.email.trim()) errors.email = t('dashboard.form.required')
     if (!formData.email.includes('@')) errors.email = t('auth.validation.emailInvalid')
     if (!editingUser && !formData.department.trim()) errors.department = t('dashboard.form.required')
+
+    // Password validation for new users
+    if (!editingUser) {
+      if (!formData.password.trim()) {
+        errors.password = t('dashboard.form.required')
+      } else if (formData.password.length < 8) {
+        errors.password = 'Password must be at least 8 characters'
+      }
+
+      if (!formData.confirmPassword.trim()) {
+        errors.confirmPassword = t('dashboard.form.required')
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match'
+      }
+    }
+
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -75,11 +93,12 @@ export function UserManagementSection() {
       if (editingUser) {
         await updateUser(editingUser.id, formData)
       } else {
-        await createUser(formData)
+        const { confirmPassword, ...userData } = formData
+        await createUser(userData)
       }
       setIsCreateModalOpen(false)
       setEditingUser(null)
-      setFormData({ name: '', email: '', role: 'intern', status: 'active', department: '' })
+      setFormData({ name: '', email: '', password: '', confirmPassword: '', role: 'admin', status: 'active', department: '' })
     } catch {
       setFormErrors({ submit: 'An error occurred. Please try again.' })
     } finally {
@@ -97,6 +116,8 @@ export function UserManagementSection() {
     setFormData({
       name: user.name,
       email: user.email,
+      password: '',
+      confirmPassword: '',
       role: user.role,
       status: user.status,
       department: departmentMatch?.id ?? '',
@@ -122,7 +143,7 @@ export function UserManagementSection() {
           className="dash-btn dash-btn-primary dash-btn-md"
           onClick={() => {
             setEditingUser(null)
-            setFormData({ name: '', email: '', role: 'intern', status: 'active', department: '' })
+            setFormData({ name: '', email: '', password: '', confirmPassword: '', role: 'admin', status: 'active', department: '' })
             setFormErrors({})
             setIsCreateModalOpen(true)
           }}
@@ -154,7 +175,7 @@ export function UserManagementSection() {
             onChange={(e) => setFilters({ status: e.target.value })}
           >
             <option value="">{t('dashboard.admin.allStatuses')}</option>
-            {statuses.map((status) => (
+            {statusOptions.map((status) => (
               <option key={status.value} value={status.value}>
                 {status.label}
               </option>
@@ -243,7 +264,7 @@ export function UserManagementSection() {
                     </td>
                     <td>
                       <span className={`dash-status-badge dash-status-badge-${user.status}`}>
-                        {statuses.find((s) => s.value === user.status)?.label || user.status}
+                        {statusOptions.find((s) => s.value === user.status)?.label || user.status}
                       </span>
                     </td>
                     <td>{user.department || '-'}</td>
@@ -333,8 +354,37 @@ export function UserManagementSection() {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className={formErrors.email ? 'input-error' : ''}
             />
-            {formErrors.email && <span className="field-error">{formErrors.email}</span>}
-          </div>
+          {formErrors.email && <span className="field-error">{formErrors.email}</span>}
+        </div>
+
+
+        {!editingUser && (
+          <>
+            <div className="form-field">
+              <label htmlFor="user-password">Password</label>
+              <input
+                id="user-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className={formErrors.password ? 'input-error' : ''}
+              />
+              {formErrors.password && <span className="field-error">{formErrors.password}</span>}
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="user-confirm-password">Confirm Password</label>
+              <input
+                id="user-confirm-password"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className={formErrors.confirmPassword ? 'input-error' : ''}
+              />
+              {formErrors.confirmPassword && <span className="field-error">{formErrors.confirmPassword}</span>}
+            </div>
+          </>
+        )}
 
           <div className="form-field">
             <label htmlFor="user-department">{t('dashboard.form.department')}</label>
@@ -377,7 +427,7 @@ export function UserManagementSection() {
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'archived' })}
               >
-                {statuses.map((status) => (
+                {statusOptions.map((status) => (
                   <option key={status.value} value={status.value}>
                     {status.label}
                   </option>

@@ -439,7 +439,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                     <line x1="9" y1="15" x2="15" y2="15" />
                   </svg>
                 </div>
-                <p className="cv-upload-dropzone-text">{t('dashboard.intern.application.step2.clickOrDrag')}</p>
+                <p className="cv-upload-dropzone-text">upload your cv</p>
                 <p className="cv-upload-dropzone-hint">{t('dashboard.intern.application.step2.pdfOnly')}</p>
               </div>
 
