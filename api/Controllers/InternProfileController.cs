@@ -2,6 +2,7 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -589,6 +590,31 @@ public sealed class InternProfileController(
 
         return Enum.TryParse(rawValue.Trim(), ignoreCase: true, out workPreference);
     }
+
+  /// <summary>
+  /// Récupère la liste des écoles/universités disponibles pour le formulaire d onboarding.
+  /// </summary>
+  /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+  /// <returns>Une liste d écoles.</returns>
+  /// <response code="200">Liste récupérée avec succès.</response>
+  /// <response code="401">Utilisateur non connecté.</response>
+  [HttpGet("schools", Name = "GetSchoolsForIntern")]
+  [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+  [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+  public async Task<IActionResult> GetSchools(CancellationToken cancellationToken)
+  {
+    var schools = await dbContext.Schools
+      .AsNoTracking()
+      .OrderBy(school => school.Name)
+      .Select(school => new ReferentialResponse
+      {
+        Id = school.Id,
+        Name = school.Name
+      })
+      .ToListAsync(cancellationToken);
+
+    return Ok(schools);
+  }
 
     private static IActionResult? EnforcePendingLock(User intern)
     {

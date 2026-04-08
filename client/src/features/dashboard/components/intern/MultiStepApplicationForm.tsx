@@ -1,41 +1,47 @@
-import { useState, useMemo, type FormEvent, type ChangeEvent, type DragEvent } from 'react'
+import { useState, useEffect, useMemo, type FormEvent, type ChangeEvent, type DragEvent } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
-import { CustomSelect, CustomRadio, CustomDatePicker } from '../../../../components/ui'
+import { CustomSelect } from '../../../../components/ui'
+import { useSchoolsApi, type School } from '../../api/schoolsApi'
+import { useDashboardApi } from '../../hooks/useDashboardApi'
 
 type WorkPreference = 'remote' | 'hybrid' | 'onsite'
 type StudyYear = 'licence' | 'master' | 'doctorat'
 
 interface InternApplicationFormData {
-  university: string
+  universityId: string
   major: string
-  currentYear: StudyYear
-  expectedGraduation: string
-  availableStart: string
-  availableEnd: string
+  currentYearOfStudy: StudyYear
+  expectedGraduationDate: string
+  startDate: string
+  endDate: string
   workPreference: WorkPreference
   cvFile: File | null
 }
 
 interface MultiStepApplicationFormProps {
-  internId: string
   onSubmitted: (status: string) => void
 }
 
 type FormStep = 1 | 2 | 3
 
-export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApplicationFormProps) {
+export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFormProps) {
   const { t } = useI18n()
+  const schoolsApi = useSchoolsApi()
+  const api = useDashboardApi()
+
   const [currentStep, setCurrentStep] = useState<FormStep>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errors, setErrors] = useState<Partial<Record<keyof InternApplicationFormData, string>>>({})
+  const [isLoadingSchools, setIsLoadingSchools] = useState(true)
+  const [schools, setSchools] = useState<School[]>([])
+  const [errors, setErrors] = useState<Partial<Record<keyof InternApplicationFormData | string, string>>>({})
 
   const [formData, setFormData] = useState<InternApplicationFormData>({
-    university: '',
+    universityId: '',
     major: '',
-    currentYear: 'licence',
-    expectedGraduation: '',
-    availableStart: '',
-    availableEnd: '',
+    currentYearOfStudy: 'licence',
+    expectedGraduationDate: '',
+    startDate: '',
+    endDate: '',
     workPreference: 'hybrid',
     cvFile: null,
   })
@@ -44,6 +50,24 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
 
   // Set min date to today for date fields
   const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+
+  // Fetch schools on mount
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        setIsLoadingSchools(true)
+        const schoolsData = await schoolsApi.getSchools()
+        setSchools(schoolsData)
+      } catch (error) {
+        console.error('Failed to fetch schools:', error)
+        setErrors((prev) => ({ ...prev, universityId: 'Failed to load universities' }))
+      } finally {
+        setIsLoadingSchools(false)
+      }
+    }
+
+    void fetchSchools()
+  }, [])
 
   // Select options
   const yearOptions = [
@@ -58,41 +82,50 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     { value: 'onsite', label: t('dashboard.intern.application.onsite') },
   ]
 
+  const schoolOptions = schools.map((school) => ({
+    value: school.id,
+    label: school.name,
+  }))
+
   const validateStep1 = (): boolean => {
     const newErrors: Partial<Record<keyof InternApplicationFormData, string>> = {}
 
-    if (!formData.university.trim()) {
-      newErrors.university = t('dashboard.intern.application.required')
-    } else if (formData.university.trim().length < 3) {
-      newErrors.university = t('dashboard.intern.application.error.universityMin')
+    if (!formData.universityId.trim()) {
+      newErrors.universityId = t('dashboard.intern.application.required')
     }
+
     if (!formData.major.trim()) {
       newErrors.major = t('dashboard.intern.application.required')
     } else if (formData.major.trim().length < 3) {
       newErrors.major = t('dashboard.intern.application.error.majorMin')
     }
-    if (!formData.currentYear) {
-      newErrors.currentYear = t('dashboard.intern.application.required')
-    }
-    if (!formData.expectedGraduation) {
-      newErrors.expectedGraduation = t('dashboard.intern.application.required')
-    } else if (formData.expectedGraduation < today) {
-      newErrors.expectedGraduation = t('dashboard.intern.application.error.graduationPast')
-    }
-    if (!formData.availableStart) {
-      newErrors.availableStart = t('dashboard.intern.application.required')
-    } else if (formData.availableStart < today) {
-      newErrors.availableStart = t('dashboard.intern.application.error.startPast')
-    }
-    if (!formData.availableEnd) {
-      newErrors.availableEnd = t('dashboard.intern.application.required')
-    } else if (formData.availableEnd < today) {
-      newErrors.availableEnd = t('dashboard.intern.application.error.endPast')
+
+    if (!formData.currentYearOfStudy) {
+      newErrors.currentYearOfStudy = t('dashboard.intern.application.required')
     }
 
-    if (formData.availableStart && formData.availableEnd && formData.availableEnd <= formData.availableStart) {
-      newErrors.availableEnd = t('dashboard.intern.application.error.endAfterStart')
+    if (!formData.expectedGraduationDate) {
+      newErrors.expectedGraduationDate = t('dashboard.intern.application.required')
+    } else if (formData.expectedGraduationDate < today) {
+      newErrors.expectedGraduationDate = t('dashboard.intern.application.error.graduationPast')
     }
+
+    if (!formData.startDate) {
+      newErrors.startDate = t('dashboard.intern.application.required')
+    } else if (formData.startDate < today) {
+      newErrors.startDate = t('dashboard.intern.application.error.startPast')
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = t('dashboard.intern.application.required')
+    } else if (formData.endDate < today) {
+      newErrors.endDate = t('dashboard.intern.application.error.endPast')
+    }
+
+    if (formData.startDate && formData.endDate && formData.endDate <= formData.startDate) {
+      newErrors.endDate = t('dashboard.intern.application.error.endAfterStart')
+    }
+
     if (!formData.workPreference) {
       newErrors.workPreference = t('dashboard.intern.application.required')
     }
@@ -105,7 +138,7 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     const newErrors: Partial<Record<keyof InternApplicationFormData, string>> = {}
 
     if (!formData.cvFile) {
-      newErrors.cvFile = t('dashboard.intern.application.step2.uploadCV')
+      newErrors.cvFile = t('dashboard.intern.application.step2.required')
     }
 
     setErrors(newErrors)
@@ -117,27 +150,6 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
     setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors[name as keyof InternApplicationFormData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
-    }
-  }
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Validate file type
-      if (file.type !== 'application/pdf') {
-        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.onlyPdf') }))
-        return
-      }
-      // Validate file size (2MB max)
-      const maxSize = 2 * 1024 * 1024 // 2MB in bytes
-      if (file.size > maxSize) {
-        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.maxSize') }))
-        return
-      }
-      setFormData((prev) => ({ ...prev, cvFile: file }))
-      if (errors.cvFile) {
-        setErrors((prev) => ({ ...prev, cvFile: undefined }))
-      }
     }
   }
 
@@ -196,18 +208,27 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    if (currentStep !== 3) return
+    if (currentStep !== 3 || !formData.cvFile) return
 
     setIsSubmitting(true)
 
     try {
-      // TODO: Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      console.log('Submitting application for intern:', internId, formData)
+      const multipartData = new FormData()
+      multipartData.append('universityId', formData.universityId)
+      multipartData.append('major', formData.major)
+      multipartData.append('currentYearOfStudy', formData.currentYearOfStudy)
+      multipartData.append('expectedGraduationDate', formData.expectedGraduationDate)
+      multipartData.append('startDate', formData.startDate)
+      multipartData.append('endDate', formData.endDate)
+      multipartData.append('workPreference', formData.workPreference)
+      multipartData.append('cv', formData.cvFile)
+
+      await api.postFormData('/api/interns/me/onboarding', multipartData)
+
       onSubmitted('PENDING')
     } catch (error) {
       console.error('Failed to submit application:', error)
-      setErrors({ university: t('dashboard.intern.application.error.submitFailed') })
+      setErrors({ universityId: t('dashboard.intern.application.error.submitFailed') })
     } finally {
       setIsSubmitting(false)
     }
@@ -247,20 +268,20 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
             <>
               {/* University/Institution */}
               <div className="form-field">
-                <label htmlFor="university" className="form-label">
+                <label htmlFor="universityId" className="form-label">
                   {t('dashboard.intern.application.university')}
                 </label>
-                <input
-                  id="university"
-                  type="text"
-                  name="university"
-                  value={formData.university}
+                <CustomSelect
+                  id="universityId"
+                  name="universityId"
+                  value={formData.universityId}
+                  options={schoolOptions}
                   onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  className={`form-input ${errors.university ? 'input-error' : ''}`}
-                  placeholder={t('dashboard.intern.application.placeholder.university')}
+                  disabled={isSubmitting || isLoadingSchools}
+                  className={errors.universityId ? 'input-error' : ''}
+                  placeholder={isLoadingSchools ? 'Loading universities...' : 'Select your university'}
                 />
-                {errors.university && <span className="field-error">{errors.university}</span>}
+                {errors.universityId && <span className="field-error">{errors.universityId}</span>}
               </div>
 
               {/* Major/Field of Study */}
@@ -283,198 +304,220 @@ export function MultiStepApplicationForm({ internId, onSubmitted }: MultiStepApp
 
               {/* Current Year of Study */}
               <div className="form-field">
-                <label htmlFor="currentYear" className="form-label">
+                <label htmlFor="currentYearOfStudy" className="form-label">
                   {t('dashboard.intern.application.currentYear')}
                 </label>
                 <CustomSelect
-                  id="currentYear"
-                  name="currentYear"
-                  value={formData.currentYear}
+                  id="currentYearOfStudy"
+                  name="currentYearOfStudy"
+                  value={formData.currentYearOfStudy}
                   options={yearOptions}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
-                  className={errors.currentYear ? 'input-error' : ''}
+                  className={errors.currentYearOfStudy ? 'input-error' : ''}
                 />
-                {errors.currentYear && <span className="field-error">{errors.currentYear}</span>}
+                {errors.currentYearOfStudy && <span className="field-error">{errors.currentYearOfStudy}</span>}
               </div>
 
               {/* Expected Graduation Date */}
               <div className="form-field">
-                <label htmlFor="expectedGraduation" className="form-label">
+                <label htmlFor="expectedGraduationDate" className="form-label">
                   {t('dashboard.intern.application.expectedGraduation')}
                 </label>
-                <CustomDatePicker
-                  id="expectedGraduation"
-                  name="expectedGraduation"
-                  value={formData.expectedGraduation}
+                <input
+                  id="expectedGraduationDate"
+                  type="date"
+                  name="expectedGraduationDate"
+                  value={formData.expectedGraduationDate}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   min={today}
-                  className={errors.expectedGraduation ? 'input-error' : ''}
+                  className={`form-input ${errors.expectedGraduationDate ? 'input-error' : ''}`}
                 />
-                {errors.expectedGraduation && <span className="field-error">{errors.expectedGraduation}</span>}
+                {errors.expectedGraduationDate && <span className="field-error">{errors.expectedGraduationDate}</span>}
               </div>
 
               {/* Available Start Date */}
               <div className="form-field">
-                <label htmlFor="availableStart" className="form-label">
+                <label htmlFor="startDate" className="form-label">
                   {t('dashboard.intern.application.availableStart')}
                 </label>
-                <CustomDatePicker
-                  id="availableStart"
-                  name="availableStart"
-                  value={formData.availableStart}
+                <input
+                  id="startDate"
+                  type="date"
+                  name="startDate"
+                  value={formData.startDate}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   min={today}
-                  className={errors.availableStart ? 'input-error' : ''}
+                  className={`form-input ${errors.startDate ? 'input-error' : ''}`}
                 />
-                {errors.availableStart && <span className="field-error">{errors.availableStart}</span>}
+                {errors.startDate && <span className="field-error">{errors.startDate}</span>}
               </div>
 
               {/* Available End Date */}
               <div className="form-field">
-                <label htmlFor="availableEnd" className="form-label">
+                <label htmlFor="endDate" className="form-label">
                   {t('dashboard.intern.application.availableEnd')}
                 </label>
-                <CustomDatePicker
-                  id="availableEnd"
-                  name="availableEnd"
-                  value={formData.availableEnd}
+                <input
+                  id="endDate"
+                  type="date"
+                  name="endDate"
+                  value={formData.endDate}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   min={today}
-                  className={errors.availableEnd ? 'input-error' : ''}
+                  className={`form-input ${errors.endDate ? 'input-error' : ''}`}
                 />
-                {errors.availableEnd && <span className="field-error">{errors.availableEnd}</span>}
+                {errors.endDate && <span className="field-error">{errors.endDate}</span>}
               </div>
 
               {/* Work Preference */}
               <div className="form-field">
                 <label className="form-label">{t('dashboard.intern.application.workPreference')}</label>
-                <CustomRadio
+                <CustomSelect
+                  id="workPreference"
                   name="workPreference"
                   value={formData.workPreference}
                   options={workPreferenceOptions}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
+                  className={errors.workPreference ? 'input-error' : ''}
                 />
                 {errors.workPreference && <span className="field-error">{errors.workPreference}</span>}
               </div>
 
-              {/* Next Button */}
               <div className="form-actions">
-                <button type="button" onClick={handleNext} className="application-submit-btn">
+                <button type="button" className="btn-next" onClick={handleNext} disabled={isSubmitting}>
                   {t('dashboard.intern.application.next')}
                 </button>
               </div>
             </>
           )}
 
-          {/* Step 2: Upload CV */}
+          {/* Step 2: CV Upload */}
           {currentStep === 2 && (
             <>
-              {/* Drag & Drop Zone */}
               <div
-                className={`cv-upload-zone ${isDragging ? 'dragging' : ''} ${errors.cvFile ? 'error' : ''}`}
+                className={`cv-upload-dropzone ${isDragging ? 'drag-active' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onClick={handleFileUploadClick}
               >
-                <div className="cv-upload-icon">
-                  {formData.cvFile ? '📄' : '📁'}
+                <input
+                  id="cv-upload-input"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      if (file.type !== 'application/pdf') {
+                        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.onlyPdf') }))
+                        return
+                      }
+                      const maxSize = 2 * 1024 * 1024
+                      if (file.size > maxSize) {
+                        setErrors((prev) => ({ ...prev, cvFile: t('dashboard.intern.application.step2.maxSize') }))
+                        return
+                      }
+                      setFormData((prev) => ({ ...prev, cvFile: file }))
+                      if (errors.cvFile) {
+                        setErrors((prev) => ({ ...prev, cvFile: undefined }))
+                      }
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  style={{ display: 'none' }}
+                />
+                <div className="cv-upload-dropzone-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
                 </div>
-                <div className="cv-upload-text">
-                  {formData.cvFile ? (
-                    <>
-                      <strong>{formData.cvFile.name}</strong>
-                      <p>{t('dashboard.intern.application.step2.dragDropReplace')}</p>
-                    </>
-                  ) : (
-                    <>
-                      <strong>{t('dashboard.intern.application.step2.dragDropHere')}</strong>
-                      <p>{t('dashboard.intern.application.step2.pdfOnly')}</p>
-                    </>
-                  )}
-                </div>
+                <p className="cv-upload-dropzone-text">{t('dashboard.intern.application.step2.clickOrDrag')}</p>
+                <p className="cv-upload-dropzone-hint">{t('dashboard.intern.application.step2.pdfOnly')}</p>
               </div>
 
-              {/* Hidden file input */}
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handleFileChange}
-                disabled={isSubmitting}
-                className="cv-file-input-hidden"
-                id="cv-upload-input"
-              />
-
-              {/* Upload Button */}
-              <button
-                type="button"
-                onClick={handleFileUploadClick}
-                disabled={isSubmitting}
-                className="cv-upload-button"
-              >
-                {formData.cvFile ? t('dashboard.intern.application.step2.replaceCV') : t('dashboard.intern.application.step2.selectCV')}
-              </button>
+              {formData.cvFile && (
+                <div className="cv-file-selected">
+                  <span className="cv-file-name">{formData.cvFile.name}</span>
+                  <button
+                    type="button"
+                    className="cv-file-remove"
+                    onClick={() => setFormData((prev) => ({ ...prev, cvFile: null }))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
               {errors.cvFile && <span className="field-error">{errors.cvFile}</span>}
 
-              {/* Navigation Buttons */}
               <div className="form-actions">
-                <button type="button" onClick={handleBack} className="button button-secondary">
+                <button type="button" className="btn-back" onClick={handleBack} disabled={isSubmitting}>
                   {t('dashboard.intern.application.back')}
                 </button>
-                <button type="button" onClick={handleNext} className="application-submit-btn">
+                <button type="button" className="btn-next" onClick={handleNext} disabled={isSubmitting || !formData.cvFile}>
                   {t('dashboard.intern.application.next')}
                 </button>
               </div>
             </>
           )}
 
-          {/* Step 3: Confirmation */}
+          {/* Step 3: Review & Submit */}
           {currentStep === 3 && (
             <>
-              <div className="confirmation-content">
-                <div className="confirmation-icon">✓</div>
-                <h2 className="confirmation-title">{t('dashboard.intern.application.step3.complete')}</h2>
-                <p className="confirmation-message">
-                  {t('dashboard.intern.application.step3.message')}
-                </p>
-
-                <div className="submission-summary">
-                  <h3>{t('dashboard.intern.application.step3.summary')}</h3>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.university')}</strong> {formData.university}
-                  </div>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.major')}</strong> {formData.major}
-                  </div>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.currentYear')}</strong> {yearOptions.find(y => y.value === formData.currentYear)?.label}
-                  </div>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.expectedGraduation')}</strong> {formData.expectedGraduation}
-                  </div>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.availability')}</strong> {formData.availableStart} {t('dashboard.intern.application.step3.availability').includes(':') ? '' : 'to'} {formData.availableEnd}
-                  </div>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.workPreference')}</strong> {workPreferenceOptions.find(w => w.value === formData.workPreference)?.label}
-                  </div>
-                  <div className="summary-item">
-                    <strong>{t('dashboard.intern.application.step3.cv')}</strong> {formData.cvFile?.name}
-                  </div>
+              <div className="review-section">
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.university')}</span>
+                  <span className="review-value">{schools.find((s) => s.id === formData.universityId)?.name || 'Not selected'}</span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.major')}</span>
+                  <span className="review-value">{formData.major}</span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.currentYear')}</span>
+                  <span className="review-value">
+                    {yearOptions.find((opt) => opt.value === formData.currentYearOfStudy)?.label}
+                  </span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.expectedGraduation')}</span>
+                  <span className="review-value">{formData.expectedGraduationDate}</span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.availableStart')}</span>
+                  <span className="review-value">{formData.startDate}</span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.availableEnd')}</span>
+                  <span className="review-value">{formData.endDate}</span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.workPreference')}</span>
+                  <span className="review-value">
+                    {workPreferenceOptions.find((opt) => opt.value === formData.workPreference)?.label}
+                  </span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">CV</span>
+                  <span className="review-value">{formData.cvFile?.name || 'No file selected'}</span>
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {errors.universityId && <span className="field-error">{errors.universityId}</span>}
+
               <div className="form-actions">
-                <button type="button" onClick={handleBack} className="button button-secondary">
+                <button type="button" className="btn-back" onClick={handleBack} disabled={isSubmitting}>
                   {t('dashboard.intern.application.back')}
                 </button>
-                <button type="submit" disabled={isSubmitting} className="application-submit-btn">
+                <button type="submit" className="btn-submit" disabled={isSubmitting}>
                   {isSubmitting ? t('dashboard.intern.application.submitting') : t('dashboard.intern.application.submit')}
                 </button>
               </div>

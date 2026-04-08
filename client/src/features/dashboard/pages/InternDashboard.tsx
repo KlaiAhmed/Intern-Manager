@@ -105,7 +105,6 @@ export function InternDashboard() {
   if (internLifecycleStatus === 'INCOMPLETE') {
     return (
       <MultiStepApplicationForm
-        internId={user.id}
         onSubmitted={() => {
           // Refresh the lifecycle status after form submission
           loadInternLifecycleStatus()
