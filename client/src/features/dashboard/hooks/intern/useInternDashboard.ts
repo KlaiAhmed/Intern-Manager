@@ -302,12 +302,6 @@ export function useInternDashboard() {
     return user.name.split(' ')[0]
   }
 
-  const handleCvUploaded = (status: InternLifecycleStatus) => {
-    setInternLifecycleStatus(status)
-    setPendingNotificationMessage('Your profile is awaiting assignment')
-    void loadPendingContext()
-  }
-
   return {
     t,
     user,
@@ -363,7 +357,6 @@ export function useInternDashboard() {
     handleAddJournalEntry,
     handleUploadClick,
     handleHiddenFileChange,
-    handleCvUploaded,
 
     getUserInitials,
     getFirstName,

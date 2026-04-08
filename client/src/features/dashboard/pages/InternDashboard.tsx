@@ -9,7 +9,7 @@ import {
   TasksCard,
 } from '../components/intern/InternDashboardCards'
 import {
-  IncompleteStatusView,
+  PendingStatusView,
   StatusGateLoading,
 } from '../components/intern/InternStatusViews'
 import { MultiStepApplicationForm } from '../components/intern/MultiStepApplicationForm'
@@ -30,6 +30,8 @@ export function InternDashboard() {
     nextMeeting,
     meetingsCount,
     internLifecycleStatus,
+    pendingNotificationMessage,
+    pendingProfile,
 
     isJournalModalOpen,
     journalContent,
@@ -69,7 +71,6 @@ export function InternDashboard() {
     handleAddJournalEntry,
     handleUploadClick,
     handleHiddenFileChange,
-    handleCvUploaded,
 
     getUserInitials,
     getFirstName,
@@ -102,10 +103,6 @@ export function InternDashboard() {
   }
 
   if (internLifecycleStatus === 'INCOMPLETE') {
-    return <IncompleteStatusView internId={user.id} onUploaded={handleCvUploaded} />
-  }
-
-  if (internLifecycleStatus === 'PENDING') {
     return (
       <MultiStepApplicationForm
         internId={user.id}
@@ -115,6 +112,10 @@ export function InternDashboard() {
         }}
       />
     )
+  }
+
+  if (internLifecycleStatus === 'PENDING') {
+    return <PendingStatusView notificationMessage={pendingNotificationMessage} profile={pendingProfile} />
   }
 
   if (internLifecycleStatus === 'COMPLETED' || internLifecycleStatus === 'ARCHIVED') {
