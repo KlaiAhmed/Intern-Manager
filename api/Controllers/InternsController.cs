@@ -146,27 +146,12 @@ public sealed class InternsController(
             lastName = intern.LastName,
             fullName = $"{intern.FirstName} {intern.LastName}".Trim(),
             email = intern.Email,
-            status = intern.Status.ToString(),
+            status = intern.VerificationStatus.ToString(),
+            accountStatus = intern.Status.ToString(),
             verificationStatus = intern.VerificationStatus.ToString(),
             cvFileUrl = profile?.CvFileUrl,
             startDate = profile?.StartDate,
             endDate = profile?.EndDate
-        });
-    }
-
-    [HttpGet("{id:guid}/status", Name = "GetInternStatus")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetInternStatus(Guid id, CancellationToken cancellationToken)
-    {
-        _ = id;
-        _ = cancellationToken;
-
-        return StatusCode(StatusCodes.Status410Gone, new
-        {
-            message = "This endpoint has been retired. Use GET /api/interns/{id}."
         });
     }
 

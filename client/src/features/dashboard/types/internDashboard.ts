@@ -63,6 +63,8 @@ export type InternLifecycleStatus = 'INCOMPLETE' | 'PENDING' | 'ACTIVE' | 'COMPL
 export interface InternStatusResponse {
   id: string
   status: InternLifecycleStatus
+  accountStatus: 'Active' | 'Archived'
+  verificationStatus: InternLifecycleStatus
 }
 
 export interface NotificationItem {

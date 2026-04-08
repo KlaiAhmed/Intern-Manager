@@ -222,7 +222,7 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Created($"/api/interns/{request.InternId}/status", new
+        return Created($"/api/interns/{request.InternId}", new
         {
             missionId = mission.Id,
             internId = request.InternId,

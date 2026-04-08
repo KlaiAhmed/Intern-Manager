@@ -81,7 +81,7 @@ export function useInternDashboard() {
     setStatusError(null)
 
     try {
-      const result = await api.get<InternStatusResponse>(`/api/interns/${user.id}/status`)
+      const result = await api.get<InternStatusResponse>(`/api/interns/${user.id}`)
       setInternLifecycleStatus(result.status)
     } catch (error) {
       setStatusError(getErrorMessage(error))
