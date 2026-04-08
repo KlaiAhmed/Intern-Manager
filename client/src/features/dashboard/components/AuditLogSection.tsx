@@ -143,22 +143,28 @@ export function AuditLogSection() {
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.id}>
-                    <td className="audit-actor-cell">
-                      <div className="user-avatar">{log.actor.charAt(0).toUpperCase()}</div>
-                      <span className="audit-actor">{log.actor}</span>
+                    <td>
+                      <div className="audit-actor-cell">
+                        <div className="user-avatar">{log.actor.charAt(0).toUpperCase()}</div>
+                        <span className="audit-actor">{log.actor}</span>
+                      </div>
                     </td>
                     <td>
                       <span className={`action-badge ${getActionBadgeClass(log.action)}`}>
                         {log.action}
                       </span>
                     </td>
-                    <td className="audit-entity">{log.entity}</td>
-                    <td className="audit-timestamp">
-                      <div className="audit-date">
-                        {new Date(log.timestamp).toLocaleDateString()}
-                      </div>
-                      <div className="audit-time">
-                        {new Date(log.timestamp).toLocaleTimeString()}
+                    <td>
+                      <span className="audit-entity">{log.entity}</span>
+                    </td>
+                    <td>
+                      <div className="audit-timestamp">
+                        <div className="audit-date">
+                          {new Date(log.timestamp).toLocaleDateString()}
+                        </div>
+                        <div className="audit-time">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -194,4 +200,3 @@ export function AuditLogSection() {
     </section>
   )
 }
-

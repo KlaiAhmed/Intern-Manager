@@ -57,6 +57,7 @@
 .audit-table td {
   font-family: inherit;
   font-size: 0.875rem;
+  vertical-align: middle;
 }
 
 .audit-actor-cell {
@@ -65,6 +66,12 @@
   gap: var(--dash-space-sm);
   font-weight: 500;
   color: var(--dash-text);
+}
+
+.audit-actor-cell .user-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
 }
 
 .audit-actor {
