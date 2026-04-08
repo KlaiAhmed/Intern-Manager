@@ -1,4 +1,3 @@
-using System.Text.Json;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -25,7 +24,7 @@ public sealed class InternProfileController(
     IWebHostEnvironment environment,
     INotificationService notificationService) : ControllerBase
 {
-    private const long MaxCvUploadBytes = 5 * 1024 * 1024;
+    private const long MaxCvUploadBytes = 2 * 1024 * 1024;
 
     /// <summary>
     /// Récupère le profil du stagiaire connecté.
@@ -52,11 +51,11 @@ public sealed class InternProfileController(
             return Unauthorized();
         }
 
-        var isIntern = await dbContext.Users
+        var intern = await dbContext.Users
             .AsNoTracking()
-            .AnyAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
+            .FirstOrDefaultAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
 
-        if (!isIntern)
+        if (intern is null)
         {
             return NotFound(new { message = "Intern not found." });
         }
@@ -75,7 +74,7 @@ public sealed class InternProfileController(
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(ToProfileResponse(profile, skills));
+        return Ok(ToProfileResponse(profile, intern.VerificationStatus, skills));
     }
 
     /// <summary>
@@ -95,6 +94,7 @@ public sealed class InternProfileController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
     public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateInternProfileRequest request, CancellationToken cancellationToken)
     {
         var internId = UserContextHelper.ResolveCurrentUserId(User);
@@ -103,19 +103,93 @@ public sealed class InternProfileController(
             return Unauthorized();
         }
 
+        var intern = await dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
+
+        if (intern is null)
+        {
+            return NotFound(new { message = "Intern not found." });
+        }
+
+        var pendingLockResult = EnforcePendingLock(intern);
+        if (pendingLockResult is not null)
+        {
+            return pendingLockResult;
+        }
+
         var profile = await EnsureProfileAsync(internId.Value, cancellationToken);
 
-        profile.School = (request.School ?? string.Empty).Trim();
-        profile.Specialty = (request.Specialty ?? string.Empty).Trim();
-        profile.Experience = (request.Experience ?? string.Empty).Trim();
+        if (request.UniversityId.HasValue)
+        {
+            var schoolExists = await dbContext.Schools
+                .AsNoTracking()
+                .AnyAsync(school => school.Id == request.UniversityId.Value, cancellationToken);
 
-        var normalizedCompetencies = (request.Competencies ?? Array.Empty<string>())
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            if (!schoolExists)
+            {
+                return BadRequest(new { message = "Selected university is not valid." });
+            }
 
-        profile.CompetenciesJson = JsonSerializer.Serialize(normalizedCompetencies);
+            profile.UniversityId = request.UniversityId.Value;
+        }
+
+        if (request.Major is not null)
+        {
+            var normalizedMajor = request.Major.Trim();
+            if (normalizedMajor.Length > 200)
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["major"] = "Major cannot exceed 200 characters."
+                });
+            }
+
+            profile.Major = normalizedMajor;
+        }
+
+        if (request.CurrentYearOfStudy is not null)
+        {
+            var normalizedCurrentYearOfStudy = request.CurrentYearOfStudy.Trim();
+            if (normalizedCurrentYearOfStudy.Length > 64)
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["currentYearOfStudy"] = "Current year of study cannot exceed 64 characters."
+                });
+            }
+
+            profile.CurrentYearOfStudy = normalizedCurrentYearOfStudy;
+        }
+
+        if (request.ExpectedGraduationDate.HasValue)
+        {
+            profile.ExpectedGraduationDate = request.ExpectedGraduationDate.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.WorkPreference))
+        {
+            if (!TryParseWorkPreference(request.WorkPreference, out var workPreference))
+            {
+                return BadRequest(new { message = "Invalid workPreference. Allowed values: remote, hybrid, onsite." });
+            }
+
+            profile.WorkPreference = workPreference;
+        }
+
+        if (request.StartDate.HasValue)
+        {
+            profile.StartDate = request.StartDate.Value;
+        }
+
+        if (request.EndDate.HasValue)
+        {
+            profile.EndDate = request.EndDate.Value;
+        }
+
+        if (profile.StartDate.HasValue && profile.EndDate.HasValue && profile.EndDate.Value <= profile.StartDate.Value)
+        {
+            return BadRequest(new { message = "endDate must be greater than startDate." });
+        }
 
         dbContext.AuditLogs.Add(new AuditLog
         {
@@ -140,7 +214,7 @@ public sealed class InternProfileController(
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(ToProfileResponse(profile, skills));
+        return Ok(ToProfileResponse(profile, intern.VerificationStatus, skills));
     }
 
     /// <summary>
@@ -167,6 +241,20 @@ public sealed class InternProfileController(
         if (!internId.HasValue)
         {
             return Unauthorized();
+        }
+
+        var intern = await dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
+
+        if (intern is null)
+        {
+            return NotFound(new { message = "Intern not found." });
+        }
+
+        var pendingLockResult = EnforcePendingLock(intern);
+        if (pendingLockResult is not null)
+        {
+            return pendingLockResult;
         }
 
         var profile = await EnsureProfileAsync(internId.Value, cancellationToken);
@@ -251,7 +339,7 @@ public sealed class InternProfileController(
     /// </summary>
     /// <remarks>
     /// Cette route permet au stagiaire de télécharger son CV au format PDF.
-    /// Le fichier ne doit pas dépasser 5 Mo. L ancien CV est automatiquement
+    /// Le fichier ne doit pas dépasser 2 Mo. L ancien CV est automatiquement
     /// remplacé par le nouveau.
     /// </remarks>
     /// <param name="request">Objet contenant le fichier PDF à télécharger.</param>
@@ -273,6 +361,20 @@ public sealed class InternProfileController(
             return Unauthorized();
         }
 
+        var intern = await dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
+
+        if (intern is null)
+        {
+            return NotFound(new { message = "Intern not found." });
+        }
+
+        var pendingLockResult = EnforcePendingLock(intern);
+        if (pendingLockResult is not null)
+        {
+            return pendingLockResult;
+        }
+
         if (request.File is null || request.File.Length == 0)
         {
             return BadRequest(new { message = "File is required." });
@@ -280,7 +382,7 @@ public sealed class InternProfileController(
 
         if (request.File.Length > MaxCvUploadBytes)
         {
-            return BadRequest(new { message = "CV exceeds the 5 MB limit." });
+            return BadRequest(new { message = "CV exceeds the 2 MB limit." });
         }
 
         var extension = Path.GetExtension(request.File.FileName);
@@ -295,35 +397,34 @@ public sealed class InternProfileController(
             return BadRequest(new { message = "Invalid CV content type." });
         }
 
+        if (!HasValidPdfSignature(request.File))
+        {
+            return BadRequest(new { message = "CV must be a valid PDF file." });
+        }
+
         var profile = await EnsureProfileAsync(internId.Value, cancellationToken);
 
-        if (profile.Status is InternLifecycleStatus.ACTIVE or InternLifecycleStatus.COMPLETED or InternLifecycleStatus.ARCHIVED)
+        if (intern.VerificationStatus == InternVerificationStatus.ACTIVE)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = $"CV upload is not allowed when intern status is {profile.Status}." });
+            return StatusCode(StatusCodes.Status409Conflict, new { message = $"CV upload is not allowed when intern status is {intern.VerificationStatus}." });
         }
 
         var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "cv");
         Directory.CreateDirectory(uploadsDirectory);
 
-        if (!string.IsNullOrWhiteSpace(profile.CvFileUrl))
-        {
-            TryDeleteExistingFile(profile.CvFileUrl, uploadsDirectory);
-        }
+        var oldCvFileUrl = profile.CvFileUrl;
+        var oldFilePath = ResolveStoredFilePath(oldCvFileUrl, uploadsDirectory);
 
         var storedFileName = $"{internId.Value}_{DateTime.UtcNow:yyyyMMddHHmmssfff}.pdf";
-        var destinationPath = Path.Combine(uploadsDirectory, storedFileName);
+        var finalPath = Path.Combine(uploadsDirectory, storedFileName);
+        var tempPath = Path.Combine(uploadsDirectory, $"{Guid.NewGuid():N}.tmp");
 
-        await using (var stream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             await request.File.CopyToAsync(stream, cancellationToken);
         }
 
         profile.CvFileUrl = $"/uploads/cv/{storedFileName}";
-
-        if (profile.Status == InternLifecycleStatus.INCOMPLETE)
-        {
-            profile.Status = InternLifecycleStatus.PENDING;
-        }
 
         profile.StartDate = null;
         profile.EndDate = null;
@@ -351,12 +452,34 @@ public sealed class InternProfileController(
             "Your profile is awaiting assignment",
             $"intern:{internId.Value}");
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            System.IO.File.Move(tempPath, finalPath, overwrite: true);
+
+            if (!string.IsNullOrWhiteSpace(oldFilePath) &&
+                !string.Equals(oldFilePath, finalPath, StringComparison.OrdinalIgnoreCase) &&
+                System.IO.File.Exists(oldFilePath))
+            {
+                System.IO.File.Delete(oldFilePath);
+            }
+        }
+        catch
+        {
+            if (System.IO.File.Exists(tempPath))
+            {
+                System.IO.File.Delete(tempPath);
+            }
+
+            throw;
+        }
 
         return Ok(new
         {
             fileUrl = profile.CvFileUrl,
-            status = profile.Status.ToString()
+            status = intern.VerificationStatus.ToString(),
+            verificationStatus = intern.VerificationStatus.ToString()
         });
     }
 
@@ -418,11 +541,12 @@ public sealed class InternProfileController(
         {
             Id = Guid.NewGuid(),
             InternId = internId,
-            School = string.Empty,
-            Specialty = string.Empty,
-            CompetenciesJson = "[]",
-            Experience = string.Empty,
-            Status = InternLifecycleStatus.INCOMPLETE,
+            UniversityId = null,
+            Major = string.Empty,
+            CurrentYearOfStudy = string.Empty,
+            ExpectedGraduationDate = null,
+            WorkPreference = null,
+            CvFileUrl = null,
             StartDate = null,
             EndDate = null,
             CreatedAt = DateTime.UtcNow,
@@ -435,67 +559,104 @@ public sealed class InternProfileController(
         return profile;
     }
 
-    private static object ToProfileResponse(InternProfile profile, IEnumerable<object> skills)
+    private static object ToProfileResponse(InternProfile profile, InternVerificationStatus verificationStatus, IEnumerable<object> skills)
     {
-        var competencies = ParseCompetencies(profile.CompetenciesJson);
-
         return new
         {
             id = profile.Id,
-            school = profile.School,
-            specialty = profile.Specialty,
-            competencies,
-            experience = profile.Experience,
+            universityId = profile.UniversityId,
+            major = profile.Major,
+            currentYearOfStudy = profile.CurrentYearOfStudy,
+            expectedGraduationDate = profile.ExpectedGraduationDate,
+            workPreference = profile.WorkPreference?.ToString().ToLowerInvariant(),
             cvFileUrl = profile.CvFileUrl,
-            status = profile.Status.ToString(),
+            status = verificationStatus.ToString(),
+            verificationStatus = verificationStatus.ToString(),
             startDate = profile.StartDate,
             endDate = profile.EndDate,
             skills
         };
     }
 
-    private static IReadOnlyList<string> ParseCompetencies(string? rawCompetencies)
+    private static bool TryParseWorkPreference(string rawValue, out WorkPreference workPreference)
     {
-        if (string.IsNullOrWhiteSpace(rawCompetencies))
+        workPreference = default;
+
+        if (string.IsNullOrWhiteSpace(rawValue))
         {
-            return Array.Empty<string>();
+            return false;
         }
 
-        try
-        {
-            return JsonSerializer.Deserialize<string[]>(rawCompetencies) ?? Array.Empty<string>();
-        }
-        catch (JsonException)
-        {
-            return Array.Empty<string>();
-        }
+        return Enum.TryParse(rawValue.Trim(), ignoreCase: true, out workPreference);
     }
 
-    private static void TryDeleteExistingFile(string cvFileUrl, string uploadsDirectory)
+    private static IActionResult? EnforcePendingLock(User intern)
     {
+        if (intern.VerificationStatus != InternVerificationStatus.PENDING)
+        {
+            return null;
+        }
+
+        return new ObjectResult(new
+        {
+            message = "Profile is locked while your verification is pending."
+        })
+        {
+            StatusCode = StatusCodes.Status423Locked
+        };
+    }
+
+    private static bool HasValidPdfSignature(IFormFile file)
+    {
+        using var stream = file.OpenReadStream();
+        var header = new byte[5];
+        var bytesRead = stream.Read(header, 0, header.Length);
+
+        if (stream.CanSeek)
+        {
+            stream.Position = 0;
+        }
+
+        return bytesRead == 5 &&
+               header[0] == 0x25 && // %
+               header[1] == 0x50 && // P
+               header[2] == 0x44 && // D
+               header[3] == 0x46 && // F
+               header[4] == 0x2D;   // -
+    }
+
+    private static string? ResolveStoredFilePath(string? cvFileUrl, string uploadsDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(cvFileUrl))
+        {
+            return null;
+        }
+
         var fileName = Path.GetFileName(cvFileUrl);
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            return;
+            return null;
         }
 
-        var path = Path.Combine(uploadsDirectory, fileName);
-        if (System.IO.File.Exists(path))
-        {
-            System.IO.File.Delete(path);
-        }
+        return Path.Combine(uploadsDirectory, fileName);
     }
 }
 
 public sealed class UpdateInternProfileRequest
 {
-    public string School { get; init; } = string.Empty;
+    public Guid? UniversityId { get; init; }
 
-    public string Specialty { get; init; } = string.Empty;
+    public string? Major { get; init; }
 
-    public string Experience { get; init; } = string.Empty;
+    public string? CurrentYearOfStudy { get; init; }
 
-    public string[] Competencies { get; init; } = Array.Empty<string>();
+    public DateTime? ExpectedGraduationDate { get; init; }
+
+    public DateTime? StartDate { get; init; }
+
+    public DateTime? EndDate { get; init; }
+
+    public string? WorkPreference { get; init; }
 }
 
 public sealed class UpdateInternSkillsRequest

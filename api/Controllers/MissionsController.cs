@@ -1,4 +1,5 @@
 using System.Text.Json;
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -7,6 +8,7 @@ using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -19,6 +21,7 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/missions")]
 [Authorize(Roles = "Supervisor")]
+[EnableRateLimiting("write-operations")]
 public sealed class MissionsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
     /// <summary>
@@ -169,7 +172,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             SkillsJson = JsonSerializer.Serialize(skillValues),
             Tools = request.Tools?.Trim() ?? string.Empty,
             Level = request.Level?.Trim() ?? string.Empty,
-            Status = "template",
+            Status = DomainStatuses.Mission.Template,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -189,7 +192,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 SupervisorId = supervisorId.Value,
                 InternId = null,
                 Title = deliverableTitles[index],
-                Status = "pending",
+                Status = DomainStatuses.Deliverable.Pending,
                 FileUrl = string.Empty,
                 Version = 1,
                 Progress = 0,
@@ -392,7 +395,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 return BadRequest(new { message = "Invalid mission status." });
             }
 
-            if (normalizedStatus == "active")
+            if (normalizedStatus == DomainStatuses.Mission.Active)
             {
                 return StatusCode(StatusCodes.Status409Conflict, new
                 {
@@ -400,20 +403,19 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 });
             }
 
-            if (normalizedStatus == "completed" && mission.InternId.HasValue)
+            if (normalizedStatus == DomainStatuses.Mission.Completed && mission.InternId.HasValue)
             {
-                var profile = await dbContext.InternProfiles
-                    .FirstOrDefaultAsync(item => item.InternId == mission.InternId.Value, cancellationToken);
+                var intern = await dbContext.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.Id == mission.InternId.Value && item.Role == UserRole.Intern, cancellationToken);
 
-                if (profile is null || profile.Status != InternLifecycleStatus.ACTIVE)
+                if (intern is null || intern.VerificationStatus != InternVerificationStatus.ACTIVE)
                 {
                     return StatusCode(StatusCodes.Status409Conflict, new
                     {
                         message = "Only ACTIVE interns can transition to COMPLETED."
                     });
                 }
-
-                profile.Status = InternLifecycleStatus.COMPLETED;
 
                 notificationService.QueueNotification(
                     mission.InternId.Value,
@@ -529,7 +531,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         var oldInternId = mission.InternId;
         mission.InternId = requestedInternId;
-        mission.Status = requestedInternId.HasValue ? "active" : "template";
+        mission.Status = requestedInternId.HasValue ? DomainStatuses.Mission.Active : DomainStatuses.Mission.Template;
 
         var deliverables = await dbContext.Deliverables
             .Where(item => item.MissionId == mission.Id)
@@ -557,7 +559,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 foreach (var deliverable in deliverables)
                 {
                     var isComplete = deliverable.Progress >= 100 ||
-                                     deliverable.Status.Equals("accepted", StringComparison.OrdinalIgnoreCase);
+                                     deliverable.Status.Equals(DomainStatuses.Deliverable.Accepted, StringComparison.OrdinalIgnoreCase);
 
                     dbContext.InternTasks.Add(new InternTask
                     {
@@ -584,7 +586,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         dbContext.MissionHistoryEntries.Add(BuildHistoryEntry(
             mission.Id,
             "status",
-            oldInternId.HasValue ? "active" : "template",
+            oldInternId.HasValue ? DomainStatuses.Mission.Active : DomainStatuses.Mission.Template,
             mission.Status,
             supervisorId));
 
@@ -769,42 +771,12 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
     private static bool IsAllowedMissionStatus(string status)
     {
-        return status is "active" or "template" or "paused" or "completed" or "cancelled";
-    }
-
-    private async Task<bool> CanAssignInternAsync(Guid supervisorId, Guid internId, CancellationToken cancellationToken)
-    {
-        var relatedSupervisorIds = new HashSet<Guid>();
-
-        relatedSupervisorIds.UnionWith(await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.InternId == internId)
-            .Select(mission => mission.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        relatedSupervisorIds.UnionWith(await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.InternId == internId)
-            .Select(deliverable => deliverable.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        relatedSupervisorIds.UnionWith(await dbContext.Evaluations
-            .AsNoTracking()
-            .Where(evaluation => evaluation.InternId == internId)
-            .Select(evaluation => evaluation.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        relatedSupervisorIds.UnionWith(await dbContext.Meetings
-            .AsNoTracking()
-            .Where(meeting => meeting.InternId == internId)
-            .Select(meeting => meeting.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        return relatedSupervisorIds.Count == 0 || relatedSupervisorIds.Contains(supervisorId);
+        return status is
+            DomainStatuses.Mission.Active or
+            DomainStatuses.Mission.Template or
+            DomainStatuses.Mission.Paused or
+            DomainStatuses.Mission.Completed or
+            DomainStatuses.Mission.Cancelled;
     }
 
     private static bool TryResolveOptionalInternId(string? rawInternId, out Guid? internId)

@@ -87,6 +87,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     /// <summary>
+    /// Table des jetons de rafraichissement de session.
+    /// </summary>
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    /// <summary>
     /// Table des departements parametrables depuis les settings admin.
     /// </summary>
     public DbSet<Department> Departments => Set<Department>();
@@ -107,9 +112,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Skill> Skills => Set<Skill>();
 
     /// <summary>
-    /// Table des statuts utilisateur parametrables depuis les settings admin.
+    /// Table des statuts de compte utilisateur (Active/Archived).
     /// </summary>
-    public DbSet<UserStatusReference> UserStatusReferences => Set<UserStatusReference>();
+    public DbSet<UserAccountStatusReference> UserAccountStatusReferences => Set<UserAccountStatusReference>();
+
+    /// <summary>
+    /// Table des statuts de verification des stagiaires.
+    /// </summary>
+    public DbSet<UserVerificationStatusReference> UserVerificationStatusReferences => Set<UserVerificationStatusReference>();
 
     /// <summary>
     /// Définit les contraintes de schéma et les conversions de l entité <see cref="User"/>.
@@ -157,11 +167,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion<string>()
                 .HasMaxLength(32);
 
+            entity.Property(u => u.VerificationStatus)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(InternVerificationStatus.INCOMPLETE);
+
             entity.Property(u => u.LastLoginAt);
 
             entity.HasIndex(u => u.DepartmentId);
             entity.HasIndex(u => new { u.Role, u.Status });
             entity.HasIndex(u => new { u.Role, u.DepartmentId, u.Status });
+            entity.HasIndex(u => new { u.Role, u.VerificationStatus });
 
             entity.HasOne(u => u.Department)
                 .WithMany()
@@ -234,6 +251,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(mission => mission.Tools)
                 .HasMaxLength(1000);
 
+            entity.Property(mission => mission.InternshipTypeId);
+
             entity.Property(mission => mission.Level)
                 .HasMaxLength(64);
 
@@ -242,12 +261,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasMaxLength(32)
                 .HasDefaultValue("active");
 
+            entity.Property(mission => mission.StartDate);
+
+            entity.Property(mission => mission.EndDate);
+
             entity.Property(mission => mission.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasIndex(mission => mission.SupervisorId);
             entity.HasIndex(mission => mission.InternId);
+            entity.HasIndex(mission => mission.InternshipTypeId);
             entity.HasIndex(mission => mission.CreatedAt);
 
             entity.HasOne(mission => mission.Supervisor)
@@ -258,6 +282,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(mission => mission.Intern)
                 .WithMany()
                 .HasForeignKey(mission => mission.InternId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(mission => mission.InternshipType)
+                .WithMany()
+                .HasForeignKey(mission => mission.InternshipTypeId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -507,30 +536,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .ValueGeneratedOnAdd()
                 .HasDefaultValueSql("NEWID()");
 
-            entity.Property(profile => profile.School)
+            entity.Property(profile => profile.UniversityId);
+
+            entity.Property(profile => profile.Major)
                 .HasMaxLength(200);
 
-            entity.Property(profile => profile.Specialty)
-                .HasMaxLength(200);
+            entity.Property(profile => profile.CurrentYearOfStudy)
+                .HasMaxLength(64);
 
-            entity.Property(profile => profile.Experience)
-                .HasMaxLength(3000);
+            entity.Property(profile => profile.ExpectedGraduationDate);
+
+            entity.Property(profile => profile.WorkPreference)
+                .HasConversion(
+                    value => value.HasValue ? value.Value.ToString().ToLowerInvariant() : null,
+                    value => string.IsNullOrWhiteSpace(value)
+                        ? null
+                        : (WorkPreference?)Enum.Parse<WorkPreference>(value, true))
+                .HasMaxLength(16);
 
             entity.Property(profile => profile.CvFileUrl)
                 .HasMaxLength(2048);
 
-            entity.Property(profile => profile.Status)
-                .IsRequired()
-                .HasConversion<string>()
-                .HasMaxLength(32)
-                .HasDefaultValue(InternLifecycleStatus.INCOMPLETE);
-
             entity.Property(profile => profile.StartDate);
 
             entity.Property(profile => profile.EndDate);
-
-            entity.Property(profile => profile.CompetenciesJson)
-                .HasDefaultValue("[]");
 
             entity.Property(profile => profile.CreatedAt)
                 .IsRequired()
@@ -543,19 +572,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasIndex(profile => profile.InternId)
                 .IsUnique();
 
-            entity.HasIndex(profile => profile.Status);
+            entity.HasIndex(profile => profile.UniversityId);
 
             entity.ToTable(table =>
             {
                 table.HasCheckConstraint(
-                    "CK_InternProfiles_Status_StartDate",
-                    "([Status] NOT IN ('INCOMPLETE','PENDING') OR ([StartDate] IS NULL AND [EndDate] IS NULL))");
+                    "CK_InternProfiles_WorkPreference",
+                    "([WorkPreference] IS NULL OR [WorkPreference] IN ('remote','hybrid','onsite'))");
             });
 
             entity.HasOne(profile => profile.Intern)
                 .WithMany()
                 .HasForeignKey(profile => profile.InternId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<School>()
+                .WithMany()
+                .HasForeignKey(profile => profile.UniversityId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<InternProfileSkill>(entity =>
@@ -690,11 +724,39 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("RefreshTokens");
+
+            entity.HasKey(token => token.Token);
+
+            entity.Property(token => token.Token)
+                .HasMaxLength(500);
+
+            entity.Property(token => token.ExpiresAt)
+                .IsRequired();
+
+            entity.Property(token => token.RevokedAt);
+
+            entity.Property(token => token.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(token => token.UserId);
+            entity.HasIndex(token => token.ExpiresAt);
+
+            entity.HasOne(token => token.User)
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Department>(entity => ConfigureReferentialEntity(entity, "Departments"));
         modelBuilder.Entity<School>(entity => ConfigureReferentialEntity(entity, "Schools"));
         modelBuilder.Entity<InternshipType>(entity => ConfigureReferentialEntity(entity, "InternshipTypes"));
         modelBuilder.Entity<Skill>(entity => ConfigureReferentialEntity(entity, "Skills"));
-        modelBuilder.Entity<UserStatusReference>(entity => ConfigureReferentialEntity(entity, "UserStatusReferences"));
+        modelBuilder.Entity<UserAccountStatusReference>(entity => ConfigureReferentialEntity(entity, "UserAccountStatusReferences"));
+        modelBuilder.Entity<UserVerificationStatusReference>(entity => ConfigureReferentialEntity(entity, "UserVerificationStatusReferences"));
     }
 
     /// <summary>

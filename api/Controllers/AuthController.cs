@@ -116,8 +116,24 @@ public sealed class AuthController(
             return BadRequest(new { message = "FirstName and LastName are required." });
         }
 
-        if (!TryResolveSignupRole(request.Role, out var requestedRole))
+        if (!PasswordPolicyValidator.IsValid(password))
         {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["password"] = PasswordPolicyValidator.ErrorMessage
+            });
+        }
+
+        if (!TryResolveSignupRole(request.Role, out var requestedRole, out var forbiddenRoleRequested))
+        {
+            if (forbiddenRoleRequested)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = "Self-registration is only permitted for intern accounts."
+                });
+            }
+
             return BadRequest(new { message = "Selected role is not allowed for self-signup." });
         }
 
@@ -138,7 +154,10 @@ public sealed class AuthController(
             Email = normalizedEmail,
             PasswordHash = PasswordHasher.HashPassword(password),
             Role = requestedRole,
-            Status = UserStatus.Active
+            Status = UserStatus.Active,
+            VerificationStatus = requestedRole == UserRole.Intern
+                ? InternVerificationStatus.INCOMPLETE
+                : InternVerificationStatus.NOT_APPLICABLE
         };
 
         dbContext.Users.Add(user);
@@ -149,12 +168,12 @@ public sealed class AuthController(
             {
                 Id = Guid.NewGuid(),
                 InternId = user.Id,
-                School = string.Empty,
-                Specialty = string.Empty,
-                CompetenciesJson = "[]",
-                Experience = string.Empty,
+                UniversityId = null,
+                Major = string.Empty,
+                CurrentYearOfStudy = string.Empty,
+                ExpectedGraduationDate = null,
+                WorkPreference = null,
                 CvFileUrl = null,
-                Status = InternLifecycleStatus.INCOMPLETE,
                 StartDate = null,
                 EndDate = null,
                 CreatedAt = DateTime.UtcNow,
@@ -195,15 +214,12 @@ public sealed class AuthController(
     /// <response code="400">Données invalides ou rôle non autorisé.</response>
     /// <response code="409">Un compte existe déjà avec cet email.</response>
     [AllowAnonymous]
-    [HttpPost("register", Name = "Register")]
     [HttpPost("/api/auth/register")]
     [EnableRateLimiting("auth")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> Register([FromBody] SignupRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status301MovedPermanently)]
+    public IActionResult Register([FromBody] SignupRequest request, CancellationToken cancellationToken)
     {
-        return Signup(request, cancellationToken);
+        return RedirectPermanent("/api/auth/signup");
     }
 
     /// <summary>
@@ -385,9 +401,10 @@ public sealed class AuthController(
     /// <param name="rawRole">Valeur brute reçue du client.</param>
     /// <param name="role">Rôle converti si valide.</param>
     /// <returns><see langword="true"/> si le rôle est autorisé pour auto-inscription, sinon <see langword="false"/>.</returns>
-    private static bool TryResolveSignupRole(string rawRole, out UserRole role)
+    private static bool TryResolveSignupRole(string rawRole, out UserRole role, out bool forbiddenRoleRequested)
     {
         role = default;
+        forbiddenRoleRequested = false;
 
         if (string.IsNullOrWhiteSpace(rawRole))
         {
@@ -399,8 +416,9 @@ public sealed class AuthController(
             return false;
         }
 
-        if (parsedRole is UserRole.Admin or UserRole.SuperAdmin)
+        if (parsedRole != UserRole.Intern)
         {
+            forbiddenRoleRequested = true;
             return false;
         }
 

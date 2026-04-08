@@ -6,6 +6,7 @@
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
+using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +20,7 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/stats/supervisor/me")]
 [Authorize(Roles = "Supervisor")]
-public sealed class SupervisorStatsController(AppDbContext dbContext) : ControllerBase
+public sealed class SupervisorStatsController(AppDbContext dbContext, ISupervisorScopeService supervisorScopeService) : ControllerBase
 {
     /// <summary>
     /// Récupère le nombre de stagiaires actifs du superviseur.
@@ -46,7 +47,7 @@ public sealed class SupervisorStatsController(AppDbContext dbContext) : Controll
             return Unauthorized();
         }
 
-        var supervisorInternIds = await ResolveSupervisorInternIdsAsync(supervisorId.Value, cancellationToken);
+        var supervisorInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(supervisorId.Value, cancellationToken);
         if (supervisorInternIds.Count == 0)
         {
             return Ok(new { count = 0 });
@@ -173,34 +174,4 @@ public sealed class SupervisorStatsController(AppDbContext dbContext) : Controll
         return Ok(new { count });
     }
 
-    private async Task<HashSet<Guid>> ResolveSupervisorInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
-    {
-        var internIds = new HashSet<Guid>();
-
-        internIds.UnionWith(await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.SupervisorId == supervisorId && mission.InternId.HasValue)
-            .Select(mission => mission.InternId!.Value)
-            .ToListAsync(cancellationToken));
-
-        internIds.UnionWith(await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.SupervisorId == supervisorId && deliverable.InternId.HasValue)
-            .Select(deliverable => deliverable.InternId!.Value)
-            .ToListAsync(cancellationToken));
-
-        internIds.UnionWith(await dbContext.Evaluations
-            .AsNoTracking()
-            .Where(evaluation => evaluation.SupervisorId == supervisorId)
-            .Select(evaluation => evaluation.InternId)
-            .ToListAsync(cancellationToken));
-
-        internIds.UnionWith(await dbContext.Meetings
-            .AsNoTracking()
-            .Where(meeting => meeting.SupervisorId == supervisorId)
-            .Select(meeting => meeting.InternId)
-            .ToListAsync(cancellationToken));
-
-        return internIds;
-    }
 }

@@ -68,22 +68,21 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
             return Forbid();
         }
 
-        var internExists = await dbContext.Users
-            .AsNoTracking()
-            .AnyAsync(user => user.Id == request.InternId && user.Role == UserRole.Intern, cancellationToken);
+        var intern = await dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == request.InternId && user.Role == UserRole.Intern, cancellationToken);
 
-        if (!internExists)
+        if (intern is null)
         {
             return NotFound(new { message = "Intern not found." });
         }
 
         var profile = await EnsureProfileAsync(request.InternId, cancellationToken);
 
-        if (profile.Status != InternLifecycleStatus.PENDING)
+        if (intern.VerificationStatus != InternVerificationStatus.PENDING)
         {
             return StatusCode(StatusCodes.Status409Conflict, new
             {
-                message = $"Illegal transition: only PENDING interns can be assigned to a stage. Current status is {profile.Status}."
+                message = $"Illegal transition: only PENDING interns can be assigned to a stage. Current status is {intern.VerificationStatus}."
             });
         }
 
@@ -110,6 +109,7 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
         }
 
         mission.InternId = request.InternId;
+        var previousMissionStatus = mission.Status;
         mission.Status = "active";
 
         var deliverables = await dbContext.Deliverables
@@ -152,7 +152,7 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
             }
         }
 
-        profile.Status = InternLifecycleStatus.ACTIVE;
+        intern.VerificationStatus = InternVerificationStatus.ACTIVE;
         profile.StartDate = startDate;
         profile.EndDate = endDate;
 
@@ -173,7 +173,7 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
             Id = Guid.NewGuid(),
             MissionId = mission.Id,
             Field = "status",
-            OldValue = "template",
+            OldValue = previousMissionStatus,
             NewValue = "active",
             ChangedByUserId = actorUserId,
             ChangedBy = UserContextHelper.ResolveCurrentActorName(User),
@@ -226,7 +226,8 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
         {
             missionId = mission.Id,
             internId = request.InternId,
-            status = profile.Status.ToString(),
+            status = intern.VerificationStatus.ToString(),
+            verificationStatus = intern.VerificationStatus.ToString(),
             startDate,
             endDate
         });
@@ -246,12 +247,12 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
         {
             Id = Guid.NewGuid(),
             InternId = internId,
-            School = string.Empty,
-            Specialty = string.Empty,
-            CompetenciesJson = "[]",
-            Experience = string.Empty,
+            UniversityId = null,
+            Major = string.Empty,
+            CurrentYearOfStudy = string.Empty,
+            ExpectedGraduationDate = null,
+            WorkPreference = null,
             CvFileUrl = null,
-            Status = InternLifecycleStatus.INCOMPLETE,
             StartDate = null,
             EndDate = null,
             CreatedAt = DateTime.UtcNow,

@@ -77,7 +77,6 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             ? 0
             : (int)Math.Round(missionDeliverables.Average(item => Math.Clamp(item.Progress, 0, 100)));
 
-        var lifecycleStatus = profile?.Status ?? InternLifecycleStatus.INCOMPLETE;
         var startDate = profile?.StartDate;
         var endDate = profile?.EndDate;
 
@@ -93,7 +92,8 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             department = intern.Department?.Name ?? string.Empty,
             startDate,
             endDate,
-            status = lifecycleStatus.ToString(),
+            status = intern.VerificationStatus.ToString(),
+            verificationStatus = intern.VerificationStatus.ToString(),
             progress
         });
     }

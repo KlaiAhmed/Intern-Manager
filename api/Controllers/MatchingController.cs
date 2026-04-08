@@ -12,7 +12,7 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/matching")]
 [Authorize]
-public sealed class MatchingController : ControllerBase
+public sealed class MatchingController(IConfiguration configuration) : ControllerBase
 {
     private const string MatchingUnavailableTitle = "Matching endpoint unavailable";
     private const string MatchingUnavailableDetail = "The matching engine is not implemented yet in this environment.";
@@ -39,6 +39,11 @@ public sealed class MatchingController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status501NotImplemented)]
     public IActionResult GetRecommendations([FromBody] MatchingRequest request)
     {
+        if (!IsMatchingEnabled())
+        {
+            return NotFound();
+        }
+
         if (!ModelState.IsValid)
         {
             return ValidationProblem(ModelState);
@@ -89,6 +94,11 @@ public sealed class MatchingController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status501NotImplemented)]
     public IActionResult GetResults(Guid internId)
     {
+        if (!IsMatchingEnabled())
+        {
+            return NotFound();
+        }
+
         var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
         if (!currentUserId.HasValue)
         {
@@ -112,5 +122,10 @@ public sealed class MatchingController : ControllerBase
             Detail = MatchingUnavailableDetail,
             Status = StatusCodes.Status501NotImplemented
         });
+    }
+
+    private bool IsMatchingEnabled()
+    {
+        return configuration.GetValue<bool>("Features:MatchingEnabled");
     }
 }

@@ -1,3 +1,4 @@
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -110,7 +111,10 @@ public sealed class DeliverablesController(
 
             query = normalizedStatus switch
             {
-                "pending" => query.Where(deliverable => deliverable.Status == "pending" || deliverable.Status == "submitted"),
+                DomainStatuses.Deliverable.Pending => query.Where(
+                    deliverable =>
+                        deliverable.Status == DomainStatuses.Deliverable.Pending ||
+                        deliverable.Status == DomainStatuses.Deliverable.Submitted),
                 _ => query.Where(deliverable => deliverable.Status == normalizedStatus)
             };
         }
@@ -370,8 +374,9 @@ public sealed class DeliverablesController(
 
         var storedFileName = $"{deliverable.Id}_{DateTime.UtcNow:yyyyMMddHHmmssfff}{fileExtension}";
         var destinationPath = Path.Combine(uploadsDirectory, storedFileName);
+        var tempPath = Path.Combine(uploadsDirectory, $"{Guid.NewGuid():N}.tmp");
 
-        await using (var stream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             await request.File.CopyToAsync(stream, cancellationToken);
         }
@@ -393,7 +398,7 @@ public sealed class DeliverablesController(
             DeliverableId = deliverable.Id,
             VersionNumber = nextVersionNumber,
             FileUrl = $"/uploads/deliverables/{storedFileName}".Replace('\\', '/'),
-            Status = "submitted",
+            Status = DomainStatuses.Deliverable.Submitted,
             SupervisorComment = null,
             SubmittedAt = DateTime.UtcNow
         });
@@ -401,7 +406,7 @@ public sealed class DeliverablesController(
         deliverable.Version = nextVersionNumber;
         deliverable.FileUrl = $"/uploads/deliverables/{storedFileName}".Replace('\\', '/');
         deliverable.SubmittedDate = DateTime.UtcNow;
-        deliverable.Status = "submitted";
+        deliverable.Status = DomainStatuses.Deliverable.Submitted;
         deliverable.SupervisorComment = null;
 
         var linkedTasks = await dbContext.InternTasks
@@ -423,13 +428,30 @@ public sealed class DeliverablesController(
             Timestamp = DateTime.UtcNow
         });
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            System.IO.File.Move(tempPath, destinationPath, overwrite: true);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+
+            if (System.IO.File.Exists(tempPath))
+            {
+                System.IO.File.Delete(tempPath);
+            }
+
+            throw;
+        }
 
         var result = new
         {
             id = deliverable.Id,
             version = deliverable.Version,
-            status = "submitted"
+            status = DomainStatuses.Deliverable.Submitted
         };
 
         return Created($"/api/deliverables/{deliverable.Id}", result);
@@ -569,7 +591,7 @@ public sealed class DeliverablesController(
         }
 
         var currentStatus = deliverable.Status.Trim().ToLowerInvariant();
-        if (currentStatus != "submitted")
+        if (currentStatus != DomainStatuses.Deliverable.Submitted)
         {
             return StatusCode(StatusCodes.Status409Conflict, new { message = "Only submitted deliverables can be validated." });
         }
@@ -598,7 +620,7 @@ public sealed class DeliverablesController(
             return StatusCode(StatusCodes.Status409Conflict, new { message = "Submitted date is required before validation." });
         }
 
-        if (normalizedStatus == "accepted")
+        if (normalizedStatus == DomainStatuses.Deliverable.Accepted)
         {
             deliverable.Progress = 100;
         }
@@ -614,8 +636,8 @@ public sealed class DeliverablesController(
 
         if (deliverable.InternId.HasValue)
         {
-            var title = normalizedStatus == "accepted" ? "Deliverable accepted" : "Deliverable rejected";
-            var message = normalizedStatus == "accepted"
+            var title = normalizedStatus == DomainStatuses.Deliverable.Accepted ? "Deliverable accepted" : "Deliverable rejected";
+            var message = normalizedStatus == DomainStatuses.Deliverable.Accepted
                 ? $"Your deliverable '{deliverable.Title}' (v{latestVersion.VersionNumber}) was accepted."
                 : $"Your deliverable '{deliverable.Title}' (v{latestVersion.VersionNumber}) was rejected.";
 
@@ -642,10 +664,10 @@ public sealed class DeliverablesController(
 
         return normalizedStatus switch
         {
-            "pending" => "not_submitted",
-            "submitted" => "submitted",
-            "accepted" => "accepted",
-            "rejected" => "rejected",
+            DomainStatuses.Deliverable.Pending => "not_submitted",
+            DomainStatuses.Deliverable.Submitted => DomainStatuses.Deliverable.Submitted,
+            DomainStatuses.Deliverable.Accepted => DomainStatuses.Deliverable.Accepted,
+            DomainStatuses.Deliverable.Rejected => DomainStatuses.Deliverable.Rejected,
             _ => normalizedStatus
         };
     }
@@ -655,7 +677,7 @@ public sealed class DeliverablesController(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalized = status.Trim().ToLowerInvariant();
-            return normalized is "accepted" or "rejected"
+            return normalized is DomainStatuses.Deliverable.Accepted or DomainStatuses.Deliverable.Rejected
                 ? normalized
                 : null;
         }
@@ -668,8 +690,8 @@ public sealed class DeliverablesController(
         var normalizedAction = action.Trim().ToLowerInvariant();
         return normalizedAction switch
         {
-            "accept" or "accepted" => "accepted",
-            "reject" or "rejected" => "rejected",
+            "accept" or DomainStatuses.Deliverable.Accepted => DomainStatuses.Deliverable.Accepted,
+            "reject" or DomainStatuses.Deliverable.Rejected => DomainStatuses.Deliverable.Rejected,
             _ => null
         };
     }

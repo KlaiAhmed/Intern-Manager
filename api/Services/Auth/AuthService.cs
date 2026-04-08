@@ -8,6 +8,9 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using InternManager.Api.Common.Options;
+using InternManager.Api.Data;
+using InternManager.Api.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -20,6 +23,7 @@ namespace InternManager.Api.Services.Auth;
 /// <param name="jwtOptions">Options JWT de signature, d émetteur et de durée.</param>
 public sealed class AuthService(
     IAuthUserStore userStore,
+    AppDbContext dbContext,
     IOptions<JwtOptions> jwtOptions) : IAuthService
 {
     /// <summary>
@@ -31,16 +35,6 @@ public sealed class AuthService(
     /// Clé de signature convertie en tableau d octets pour la création des jetons.
     /// </summary>
     private readonly byte[] _signingKey = Encoding.UTF8.GetBytes(jwtOptions.Value.Key);
-
-    /// <summary>
-    /// Dictionnaire en mémoire des refresh tokens actifs, indexés par empreinte SHA-256.
-    /// </summary>
-    private readonly Dictionary<string, RefreshTokenEntry> _refreshTokens = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Verrou asynchrone pour éviter les conflits d écriture lors des opérations sur les refresh tokens.
-    /// </summary>
-    private readonly SemaphoreSlim _refreshTokenLock = new(1, 1);
 
     /// <summary>
     /// Vérifie email/mot de passe puis crée une nouvelle session authentifiée.
@@ -66,16 +60,9 @@ public sealed class AuthService(
             return null;
         }
 
-        await _refreshTokenLock.WaitAsync(cancellationToken);
-        try
-        {
-            CleanupExpiredTokensNoLock(DateTime.UtcNow);
-            return IssueNewSessionNoLock(user, DateTime.UtcNow, rememberMe);
-        }
-        finally
-        {
-            _refreshTokenLock.Release();
-        }
+        var now = DateTime.UtcNow;
+        await CleanupExpiredTokensAsync(now, cancellationToken);
+        return await IssueNewSessionAsync(user, now, rememberMe, cancellationToken);
     }
 
     /// <summary>
@@ -95,40 +82,32 @@ public sealed class AuthService(
         }
 
         var now = DateTime.UtcNow;
-        var oldRefreshTokenHash = HashOpaqueToken(refreshToken);
 
-        await _refreshTokenLock.WaitAsync(cancellationToken);
-        try
+        var existingToken = await dbContext.RefreshTokens
+            .FirstOrDefaultAsync(token => token.Token == refreshToken, cancellationToken);
+
+        if (existingToken is null)
         {
-            CleanupExpiredTokensNoLock(now);
-
-            if (!_refreshTokens.TryGetValue(oldRefreshTokenHash, out var existingToken))
-            {
-                return null;
-            }
-
-            if (existingToken.ExpiresAtUtc <= now)
-            {
-                _refreshTokens.Remove(oldRefreshTokenHash);
-                return null;
-            }
-
-            var user = await userStore.FindByUserIdAsync(existingToken.UserId, cancellationToken);
-            if (user is null)
-            {
-                _refreshTokens.Remove(oldRefreshTokenHash);
-                return null;
-            }
-
-            // Invalidation immediate pour empecher toute reutilisation de l ancien token.
-            _refreshTokens.Remove(oldRefreshTokenHash);
-
-            return IssueNewSessionNoLock(user, now, existingToken.RememberMe);
+            return null;
         }
-        finally
+
+        if (existingToken.RevokedAt.HasValue || existingToken.ExpiresAt <= now)
         {
-            _refreshTokenLock.Release();
+            return null;
         }
+
+        var user = await userStore.FindByUserIdAsync(existingToken.UserId, cancellationToken);
+        if (user is null)
+        {
+            existingToken.RevokedAt = now;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+
+        existingToken.RevokedAt = now;
+
+        var rememberMe = (existingToken.ExpiresAt - existingToken.CreatedAt) > TimeSpan.FromDays(1.5);
+        return await IssueNewSessionAsync(user, now, rememberMe, cancellationToken);
     }
 
     /// <summary>
@@ -141,32 +120,38 @@ public sealed class AuthService(
     /// <exception cref="OperationCanceledException">Levée si l opération est annulée via <paramref name="cancellationToken"/>.</exception>
     public async Task LogoutAsync(Guid? userId, string? refreshToken, CancellationToken cancellationToken = default)
     {
-        await _refreshTokenLock.WaitAsync(cancellationToken);
-        try
+        var now = DateTime.UtcNow;
+        var hasChanges = false;
+
+        if (userId.HasValue)
         {
-            CleanupExpiredTokensNoLock(DateTime.UtcNow);
+            var userTokens = await dbContext.RefreshTokens
+                .Where(token => token.UserId == userId.Value && token.RevokedAt == null)
+                .ToListAsync(cancellationToken);
 
-            if (userId.HasValue)
+            foreach (var token in userTokens)
             {
-                var keysForUser = _refreshTokens
-                    .Where(entry => entry.Value.UserId == userId.Value)
-                    .Select(entry => entry.Key)
-                    .ToList();
-
-                foreach (var key in keysForUser)
-                {
-                    _refreshTokens.Remove(key);
-                }
+                token.RevokedAt = now;
             }
 
-            if (!string.IsNullOrWhiteSpace(refreshToken))
+            hasChanges |= userTokens.Count > 0;
+        }
+
+        if (!string.IsNullOrWhiteSpace(refreshToken))
+        {
+            var token = await dbContext.RefreshTokens
+                .FirstOrDefaultAsync(current => current.Token == refreshToken, cancellationToken);
+
+            if (token is not null && token.RevokedAt == null)
             {
-                _refreshTokens.Remove(HashOpaqueToken(refreshToken));
+                token.RevokedAt = now;
+                hasChanges = true;
             }
         }
-        finally
+
+        if (hasChanges)
         {
-            _refreshTokenLock.Release();
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
     }
 
@@ -177,7 +162,11 @@ public sealed class AuthService(
     /// <param name="now">Date UTC de référence utilisée pour calculer les expirations.</param>
     /// <param name="rememberMe">Indique si la session doit être persistante (7 jours) ou éphémère (1 jour).</param>
     /// <returns>Un objet <see cref="AuthSessionTokens"/> contenant les nouvelles valeurs de session.</returns>
-    private AuthSessionTokens IssueNewSessionNoLock(AuthUserRecord user, DateTime now, bool rememberMe = true)
+    private async Task<AuthSessionTokens> IssueNewSessionAsync(
+        AuthUserRecord user,
+        DateTime now,
+        bool rememberMe,
+        CancellationToken cancellationToken)
     {
         var accessTokenExpiresAtUtc = now.AddMinutes(_jwtOptions.AccessTokenMinutes);
         // Si rememberMe est false, la session dure 1 jour, sinon elle dure selon la configuration (7 jours par défaut).
@@ -188,8 +177,16 @@ public sealed class AuthService(
         var accessToken = GenerateAccessToken(user, csrfToken, accessTokenExpiresAtUtc, now);
         var refreshToken = GenerateOpaqueToken(64);
 
-        var refreshTokenHash = HashOpaqueToken(refreshToken);
-        _refreshTokens[refreshTokenHash] = new RefreshTokenEntry(user.UserId, refreshTokenExpiresAtUtc, rememberMe);
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            Token = refreshToken,
+            UserId = user.UserId,
+            ExpiresAt = refreshTokenExpiresAtUtc,
+            RevokedAt = null,
+            CreatedAt = now
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new AuthSessionTokens(
             accessToken,
@@ -246,39 +243,22 @@ public sealed class AuthService(
         return Convert.ToBase64String(bytes);
     }
 
-    /// <summary>
-    /// Calcule une empreinte SHA-256 d un token opaque pour stockage côté serveur.
-    /// </summary>
-    /// <param name="token">Token brut à convertir en empreinte.</param>
-    /// <returns>Empreinte hexadécimale en majuscules.</returns>
-    private static string HashOpaqueToken(string token)
+    private async Task CleanupExpiredTokensAsync(DateTime utcNow, CancellationToken cancellationToken)
     {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
-        return Convert.ToHexString(hash);
-    }
+        var expiredTokens = await dbContext.RefreshTokens
+            .Where(token => token.ExpiresAt <= utcNow && token.RevokedAt == null)
+            .ToListAsync(cancellationToken);
 
-    /// <summary>
-    /// Supprime de la mémoire tous les refresh tokens expirés.
-    /// </summary>
-    /// <param name="utcNow">Date UTC de comparaison pour décider l expiration.</param>
-    private void CleanupExpiredTokensNoLock(DateTime utcNow)
-    {
-        var expiredKeys = _refreshTokens
-            .Where(entry => entry.Value.ExpiresAtUtc <= utcNow)
-            .Select(entry => entry.Key)
-            .ToList();
-
-        foreach (var key in expiredKeys)
+        if (expiredTokens.Count == 0)
         {
-            _refreshTokens.Remove(key);
+            return;
         }
-    }
 
-    /// <summary>
-    /// Représente une entrée interne de refresh token avec l identifiant utilisateur et sa date d expiration.
-    /// </summary>
-    /// <param name="UserId">Identifiant de l utilisateur propriétaire du token.</param>
-    /// <param name="ExpiresAtUtc">Date UTC d expiration du token.</param>
-    /// <param name="RememberMe">Indique si la session associée est persistante.</param>
-    private sealed record RefreshTokenEntry(Guid UserId, DateTime ExpiresAtUtc, bool RememberMe);
+        foreach (var token in expiredTokens)
+        {
+            token.RevokedAt = utcNow;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

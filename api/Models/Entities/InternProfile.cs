@@ -11,17 +11,17 @@ public sealed class InternProfile
 
     public Guid InternId { get; set; }
 
-    public string School { get; set; } = string.Empty;
+    public Guid? UniversityId { get; set; }
 
-    public string Specialty { get; set; } = string.Empty;
+    public string Major { get; set; } = string.Empty;
 
-    public string CompetenciesJson { get; set; } = "[]";
+    public string CurrentYearOfStudy { get; set; } = string.Empty;
 
-    public string Experience { get; set; } = string.Empty;
+    public DateTime? ExpectedGraduationDate { get; set; }
+
+    public WorkPreference? WorkPreference { get; set; }
 
     public string? CvFileUrl { get; set; }
-
-    public InternLifecycleStatus Status { get; set; } = InternLifecycleStatus.INCOMPLETE;
 
     public DateTime? StartDate { get; set; }
 

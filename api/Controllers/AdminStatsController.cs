@@ -42,8 +42,11 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetActiveInternsCount(CancellationToken cancellationToken)
     {
-        var count = await CountActiveUsersByRoleAsync(UserRole.Intern, cancellationToken);
-        return Ok(new { count });
+        Response.Headers["Deprecation"] = "true";
+        Response.Headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT";
+        Response.Headers["Link"] = "</api/stats/interns/count>; rel=\"successor-version\"";
+
+        return await GetInternsCount(cancellationToken);
     }
 
     /// <summary>
@@ -88,8 +91,11 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetSupervisorsCount(CancellationToken cancellationToken)
     {
-        var count = await CountActiveUsersByRoleAsync(UserRole.Supervisor, cancellationToken);
-        return Ok(new { count });
+        Response.Headers["Deprecation"] = "true";
+        Response.Headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT";
+        Response.Headers["Link"] = "</api/stats/supervisors/count>; rel=\"successor-version\"";
+
+        return await GetSupervisorsCountForAdmin(cancellationToken);
     }
 
     /// <summary>
@@ -190,7 +196,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
                 user => user.Id,
                 profile => profile.InternId,
                 (user, profile) => new { user, profile })
-            .CountAsync(item => item.user.Role == UserRole.Intern && item.profile.Status == InternLifecycleStatus.ACTIVE, cancellationToken);
+            .CountAsync(item => item.user.Role == UserRole.Intern && item.user.VerificationStatus == InternVerificationStatus.ACTIVE, cancellationToken);
 
         return Ok(new { count });
     }
@@ -219,8 +225,8 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
             .AsNoTracking()
             .Include(profile => profile.Intern)
             .ThenInclude(intern => intern!.Department)
-            .Where(profile => profile.Status == InternLifecycleStatus.ACTIVE &&
-                              profile.Intern != null &&
+            .Where(profile => profile.Intern != null &&
+                              profile.Intern.VerificationStatus == InternVerificationStatus.ACTIVE &&
                               profile.Intern.Role == UserRole.Intern)
             .Select(profile => new
             {
@@ -265,7 +271,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
             .AsNoTracking()
             .Include(profile => profile.Intern)
             .Where(profile => profile.Intern != null && profile.Intern.Role == UserRole.Intern)
-            .GroupBy(profile => profile.Status)
+            .GroupBy(profile => profile.Intern!.VerificationStatus)
             .Select(group => new
             {
                 status = group.Key,

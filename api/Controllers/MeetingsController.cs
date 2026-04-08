@@ -6,6 +6,7 @@ using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -18,7 +19,11 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/meetings")]
 [Authorize(Roles = "Supervisor,Intern")]
-public sealed class MeetingsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
+[EnableRateLimiting("write-operations")]
+public sealed class MeetingsController(
+    AppDbContext dbContext,
+    INotificationService notificationService,
+    ISupervisorScopeService supervisorScopeService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des réunions.
@@ -203,7 +208,7 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
             return BadRequest(new { message = "Intern not found." });
         }
 
-        var assignedInternIds = await ResolveAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
+        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
         if (!assignedInternIds.Contains(request.InternId))
         {
             return Forbid();
@@ -223,7 +228,14 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
             return StatusCode(StatusCodes.Status409Conflict, new { message = "Meeting slot conflicts with an existing meeting." });
         }
 
-        var notes = request.Notes.Trim();
+        var notes = request.Notes?.Trim() ?? string.Empty;
+        if (notes.Length > 3000)
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["notes"] = "Notes cannot exceed 3000 characters."
+            });
+        }
 
         var meeting = new Meeting
         {
@@ -406,7 +418,15 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
 
         if (request.Notes is not null)
         {
-            var normalizedNotes = request.Notes.Trim();
+            var normalizedNotes = request.Notes?.Trim() ?? string.Empty;
+            if (normalizedNotes.Length > 3000)
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["notes"] = "Notes cannot exceed 3000 characters."
+                });
+            }
+
             if (!string.Equals(meeting.Notes, normalizedNotes, StringComparison.Ordinal))
             {
                 meeting.Notes = normalizedNotes;
@@ -507,36 +527,6 @@ public sealed class MeetingsController(AppDbContext dbContext, INotificationServ
         return NoContent();
     }
 
-    private async Task<HashSet<Guid>> ResolveAssignedInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
-    {
-        var assignedInternIds = new HashSet<Guid>();
-
-        assignedInternIds.UnionWith(await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.SupervisorId == supervisorId && mission.InternId.HasValue)
-            .Select(mission => mission.InternId!.Value)
-            .ToListAsync(cancellationToken));
-
-        assignedInternIds.UnionWith(await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.SupervisorId == supervisorId && deliverable.InternId.HasValue)
-            .Select(deliverable => deliverable.InternId!.Value)
-            .ToListAsync(cancellationToken));
-
-        assignedInternIds.UnionWith(await dbContext.Evaluations
-            .AsNoTracking()
-            .Where(evaluation => evaluation.SupervisorId == supervisorId)
-            .Select(evaluation => evaluation.InternId)
-            .ToListAsync(cancellationToken));
-
-        assignedInternIds.UnionWith(await dbContext.Meetings
-            .AsNoTracking()
-            .Where(meeting => meeting.SupervisorId == supervisorId)
-            .Select(meeting => meeting.InternId)
-            .ToListAsync(cancellationToken));
-
-        return assignedInternIds;
-    }
 }
 
 public sealed class CreateMeetingRequest

@@ -19,15 +19,23 @@ public sealed class Mission
 
     public string Tools { get; set; } = string.Empty;
 
+    public Guid? InternshipTypeId { get; set; }
+
     public string Level { get; set; } = string.Empty;
 
     public string Status { get; set; } = "active";
+
+    public DateTime? StartDate { get; set; }
+
+    public DateTime? EndDate { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
     public User? Supervisor { get; set; }
 
     public User? Intern { get; set; }
+
+    public InternshipType? InternshipType { get; set; }
 
     public ICollection<Deliverable> Deliverables { get; set; } = new List<Deliverable>();
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -71,6 +72,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var missions = await query
             .Include(item => item.Intern)
             .ThenInclude(item => item!.Department)
+            .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
             .OrderByDescending(item => item.CreatedAt)
             .Skip((safePage - 1) * safeLimit)
@@ -103,6 +105,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             .AsNoTracking()
             .Include(item => item.Intern)
             .ThenInclude(item => item!.Department)
+            .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
@@ -127,7 +130,8 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var supervisor = await ResolveRequiredSupervisorAsync(request.SupervisorId, cancellationToken);
         var intern = await ResolveOptionalInternAsync(request.InternId, cancellationToken);
         var department = await ResolveOptionalDepartmentAsync(request.Department, cancellationToken);
-        var typeName = await ResolveOptionalInternshipTypeNameAsync(request.Type, cancellationToken);
+        var internshipType = await ResolveOptionalInternshipTypeAsync(request.Type, cancellationToken);
+        var typeName = internshipType?.Name;
         var coSupervisor = await ResolveOptionalSupervisorAsync(request.CoSupervisorId, cancellationToken);
 
         if (intern is not null)
@@ -135,8 +139,19 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             throw new InvalidOperationException("Direct intern assignment on internship creation is disabled. Use POST /api/stages/assign.");
         }
 
-        var startDate = DateTime.UtcNow;
-        DateTime? endDate = null;
+        var now = DateTime.UtcNow;
+        var startDate = NormalizeUtc(request.StartDate);
+        var endDate = NormalizeUtc(request.EndDate);
+
+        if (startDate.Date < now.Date)
+        {
+            throw new ArgumentException("startDate must not be in the past.");
+        }
+
+        if (endDate <= startDate)
+        {
+            throw new ArgumentException("endDate must be after startDate.");
+        }
 
         var normalizedStatus = NormalizeInternshipStatus(request.Status);
         if (request.Status is not null && normalizedStatus is null)
@@ -144,8 +159,8 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             throw new ArgumentException("Invalid internship status.");
         }
 
-        var status = normalizedStatus ?? "template";
-        if (!string.Equals(status, "template", StringComparison.OrdinalIgnoreCase))
+        var status = normalizedStatus ?? DomainStatuses.Mission.Template;
+        if (!string.Equals(status, DomainStatuses.Mission.Template, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("New internships must be created as template and activated only through POST /api/stages/assign.");
         }
@@ -163,9 +178,12 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             Description = objectives,
             SkillsJson = "[]",
             Tools = string.Empty,
-            Level = typeName ?? string.Empty,
+            InternshipTypeId = internshipType?.Id,
+            Level = string.Empty,
             Status = status,
-            CreatedAt = startDate,
+            StartDate = startDate,
+            EndDate = endDate,
+            CreatedAt = now,
             Supervisor = supervisor,
             Intern = intern
         };
@@ -176,7 +194,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         {
             BuildHistoryEntry(mission.Id, "created", null, mission.Status, actorUserId, actorName),
             BuildHistoryEntry(mission.Id, "supervisorId", null, mission.SupervisorId.ToString(), actorUserId, actorName),
-            BuildHistoryEntry(mission.Id, "startDate", null, FormatUtc(mission.CreatedAt), actorUserId, actorName)
+            BuildHistoryEntry(mission.Id, "startDate", null, FormatUtc(startDate), actorUserId, actorName)
         };
 
         if (mission.InternId.HasValue)
@@ -216,16 +234,13 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
                 actorName));
         }
 
-        if (endDate.HasValue)
-        {
-            historyEntries.Add(BuildHistoryEntry(
-                mission.Id,
-                "endDate",
-                null,
-                FormatUtc(endDate.Value),
-                actorUserId,
-                actorName));
-        }
+        historyEntries.Add(BuildHistoryEntry(
+            mission.Id,
+            "endDate",
+            null,
+            FormatUtc(endDate),
+            actorUserId,
+            actorName));
 
         dbContext.Missions.Add(mission);
         dbContext.MissionHistoryEntries.AddRange(historyEntries);
@@ -264,6 +279,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var mission = await dbContext.Missions
             .Include(item => item.Intern)
             .ThenInclude(item => item!.Department)
+            .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
@@ -279,20 +295,23 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var currentType = currentMetadata?.Type;
         if (string.IsNullOrWhiteSpace(currentType))
         {
-            currentType = string.IsNullOrWhiteSpace(mission.Level)
-                ? null
-                : mission.Level;
+            currentType = mission.InternshipType?.Name;
+        }
+
+        if (string.IsNullOrWhiteSpace(currentType))
+        {
+            currentType = string.IsNullOrWhiteSpace(mission.Level) ? null : mission.Level;
         }
 
         var currentCoSupervisorId = currentMetadata?.CoSupervisorId;
-        var currentEndDate = currentMetadata?.EndDate;
+        var currentEndDate = mission.EndDate ?? currentMetadata?.EndDate;
 
         var nextDepartment = currentDepartment;
         var nextType = currentType;
         var nextCoSupervisorId = currentCoSupervisorId;
         var nextEndDate = currentEndDate;
 
-        var currentStartDate = NormalizeUtc(mission.CreatedAt);
+        var currentStartDate = NormalizeUtc(mission.StartDate ?? mission.CreatedAt);
         var nextStartDate = currentStartDate;
 
         var (actorUserId, actorName) = ResolveActor();
@@ -324,6 +343,11 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             if (normalizedStatus is null)
             {
                 throw new ArgumentException("Invalid internship status.");
+            }
+
+            if (string.Equals(normalizedStatus, DomainStatuses.Mission.Active, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Internship activation must go through the assignment workflow at POST /api/stages/assign.");
             }
 
             if (!string.Equals(mission.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
@@ -361,11 +385,9 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
 
         if (request.Type is not null)
         {
-            string? requestedTypeName = null;
-            if (!string.IsNullOrWhiteSpace(request.Type))
-            {
-                requestedTypeName = await ResolveOptionalInternshipTypeNameAsync(request.Type, cancellationToken);
-            }
+            var requestedType = await ResolveOptionalInternshipTypeAsync(request.Type, cancellationToken);
+            var requestedTypeName = requestedType?.Name;
+            var requestedTypeId = requestedType?.Id;
 
             if (!string.Equals(currentType, requestedTypeName, StringComparison.OrdinalIgnoreCase))
             {
@@ -378,7 +400,8 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
                     actorUserId,
                     actorName);
 
-                mission.Level = requestedTypeName ?? string.Empty;
+                mission.InternshipTypeId = requestedTypeId;
+                mission.InternshipType = requestedType;
                 mission.Title = BuildInternshipTitle(requestedTypeName, mission.Intern);
                 nextType = requestedTypeName;
             }
@@ -454,7 +477,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
                     actorUserId,
                     actorName);
 
-                mission.CreatedAt = requestedStartDate;
+                mission.StartDate = requestedStartDate;
                 nextStartDate = requestedStartDate;
             }
         }
@@ -478,6 +501,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
                     actorUserId,
                     actorName);
 
+                mission.EndDate = requestedEndDate;
                 nextEndDate = requestedEndDate;
             }
         }
@@ -639,7 +663,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         return department;
     }
 
-    private async Task<string?> ResolveOptionalInternshipTypeNameAsync(string? rawType, CancellationToken cancellationToken)
+    private async Task<InternshipType?> ResolveOptionalInternshipTypeAsync(string? rawType, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(rawType))
         {
@@ -669,7 +693,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             throw new InvalidOperationException("Internship type not found.");
         }
 
-        return internshipType.Name;
+        return internshipType;
     }
 
     private (Guid? actorUserId, string actorName) ResolveActor()
@@ -701,10 +725,10 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
                 : $"{mission.Supervisor.FirstName} {mission.Supervisor.LastName}".Trim(),
             CoSupervisorId = metadata?.CoSupervisorId,
             Department = metadata?.Department ?? mission.Intern?.Department?.Name,
-            Type = metadata?.Type ?? (string.IsNullOrWhiteSpace(mission.Level) ? null : mission.Level),
+            Type = metadata?.Type ?? mission.InternshipType?.Name ?? (string.IsNullOrWhiteSpace(mission.Level) ? null : mission.Level),
             Status = mission.Status,
-            StartDate = mission.CreatedAt,
-            EndDate = metadata?.EndDate,
+            StartDate = mission.StartDate ?? mission.CreatedAt,
+            EndDate = mission.EndDate ?? metadata?.EndDate,
             Objectives = mission.Description
         };
     }
@@ -833,15 +857,15 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
 
         return normalized switch
         {
-            "planned" => "template",
-            "template" => "template",
-            "active" => "active",
-            "inprogress" => "active",
-            "paused" => "paused",
-            "completed" => "completed",
-            "cancelled" => "cancelled",
-            "canceled" => "cancelled",
-            "archived" => "cancelled",
+            "planned" => DomainStatuses.Mission.Template,
+            DomainStatuses.Mission.Template => DomainStatuses.Mission.Template,
+            DomainStatuses.Mission.Active => DomainStatuses.Mission.Active,
+            "inprogress" => DomainStatuses.Mission.Active,
+            DomainStatuses.Mission.Paused => DomainStatuses.Mission.Paused,
+            DomainStatuses.Mission.Completed => DomainStatuses.Mission.Completed,
+            DomainStatuses.Mission.Cancelled => DomainStatuses.Mission.Cancelled,
+            "canceled" => DomainStatuses.Mission.Cancelled,
+            "archived" => DomainStatuses.Mission.Cancelled,
             _ => null
         };
     }

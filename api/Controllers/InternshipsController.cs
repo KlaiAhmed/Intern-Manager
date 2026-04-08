@@ -175,6 +175,12 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
             request.SupervisorId = currentSupervisorId.Value.ToString();
         }
 
+        var validationErrors = ValidateCreateDateRange(request.StartDate, request.EndDate);
+        if (validationErrors.Count > 0)
+        {
+            return BadRequest(validationErrors);
+        }
+
         try
         {
             var result = await _service.CreateAsync(request, cancellationToken);
@@ -188,6 +194,43 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         {
             return StatusCode(StatusCodes.Status409Conflict, new { message = exception.Message });
         }
+    }
+
+    private static Dictionary<string, string> ValidateCreateDateRange(DateTime startDate, DateTime endDate)
+    {
+        var errors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (startDate == default)
+        {
+            errors["startDate"] = "StartDate is required.";
+            return errors;
+        }
+
+        if (endDate == default)
+        {
+            errors["endDate"] = "EndDate is required.";
+            return errors;
+        }
+
+        var normalizedStartDate = startDate.Kind == DateTimeKind.Utc
+            ? startDate
+            : startDate.ToUniversalTime();
+
+        var normalizedEndDate = endDate.Kind == DateTimeKind.Utc
+            ? endDate
+            : endDate.ToUniversalTime();
+
+        if (normalizedStartDate.Date < DateTime.UtcNow.Date)
+        {
+            errors["startDate"] = "StartDate must not be in the past.";
+        }
+
+        if (normalizedEndDate <= normalizedStartDate)
+        {
+            errors["endDate"] = "EndDate must be after StartDate.";
+        }
+
+        return errors;
     }
 
     /// <summary>

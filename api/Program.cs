@@ -4,22 +4,29 @@
 /// 📦 Contient   : [BuildSqlServerConnectionString, BuildServerUrl]
 /// </summary>
 using InternManager.Api.Data;
+using InternManager.Api.Data.Initialization;
 using InternManager.Api.Common.OpenApi;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Extensions;
 using InternManager.Api.Middleware;
+using InternManager.Api.Models.Responses;
 using InternManager.Api.Services;
 using InternManager.Api.Services.Interfaces;
 using InternManager.Api.Services.Internships;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using System.Threading.RateLimiting;
 
 EnvLoader.LoadFromProjectRoot();
 
 var builder = WebApplication.CreateBuilder(args);
 const string clientCorsPolicyName = "ClientCorsPolicy";
+const string jwtSecretPlaceholder = "REPLACE_WITH_SECRET_IN_ENVIRONMENT";
+
+if (string.Equals(builder.Configuration["Jwt:Key"], jwtSecretPlaceholder, StringComparison.Ordinal))
+{
+    throw new InvalidOperationException("JWT secret is not configured. Set a real value before deployment.");
+}
 
 var serverPort = builder.Configuration["SERVER_PORT"];
 var serverUrl = BuildServerUrl(serverPort);
@@ -51,18 +58,25 @@ builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IInternshipsService, InternshipsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ICvStorageService, CvStorageService>();
+builder.Services.AddScoped<ISupervisorScopeService, SupervisorScopeService>();
+builder.Services.AddScoped<ITaskWorkflowService, TaskWorkflowService>();
+builder.Services.AddScoped<InternOnboardingValidationFilter>();
 builder.Services.AddProblemDetails();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter("auth", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 10;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueLimit = 0;
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-    });
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
 
     options.AddFixedWindowLimiter("upload", limiterOptions =>
     {
@@ -78,6 +92,20 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.Window = TimeSpan.FromMinutes(1);
         limiterOptions.QueueLimit = 0;
         limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+
+    options.AddPolicy("write-operations", context =>
+    {
+        var userId = context.User?.FindFirst("userId")?.Value ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: userId,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            });
     });
 });
 builder.Services.AddEndpointsApiExplorer();
@@ -105,12 +133,16 @@ try
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    await EfMigrationBootstrapper.EnsureBaselineHistoryAsync(dbContext, logger);
+    await dbContext.Database.MigrateAsync();
 }
 catch (Exception exception)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(exception, "Database initialization failed.");
+    logger.LogCritical(exception, "Fatal startup error during database initialization.");
+    throw;
 }
 
 try
@@ -120,7 +152,8 @@ try
 catch (Exception exception)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(exception, "SuperAdmin seeding failed.");
+    logger.LogCritical(exception, "Fatal startup error during SuperAdmin seeding.");
+    throw;
 }
 
 if (app.Environment.IsDevelopment())
@@ -130,35 +163,44 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
-app.UseCors(clientCorsPolicyName);
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.Use(async (context, next) =>
+app.UseStatusCodePages(async statusCodeContext =>
 {
-    if ((context.Request.Path.StartsWithSegments("/uploads/deliverables") ||
-         context.Request.Path.StartsWithSegments("/uploads/cv")) &&
-        context.User?.Identity?.IsAuthenticated != true)
+    var httpContext = statusCodeContext.HttpContext;
+
+    if (!httpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
     {
-        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         return;
     }
 
-    await next();
+    if (httpContext.Response.HasStarted)
+    {
+        return;
+    }
+
+    if (!string.IsNullOrWhiteSpace(httpContext.Response.ContentType))
+    {
+        return;
+    }
+
+    if (httpContext.Response.ContentLength.HasValue && httpContext.Response.ContentLength.Value > 0)
+    {
+        return;
+    }
+
+    await httpContext.Response.WriteAsJsonAsync(new ErrorResponse
+    {
+        Message = GetDefaultErrorMessage(httpContext.Response.StatusCode)
+    });
 });
+app.UseCors(clientCorsPolicyName);
+app.UseHttpsRedirection();
+app.UseAuthentication();
 
 if (app.Environment.IsDevelopment())
 {
+    // Development-only middleware: never remove this environment guard.
     app.UseMiddleware<DevelopmentLazyAuthBypassMiddleware>();
 }
-
-var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
-Directory.CreateDirectory(uploadsRoot);
-
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(uploadsRoot),
-    RequestPath = "/uploads"
-});
 
 app.UseRateLimiter();
 app.UseAuthorization();
@@ -232,6 +274,20 @@ static string[] BuildCorsOrigins(string? configuredOrigin)
     return origins.Length > 0
         ? origins
         : [defaultOrigin];
+}
+
+static string GetDefaultErrorMessage(int statusCode)
+{
+    return statusCode switch
+    {
+        StatusCodes.Status400BadRequest => "Bad request.",
+        StatusCodes.Status401Unauthorized => "Authentication is required.",
+        StatusCodes.Status403Forbidden => "You do not have permission to perform this action.",
+        StatusCodes.Status404NotFound => "Resource not found.",
+        StatusCodes.Status409Conflict => "The request could not be completed because of a conflict.",
+        StatusCodes.Status429TooManyRequests => "Too many requests. Please try again later.",
+        _ => "An unexpected error occurred."
+    };
 }
 
 public partial class Program

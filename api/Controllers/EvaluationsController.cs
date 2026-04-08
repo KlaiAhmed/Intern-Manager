@@ -1,10 +1,13 @@
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Models.Responses;
+using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -16,7 +19,8 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/evaluations")]
 [Authorize]
-public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBase
+[EnableRateLimiting("write-operations")]
+public sealed class EvaluationsController(AppDbContext dbContext, ISupervisorScopeService supervisorScopeService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des évaluations.
@@ -166,7 +170,7 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         var safePage = Math.Max(page, 1);
         var safeLimit = Math.Clamp(limit, 1, 100);
 
-        var assignedInternIds = await ResolveAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
+        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
         if (assignedInternIds.Count == 0)
         {
             return Ok(new { data = Array.Empty<object>(), total = 0, page = safePage, limit = safeLimit });
@@ -175,7 +179,7 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         var query = dbContext.Evaluations
             .AsNoTracking()
             .Where(evaluation => evaluation.SupervisorId == currentSupervisorId.Value &&
-                                 evaluation.Status == "pending" &&
+                                 evaluation.Status == DomainStatuses.Evaluation.Pending &&
                                  assignedInternIds.Contains(evaluation.InternId));
 
         var total = await query.CountAsync(cancellationToken);
@@ -225,7 +229,7 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             return Unauthorized();
         }
 
-        var assignedInternIds = await ResolveAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
+        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
         if (assignedInternIds.Count == 0)
         {
             return Ok(new ActionResponse
@@ -270,7 +274,7 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
                     SupervisorId = currentSupervisorId.Value,
                     InternId = internId,
                     Type = requiredType,
-                    Status = "pending",
+                    Status = DomainStatuses.Evaluation.Pending,
                     CreatedAt = DateTime.UtcNow
                 });
 
@@ -351,7 +355,15 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             return BadRequest(new { message = criteriaError });
         }
 
-        var assignedInternIds = await ResolveAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
+        if (!AreScoresInRange(criteria))
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["score"] = "Score must be between 0 and 10."
+            });
+        }
+
+        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
         if (!assignedInternIds.Contains(request.InternId))
         {
             return Forbid();
@@ -380,20 +392,20 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
                 SupervisorId = currentSupervisorId.Value,
                 InternId = request.InternId,
                 Type = normalizedType,
-                Status = "pending",
+                Status = DomainStatuses.Evaluation.Pending,
                 CreatedAt = DateTime.UtcNow
             };
 
             dbContext.Evaluations.Add(evaluation);
         }
 
-        evaluation.Technical = ClampScore(criteria.Technical);
-        evaluation.Autonomy = ClampScore(criteria.Autonomy);
-        evaluation.Communication = ClampScore(criteria.Communication);
-        evaluation.DeadlineRespect = ClampScore(criteria.DeadlineRespect);
-        evaluation.DeliverableQuality = ClampScore(criteria.DeliverableQuality);
+        evaluation.Technical = criteria.Technical;
+        evaluation.Autonomy = criteria.Autonomy;
+        evaluation.Communication = criteria.Communication;
+        evaluation.DeadlineRespect = criteria.DeadlineRespect;
+        evaluation.DeliverableQuality = criteria.DeliverableQuality;
         evaluation.Comments = request.Comments?.Trim() ?? string.Empty;
-        evaluation.Status = "submitted";
+        evaluation.Status = DomainStatuses.Evaluation.Submitted;
         evaluation.SubmittedAt = DateTime.UtcNow;
 
         dbContext.AuditLogs.Add(new AuditLog
@@ -474,11 +486,19 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
 
         if (request.Criteria is not null)
         {
-            evaluation.Technical = ClampScore(request.Criteria.Technical);
-            evaluation.Autonomy = ClampScore(request.Criteria.Autonomy);
-            evaluation.Communication = ClampScore(request.Criteria.Communication);
-            evaluation.DeadlineRespect = ClampScore(request.Criteria.DeadlineRespect);
-            evaluation.DeliverableQuality = ClampScore(request.Criteria.DeliverableQuality);
+            if (!AreScoresInRange(request.Criteria))
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["score"] = "Score must be between 0 and 10."
+                });
+            }
+
+            evaluation.Technical = request.Criteria.Technical;
+            evaluation.Autonomy = request.Criteria.Autonomy;
+            evaluation.Communication = request.Criteria.Communication;
+            evaluation.DeadlineRespect = request.Criteria.DeadlineRespect;
+            evaluation.DeliverableQuality = request.Criteria.DeliverableQuality;
             hasChanges = true;
         }
 
@@ -495,7 +515,7 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
         if (request.Status is not null)
         {
             var normalizedStatus = request.Status.Trim().ToLowerInvariant();
-            if (normalizedStatus is not ("pending" or "submitted"))
+            if (normalizedStatus is not (DomainStatuses.Evaluation.Pending or DomainStatuses.Evaluation.Submitted))
             {
                 return BadRequest(new { message = "status must be 'pending' or 'submitted'." });
             }
@@ -503,7 +523,7 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             if (!string.Equals(evaluation.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
             {
                 evaluation.Status = normalizedStatus;
-                evaluation.SubmittedAt = normalizedStatus == "submitted" ? DateTime.UtcNow : null;
+                evaluation.SubmittedAt = normalizedStatus == DomainStatuses.Evaluation.Submitted ? DateTime.UtcNow : null;
                 hasChanges = true;
             }
         }
@@ -613,7 +633,10 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetMyEvaluations(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetMyEvaluations(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         var internId = UserContextHelper.ResolveCurrentUserId(User);
         if (!internId.HasValue)
@@ -621,12 +644,23 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             return Unauthorized();
         }
 
-        var data = await dbContext.Evaluations
+        var safePage = Math.Max(page, 1);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = dbContext.Evaluations
             .AsNoTracking()
-            .Where(evaluation => evaluation.InternId == internId.Value && evaluation.Status == "submitted")
+            .Where(evaluation =>
+                evaluation.InternId == internId.Value &&
+                evaluation.Status == DomainStatuses.Evaluation.Submitted)
             .Include(evaluation => evaluation.Supervisor)
             .OrderByDescending(evaluation => evaluation.SubmittedAt)
-            .ThenByDescending(evaluation => evaluation.CreatedAt)
+            .ThenByDescending(evaluation => evaluation.CreatedAt);
+
+        var total = await query.CountAsync(cancellationToken);
+
+        var data = await query
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
             .Select(evaluation => new
             {
                 id = evaluation.Id,
@@ -655,43 +689,16 @@ public sealed class EvaluationsController(AppDbContext dbContext) : ControllerBa
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(new { data });
+        return Ok(new { data, page = safePage, pageSize = safePageSize, total });
     }
 
-    private async Task<HashSet<Guid>> ResolveAssignedInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
+    private static bool AreScoresInRange(EvaluationCriteriaRequest criteria)
     {
-        var assignedInternIds = new HashSet<Guid>();
-
-        assignedInternIds.UnionWith(await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.SupervisorId == supervisorId && mission.InternId.HasValue)
-            .Select(mission => mission.InternId!.Value)
-            .ToListAsync(cancellationToken));
-
-        assignedInternIds.UnionWith(await dbContext.Meetings
-            .AsNoTracking()
-            .Where(meeting => meeting.SupervisorId == supervisorId)
-            .Select(meeting => meeting.InternId)
-            .ToListAsync(cancellationToken));
-
-        assignedInternIds.UnionWith(await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.SupervisorId == supervisorId && deliverable.InternId.HasValue)
-            .Select(deliverable => deliverable.InternId!.Value)
-            .ToListAsync(cancellationToken));
-
-        assignedInternIds.UnionWith(await dbContext.Evaluations
-            .AsNoTracking()
-            .Where(evaluation => evaluation.SupervisorId == supervisorId)
-            .Select(evaluation => evaluation.InternId)
-            .ToListAsync(cancellationToken));
-
-        return assignedInternIds;
-    }
-
-    private static int ClampScore(int value)
-    {
-        return Math.Clamp(value, 0, 10);
+        return criteria.Technical is >= 0 and <= 10 &&
+               criteria.Autonomy is >= 0 and <= 10 &&
+               criteria.Communication is >= 0 and <= 10 &&
+               criteria.DeadlineRespect is >= 0 and <= 10 &&
+               criteria.DeliverableQuality is >= 0 and <= 10;
     }
 
     private static bool TryResolveCriteria(

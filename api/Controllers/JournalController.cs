@@ -83,7 +83,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> AddJournalEntry([FromBody] AddJournalEntryRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> AddJournalEntry([FromBody] JournalEntryRequest request, CancellationToken cancellationToken)
     {
         var internId = UserContextHelper.ResolveCurrentUserId(User);
         if (!internId.HasValue)
@@ -91,16 +91,25 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
             return Unauthorized();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Content))
+        var normalizedContent = request.Content?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedContent))
         {
             return BadRequest(new { message = "Content is required." });
+        }
+
+        if (normalizedContent.Length > 4000)
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["content"] = "Journal entry cannot exceed 4000 characters."
+            });
         }
 
         var entry = new JournalEntry
         {
             Id = Guid.NewGuid(),
             InternId = internId.Value,
-            Content = request.Content.Trim(),
+            Content = normalizedContent,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -190,7 +199,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateJournalEntry(Guid id, [FromBody] UpdateJournalEntryRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateJournalEntry(Guid id, [FromBody] JournalEntryRequest request, CancellationToken cancellationToken)
     {
         var internId = UserContextHelper.ResolveCurrentUserId(User);
         if (!internId.HasValue)
@@ -198,9 +207,18 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
             return Unauthorized();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Content))
+        var normalizedContent = request.Content?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedContent))
         {
             return BadRequest(new { message = "Content is required." });
+        }
+
+        if (normalizedContent.Length > 4000)
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["content"] = "Journal entry cannot exceed 4000 characters."
+            });
         }
 
         var entry = await dbContext.JournalEntries
@@ -211,7 +229,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
             return NotFound(new { message = "Journal entry not found." });
         }
 
-        entry.Content = request.Content.Trim();
+        entry.Content = normalizedContent;
 
         dbContext.AuditLogs.Add(new AuditLog
         {
@@ -281,12 +299,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     }
 }
 
-public sealed class AddJournalEntryRequest
-{
-    public string Content { get; init; } = string.Empty;
-}
-
-public sealed class UpdateJournalEntryRequest
+public sealed class JournalEntryRequest
 {
     public string Content { get; init; } = string.Empty;
 }

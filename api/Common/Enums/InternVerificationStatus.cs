@@ -1,13 +1,12 @@
 namespace InternManager.Api.Common.Enums;
 
 /// <summary>
-/// Canonical lifecycle states for interns.
+/// Verification pipeline states for intern onboarding.
 /// </summary>
-public enum InternLifecycleStatus
+public enum InternVerificationStatus
 {
     INCOMPLETE,
     PENDING,
     ACTIVE,
-    COMPLETED,
-    ARCHIVED
+    NOT_APPLICABLE
 }

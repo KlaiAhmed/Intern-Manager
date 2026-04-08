@@ -6,8 +6,10 @@ using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Models.Requests;
 using InternManager.Api.Models.Responses;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -19,6 +21,7 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/admin/settings")]
 [Authorize]
+[EnableRateLimiting("write-operations")]
 public sealed class AdminSettingsController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
@@ -500,7 +503,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetStatuses(CancellationToken cancellationToken)
     {
-        return GetReferentialItemsAsync(dbContext.UserStatusReferences, cancellationToken);
+        return GetReferentialItemsAsync(dbContext.UserAccountStatusReferences, cancellationToken);
     }
 
     /// <summary>
@@ -521,7 +524,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> GetStatusById(Guid id, CancellationToken cancellationToken)
     {
-        return GetReferentialItemByIdAsync(dbContext.UserStatusReferences, id, cancellationToken);
+        return GetReferentialItemByIdAsync(dbContext.UserAccountStatusReferences, id, cancellationToken);
     }
 
     /// <summary>
@@ -544,7 +547,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> CreateStatus([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
     {
-        return CreateReferentialItemAsync(dbContext.UserStatusReferences, request, nameof(GetStatusById), cancellationToken);
+        return CreateReferentialItemAsync(dbContext.UserAccountStatusReferences, request, nameof(GetStatusById), cancellationToken);
     }
 
     /// <summary>
@@ -570,7 +573,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
     {
-        return UpdateReferentialItemAsync(dbContext.UserStatusReferences, id, request, cancellationToken);
+        return UpdateReferentialItemAsync(dbContext.UserAccountStatusReferences, id, request, cancellationToken);
     }
 
     /// <summary>
@@ -593,7 +596,65 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> DeleteStatus(Guid id, CancellationToken cancellationToken)
     {
-        return DeleteReferentialItemAsync(dbContext.UserStatusReferences, id, cancellationToken);
+        return DeleteReferentialItemAsync(dbContext.UserAccountStatusReferences, id, cancellationToken);
+    }
+
+    [HttpGet("verification-statuses", Name = "ListVerificationStatuses")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetVerificationStatuses(CancellationToken cancellationToken)
+    {
+        return GetReferentialItemsAsync(dbContext.UserVerificationStatusReferences, cancellationToken);
+    }
+
+    [HttpGet("verification-statuses/{id:guid}", Name = "GetVerificationStatusById")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> GetVerificationStatusById(Guid id, CancellationToken cancellationToken)
+    {
+        return GetReferentialItemByIdAsync(dbContext.UserVerificationStatusReferences, id, cancellationToken);
+    }
+
+    [HttpPost("verification-statuses", Name = "CreateVerificationStatus")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateVerificationStatus([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return CreateReferentialItemAsync(dbContext.UserVerificationStatusReferences, request, nameof(GetVerificationStatusById), cancellationToken);
+    }
+
+    [HttpPatch("verification-statuses/{id:guid}", Name = "UpdateVerificationStatus")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> UpdateVerificationStatus(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
+    {
+        return UpdateReferentialItemAsync(dbContext.UserVerificationStatusReferences, id, request, cancellationToken);
+    }
+
+    [HttpDelete("verification-statuses/{id:guid}", Name = "DeleteVerificationStatus")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> DeleteVerificationStatus(Guid id, CancellationToken cancellationToken)
+    {
+        return DeleteReferentialItemAsync(dbContext.UserVerificationStatusReferences, id, cancellationToken);
     }
 
     private static string? NormalizeName(string? rawName)
@@ -747,19 +808,12 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
             return NotFound(new { message = BuildNotFoundMessage(id) });
         }
 
-        if (typeof(TEntity) == typeof(Department))
+        if (await HasReferentialUsageAsync<TEntity>(id, cancellationToken))
         {
-            var usageCount = await dbContext.Users
-                .AsNoTracking()
-                .CountAsync(user => user.DepartmentId == id, cancellationToken);
-
-            if (usageCount > 0)
+            return StatusCode(StatusCodes.Status409Conflict, new
             {
-                return StatusCode(StatusCodes.Status409Conflict, new
-                {
-                    message = $"Cannot delete entry '{id}' because it is still used by {usageCount} user(s)."
-                });
-            }
+                message = "Cannot delete this item because it is referenced by existing records."
+            });
         }
 
         dbSet.Remove(entry);
@@ -773,9 +827,73 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
             Timestamp = DateTime.UtcNow
         });
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsForeignKeyViolation(exception))
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new
+            {
+                message = "Cannot delete this item because it is referenced by existing records."
+            });
+        }
 
         return NoContent();
+    }
+
+    private async Task<bool> HasReferentialUsageAsync<TEntity>(Guid id, CancellationToken cancellationToken)
+        where TEntity : ReferentialEntityBase
+    {
+        if (typeof(TEntity) == typeof(Department))
+        {
+            return await dbContext.Users
+                .AsNoTracking()
+                .AnyAsync(user => user.DepartmentId == id, cancellationToken);
+        }
+
+        if (typeof(TEntity) == typeof(School))
+        {
+            return await dbContext.InternProfiles
+                .AsNoTracking()
+                .AnyAsync(profile => profile.UniversityId == id, cancellationToken);
+        }
+
+        if (typeof(TEntity) == typeof(Skill))
+        {
+            return await dbContext.InternProfileSkills
+                .AsNoTracking()
+                .AnyAsync(link => link.SkillId == id, cancellationToken);
+        }
+
+        if (typeof(TEntity) == typeof(InternshipType))
+        {
+            var typeName = await dbContext.InternshipTypes
+                .AsNoTracking()
+                .Where(item => item.Id == id)
+                .Select(item => item.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(typeName))
+            {
+                return false;
+            }
+
+            return await dbContext.Missions
+                .AsNoTracking()
+                .AnyAsync(
+                    mission => mission.InternshipTypeId == id ||
+                               (mission.InternshipTypeId == null &&
+                                EF.Functions.Collate(mission.Level, "SQL_Latin1_General_CP1_CI_AS") == typeName),
+                    cancellationToken);
+        }
+
+        return false;
+    }
+
+    private static bool IsForeignKeyViolation(DbUpdateException exception)
+    {
+        return exception.InnerException is SqlException sqlException && sqlException.Number == 547;
     }
 }
 

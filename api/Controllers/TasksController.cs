@@ -18,7 +18,10 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/tasks")]
 [Authorize]
-public sealed class TasksController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
+public sealed class TasksController(
+    AppDbContext dbContext,
+    INotificationService notificationService,
+    ITaskWorkflowService taskWorkflowService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des tâches du stagiaire connecté.
@@ -116,7 +119,7 @@ public sealed class TasksController(AppDbContext dbContext, INotificationService
             return Unauthorized();
         }
 
-        var createdCount = await EnsureTasksFromDeliverablesAsync(internId.Value, cancellationToken);
+        var createdCount = await taskWorkflowService.EnsureTasksFromDeliverablesAsync(internId.Value, cancellationToken);
         if (createdCount == 0)
         {
             return Ok(new ActionResponse
@@ -260,7 +263,7 @@ public sealed class TasksController(AppDbContext dbContext, INotificationService
             return BadRequest(new { message = "Intern not found." });
         }
 
-        var canAssign = await CanSupervisorAssignInternAsync(supervisorId.Value, request.InternId, cancellationToken);
+        var canAssign = await taskWorkflowService.CanSupervisorAssignInternAsync(supervisorId.Value, request.InternId, cancellationToken);
         if (!canAssign)
         {
             return Forbid();
@@ -333,89 +336,6 @@ public sealed class TasksController(AppDbContext dbContext, INotificationService
         });
     }
 
-    private async Task<bool> CanSupervisorAssignInternAsync(Guid supervisorId, Guid internId, CancellationToken cancellationToken)
-    {
-        var relatedSupervisorIds = new HashSet<Guid>();
-
-        relatedSupervisorIds.UnionWith(await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.InternId == internId)
-            .Select(mission => mission.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        relatedSupervisorIds.UnionWith(await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.InternId == internId)
-            .Select(deliverable => deliverable.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        relatedSupervisorIds.UnionWith(await dbContext.Evaluations
-            .AsNoTracking()
-            .Where(evaluation => evaluation.InternId == internId)
-            .Select(evaluation => evaluation.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        relatedSupervisorIds.UnionWith(await dbContext.Meetings
-            .AsNoTracking()
-            .Where(meeting => meeting.InternId == internId)
-            .Select(meeting => meeting.SupervisorId)
-            .Distinct()
-            .ToListAsync(cancellationToken));
-
-        return relatedSupervisorIds.Count == 0 || relatedSupervisorIds.Contains(supervisorId);
-    }
-
-    private async Task<int> EnsureTasksFromDeliverablesAsync(Guid internId, CancellationToken cancellationToken)
-    {
-        var existingDeliverableIds = await dbContext.InternTasks
-            .AsNoTracking()
-            .Where(task => task.InternId == internId && task.DeliverableId.HasValue)
-            .Select(task => task.DeliverableId!.Value)
-            .ToListAsync(cancellationToken);
-
-        var existingDeliverableSet = existingDeliverableIds.ToHashSet();
-
-        var missingDeliverables = await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.InternId == internId && !existingDeliverableSet.Contains(deliverable.Id))
-            .Select(deliverable => new
-            {
-                deliverable.Id,
-                deliverable.Title,
-                deliverable.DueDate,
-                deliverable.Progress,
-                deliverable.Status
-            })
-            .ToListAsync(cancellationToken);
-
-        if (missingDeliverables.Count == 0)
-        {
-            return 0;
-        }
-
-        foreach (var deliverable in missingDeliverables)
-        {
-            var isComplete = deliverable.Progress >= 100 ||
-                             deliverable.Status.Equals("accepted", StringComparison.OrdinalIgnoreCase);
-
-            dbContext.InternTasks.Add(new InternTask
-            {
-                Id = Guid.NewGuid(),
-                InternId = internId,
-                DeliverableId = deliverable.Id,
-                Title = deliverable.Title,
-                DueDate = deliverable.DueDate,
-                IsComplete = isComplete,
-                CompletedAt = isComplete ? DateTime.UtcNow : null,
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-
-        return missingDeliverables.Count;
-    }
 }
 
 public sealed class AssignTaskRequest

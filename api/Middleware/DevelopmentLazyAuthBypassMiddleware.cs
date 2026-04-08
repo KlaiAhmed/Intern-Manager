@@ -34,6 +34,8 @@ public sealed class DevelopmentLazyAuthBypassMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context)
     {
+        EnsureDevelopmentEnvironment();
+
         if (!ShouldApplyLazyBypass(context.Request.Path))
         {
             await next(context);
@@ -191,5 +193,18 @@ public sealed class DevelopmentLazyAuthBypassMiddleware(RequestDelegate next)
             "Intern" => InternUserId,
             _ => GenericUserId
         };
+    }
+
+    private static void EnsureDevelopmentEnvironment()
+    {
+        var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+            ?? string.Empty;
+
+        if (!string.Equals(environmentName, "Development", StringComparison.Ordinal) &&
+            !string.Equals(environmentName, "Testing", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("DevelopmentLazyAuthBypassMiddleware must never run in non-development environments.");
+        }
     }
 }

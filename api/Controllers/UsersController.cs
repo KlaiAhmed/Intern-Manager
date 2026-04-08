@@ -12,6 +12,7 @@ using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -23,6 +24,7 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize]
+[EnableRateLimiting("write-operations")]
 public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
@@ -206,6 +208,14 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             ? BuildTemporaryPassword()
             : request.Password.Trim();
 
+        if (!PasswordPolicyValidator.IsValid(effectivePassword))
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["password"] = PasswordPolicyValidator.ErrorMessage
+            });
+        }
+
         if (!TryParseStatus(request.Status, out var parsedStatus))
         {
             parsedStatus = UserStatus.Active;
@@ -220,6 +230,9 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             PasswordHash = PasswordHasher.HashPassword(effectivePassword),
             Role = parsedRole,
             Status = parsedStatus,
+            VerificationStatus = parsedRole == UserRole.Intern
+                ? InternVerificationStatus.INCOMPLETE
+                : InternVerificationStatus.NOT_APPLICABLE,
             DepartmentId = departmentId
         };
 
@@ -231,12 +244,12 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 InternId = user.Id,
-                School = string.Empty,
-                Specialty = string.Empty,
-                CompetenciesJson = "[]",
-                Experience = string.Empty,
+                UniversityId = null,
+                Major = string.Empty,
+                CurrentYearOfStudy = string.Empty,
+                ExpectedGraduationDate = null,
+                WorkPreference = null,
                 CvFileUrl = null,
-                Status = InternLifecycleStatus.INCOMPLETE,
                 StartDate = null,
                 EndDate = null,
                 CreatedAt = DateTime.UtcNow,
@@ -358,8 +371,22 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot assign SuperAdmin role." });
             }
 
-            user.Role = parsedRole;
-            updatedFields.Add("role");
+            if (user.Role != parsedRole)
+            {
+                var previousRole = user.Role;
+                user.Role = parsedRole;
+
+                if (parsedRole != UserRole.Intern)
+                {
+                    user.VerificationStatus = InternVerificationStatus.NOT_APPLICABLE;
+                }
+                else if (previousRole != UserRole.Intern)
+                {
+                    user.VerificationStatus = InternVerificationStatus.INCOMPLETE;
+                }
+
+                updatedFields.Add("role");
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.Status))
@@ -375,7 +402,16 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
-            user.PasswordHash = PasswordHasher.HashPassword(request.Password.Trim());
+            var normalizedPassword = request.Password.Trim();
+            if (!PasswordPolicyValidator.IsValid(normalizedPassword))
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["password"] = PasswordPolicyValidator.ErrorMessage
+                });
+            }
+
+            user.PasswordHash = PasswordHasher.HashPassword(normalizedPassword);
             updatedFields.Add("password");
         }
 
@@ -412,12 +448,12 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
                 {
                     Id = Guid.NewGuid(),
                     InternId = user.Id,
-                    School = string.Empty,
-                    Specialty = string.Empty,
-                    CompetenciesJson = "[]",
-                    Experience = string.Empty,
+                    UniversityId = null,
+                    Major = string.Empty,
+                    CurrentYearOfStudy = string.Empty,
+                    ExpectedGraduationDate = null,
+                    WorkPreference = null,
                     CvFileUrl = null,
-                    Status = InternLifecycleStatus.INCOMPLETE,
                     StartDate = null,
                     EndDate = null,
                     CreatedAt = DateTime.UtcNow,
@@ -505,38 +541,41 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot archive SuperAdmin users." });
         }
 
-        InternProfile? internProfile = null;
         if (user.Role == UserRole.Intern)
         {
-            internProfile = await dbContext.InternProfiles
+            var profile = await dbContext.InternProfiles
                 .FirstOrDefaultAsync(item => item.InternId == user.Id, cancellationToken);
 
-            if (internProfile is null)
+            if (profile is null)
             {
-                internProfile = new InternProfile
+                profile = new InternProfile
                 {
                     Id = Guid.NewGuid(),
                     InternId = user.Id,
-                    School = string.Empty,
-                    Specialty = string.Empty,
-                    CompetenciesJson = "[]",
-                    Experience = string.Empty,
+                    UniversityId = null,
+                    Major = string.Empty,
+                    CurrentYearOfStudy = string.Empty,
+                    ExpectedGraduationDate = null,
+                    WorkPreference = null,
                     CvFileUrl = null,
-                    Status = InternLifecycleStatus.INCOMPLETE,
                     StartDate = null,
                     EndDate = null,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                dbContext.InternProfiles.Add(internProfile);
+                dbContext.InternProfiles.Add(profile);
             }
 
-            if (internProfile.Status != InternLifecycleStatus.COMPLETED && internProfile.Status != InternLifecycleStatus.ARCHIVED)
+            var hasActiveMission = await dbContext.Missions
+                .AsNoTracking()
+                .AnyAsync(item => item.InternId == user.Id && item.Status == "active", cancellationToken);
+
+            if (hasActiveMission)
             {
                 return StatusCode(StatusCodes.Status409Conflict, new
                 {
-                    message = "Intern can be archived only after lifecycle status reaches COMPLETED."
+                    message = "Intern can be archived only when no active stage assignment exists."
                 });
             }
         }
@@ -555,11 +594,6 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 
             // Explicit self-archive handling: status update always occurs after audit insert.
             user.Status = UserStatus.Archived;
-
-            if (internProfile is not null)
-            {
-                internProfile.Status = InternLifecycleStatus.ARCHIVED;
-            }
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -735,6 +769,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             name = $"{user.FirstName} {user.LastName}".Trim(),
             email = user.Email,
             status = user.Status.ToString().ToLowerInvariant(),
+            verificationStatus = user.VerificationStatus.ToString(),
             role = user.Role.ToString().ToLowerInvariant(),
             department = departmentName ?? user.Department?.Name,
             lastLogin = user.LastLoginAt

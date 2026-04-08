@@ -37,7 +37,7 @@ public static class AuthExtensions
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
 
         services.AddSingleton<IAuthUserStore, DbAuthUserStore>();
-        services.AddSingleton<IAuthService, AuthService>();
+        services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPasswordResetService, PasswordResetService>();
 
         services.AddScoped<CsrfValidationFilter>();

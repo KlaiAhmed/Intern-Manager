@@ -48,6 +48,11 @@ public class User
     public UserStatus Status { get; set; }
 
     /// <summary>
+    /// Statut de verification du parcours onboarding pour les stagiaires.
+    /// </summary>
+    public InternVerificationStatus VerificationStatus { get; set; } = InternVerificationStatus.INCOMPLETE;
+
+    /// <summary>
     /// Identifiant optionnel du departement associe a l utilisateur.
     /// </summary>
     public Guid? DepartmentId { get; set; }

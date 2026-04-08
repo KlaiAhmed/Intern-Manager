@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,7 @@ public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordRese
         var user = await dbContext.Users
             .FirstOrDefaultAsync(
                 current => current.Status == UserStatus.Active &&
-                           current.Email.ToLower() == normalizedEmail,
+                           EF.Functions.Collate(current.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
                 cancellationToken);
 
         if (user is null)
@@ -91,7 +92,13 @@ public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordRese
             return null;
         }
 
-        resetToken.User.PasswordHash = PasswordHasher.HashPassword(newPassword.Trim());
+        var normalizedPassword = newPassword.Trim();
+        if (!PasswordPolicyValidator.IsValid(normalizedPassword))
+        {
+            return null;
+        }
+
+        resetToken.User.PasswordHash = PasswordHasher.HashPassword(normalizedPassword);
         resetToken.UsedAt = now;
 
         var siblingTokens = await dbContext.PasswordResetTokens
