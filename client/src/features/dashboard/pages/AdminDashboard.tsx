@@ -366,9 +366,6 @@ export function AdminDashboard() {
           <a href="/settings/skills" className="settings-link-card">
             {t('dashboard.superAdmin.skills')}
           </a>
-          <a href="/settings/statuses" className="settings-link-card">
-            {t('dashboard.superAdmin.statuses')}
-          </a>
         </div>
       </section>
 

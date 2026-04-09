@@ -4,14 +4,14 @@ import { useUserManagement, type User } from '../hooks/useUserManagement'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
-import { Plus, Edit, Archive, Search, X } from './IconComponents'
+import { Plus, Edit, Archive, Search } from './IconComponents'
+import { Input } from '../../../components/ui/Input'
 
 export function UserManagementSection() {
   const { t } = useI18n()
   const {
     users,
     departments,
-    statuses,
     loading,
     error,
     page,
@@ -42,13 +42,14 @@ export function UserManagementSection() {
   const roles = [
     { value: 'admin', label: t('role.admin') },
     { value: 'supervisor', label: t('role.supervisor') },
+    { value: 'intern', label: t('role.intern') },
     { value: 'manager', label: t('role.manager') },
   ]
 
-  const statusOptions = statuses.map((status) => ({
-    value: status.name.toLowerCase(),
-    label: status.name,
-  }))
+  const statusOptions = [
+    { value: 'active', label: t('dashboard.admin.statusActive') },
+    { value: 'archived', label: t('dashboard.admin.statusArchived') },
+  ]
 
   const getRoleBadgeClass = (role: string) => {
     const classes: Record<string, string> = {
@@ -196,26 +197,13 @@ export function UserManagementSection() {
           </select>
         </div>
 
-        <div className="search-box">
-          <span className="search-icon"><Search /></span>
-          <input
-            type="text"
-            className="dash-input search-input"
-            placeholder={t('dashboard.table.search')}
-            value={filters.search}
-            onChange={(e) => setFilters({ search: e.target.value })}
-          />
-          {filters.search && (
-            <button
-              className="clear-search"
-              onClick={() => setFilters({ search: '' })}
-              aria-label="Clear search"
-            >
-              <X />
-            </button>
-          )}
-        </div>
-      </div>
+        <Input
+              leftIcon={<Search />}
+              placeholder={t('dashboard.table.search')}
+              value={filters.search}
+              onChange={(e) => setFilters({ search: e.target.value })}
+              className="search-input-component"
+            /></div>
 
       {/* Table */}
       {loading ? (

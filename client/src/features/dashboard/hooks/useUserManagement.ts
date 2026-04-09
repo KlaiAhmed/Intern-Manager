@@ -16,15 +16,9 @@ export interface DepartmentOption {
   name: string
 }
 
-export interface StatusOption {
-  id: string
-  name: string
-}
-
 interface UseUserManagementReturn {
   users: User[]
   departments: DepartmentOption[]
-  statuses: StatusOption[]
   loading: boolean
   error: string | null
   page: number
@@ -87,37 +81,6 @@ function parseDepartmentOptions(payload: unknown): DepartmentOption[] {
   return []
 }
 
-function parseStatusOptions(payload: unknown): StatusOption[] {
-  if (Array.isArray(payload)) {
-    return payload
-      .map((item) => {
-        if (!item || typeof item !== 'object') {
-          return null
-        }
-
-        const record = item as Record<string, unknown>
-        const id = String(record.id ?? '')
-        const name = String(record.name ?? '')
-
-        if (!id || !name) {
-          return null
-        }
-
-        return { id, name }
-      })
-      .filter((item): item is StatusOption => item !== null)
-  }
-
-  if (payload && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    if (Array.isArray(record.data)) {
-      return parseStatusOptions(record.data)
-    }
-  }
-
-  return []
-}
-
 function buildUserUpsertPayload(userData: Partial<Omit<User, 'id' | 'created'>>): Record<string, string> {
   const payload: Record<string, string> = {}
 
@@ -159,7 +122,6 @@ export function useUserManagement(): UseUserManagementReturn {
 
   const [users, setUsers] = useState<User[]>([])
   const [departments, setDepartments] = useState<DepartmentOption[]>([])
-  const [statuses, setStatuses] = useState<StatusOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -203,15 +165,6 @@ export function useUserManagement(): UseUserManagementReturn {
     }
   }, [get])
 
-  const fetchStatuses = useCallback(async () => {
-    try {
-      const result = await get<unknown>('/api/admin/settings/statuses')
-      setStatuses(parseStatusOptions(result))
-    } catch {
-      setStatuses([])
-    }
-  }, [get])
-
   const setFilters = useCallback((newFilters: Partial<typeof filters>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }))
     setPage(1)
@@ -249,8 +202,7 @@ export function useUserManagement(): UseUserManagementReturn {
 
   useEffect(() => {
     void fetchDepartments()
-    void fetchStatuses()
-  }, [fetchDepartments, fetchStatuses])
+  }, [fetchDepartments])
 
   useEffect(() => {
     void fetchUsers(page, filters)
@@ -259,7 +211,6 @@ export function useUserManagement(): UseUserManagementReturn {
   return {
     users,
     departments,
-    statuses,
     loading,
     error,
     page,

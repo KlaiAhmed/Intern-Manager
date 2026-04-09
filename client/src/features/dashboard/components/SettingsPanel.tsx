@@ -5,7 +5,7 @@ import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
 
-export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'statuses'
+export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills'
 
 interface SettingsItem {
   id: string
@@ -22,7 +22,6 @@ const tabs: { id: SettingsSubSection; label: string; endpoint: string }[] = [
   { id: 'schools', label: 'Schools', endpoint: 'schools' },
   { id: 'types', label: 'Internship Types', endpoint: 'internship-types' },
   { id: 'skills', label: 'Skills', endpoint: 'skills' },
-  { id: 'statuses', label: 'Statuses', endpoint: 'statuses' },
 ]
 
 function parseSettingsItems(payload: unknown): SettingsItem[] {

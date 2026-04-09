@@ -21,13 +21,9 @@
   flex-wrap: wrap;
 }
 
-.audit-search {
+.audit-search-input {
   flex: 1;
   min-width: 280px;
-}
-
-.audit-search .search-input {
-  width: 100%;
 }
 
 .filter-select-wrapper {
@@ -171,7 +167,8 @@
     align-items: stretch;
   }
 
-  .audit-search {
+  .audit-search-input {
+    width: 100%;
     min-width: auto;
   }
 

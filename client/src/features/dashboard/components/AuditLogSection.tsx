@@ -3,7 +3,8 @@ import { useI18n } from '../../../locales/I18nContext'
 import { useAuditLogs } from '../hooks/useAuditLogs'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
-import { Search, X, Filter, Download } from './IconComponents'
+import { Search, Filter, Download } from './IconComponents'
+import { Input } from '../../../components/ui/Input'
 
 const actionOptions = [
   { value: '', label: 'All Actions' },
@@ -62,28 +63,14 @@ export function AuditLogSection() {
       {/* Filters */}
       <div className="audit-filters">
         <div className="filter-row">
-          <div className="search-box audit-search">
-            <span className="search-icon"><Search /></span>
-            <input
-              type="text"
-              className="dash-input search-input"
-              placeholder="Search by actor..."
-              value={actorInput}
-              onChange={(e) => setActorInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setFilter({ actor: actorInput })}
-            />
-            {filter.actor && (
-              <button
-                className="clear-search"
-                onClick={() => {
-                  setActorInput('')
-                  setFilter({ actor: '' })
-                }}
-              >
-                <X />
-              </button>
-            )}
-          </div>
+          <Input
+            leftIcon={<Search />}
+            placeholder="Search by actor..."
+            value={actorInput}
+            onChange={(e) => setActorInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && setFilter({ actor: actorInput })}
+            className="audit-search-input"
+          />
 
           <div className="filter-select-wrapper">
             <span className="filter-icon"><Filter /></span>

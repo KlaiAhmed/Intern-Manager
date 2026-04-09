@@ -25,7 +25,7 @@ export type SuperAdminSection =
   | 'settings'
   | 'audit'
 
-export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'statuses'
+export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills'
 
 interface NavItem {
   id: SuperAdminSection
@@ -64,9 +64,9 @@ export function SuperAdminSidebar({
       setIsMobile(width < 768)
       setIsTablet(width >= 768 && width < 1024)
 
-      if (width >= 1024) {
-        setSidebarOpen(true)
-      } else if (width < 768) {
+      // Keep sidebar closed by default on all screen sizes
+      // User can manually open it if needed
+      if (width < 768) {
         setSidebarOpen(false)
       }
     }
@@ -121,9 +121,7 @@ export function SuperAdminSidebar({
       >
         {/* Header */}
         <div className="super-admin-sidebar-header">
-          {(sidebarOpen || isMobile) && (
-            <span className="super-admin-sidebar-brand">Dashboard</span>
-          )}
+          <span className="super-admin-sidebar-brand">Dashboard</span>
           {!isMobile && (
             <button
               className="super-admin-toggle"
