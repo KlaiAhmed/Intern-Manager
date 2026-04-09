@@ -64,6 +64,7 @@ builder.Services.AddScoped<ISupervisorStatsService, SupervisorStatsService>();
 builder.Services.AddScoped<ISupervisorInternsService, SupervisorInternsService>();
 builder.Services.AddScoped<IDeliverablesService, DeliverablesService>();
 builder.Services.AddScoped<IEvaluationStatusService, EvaluationStatusService>();
+builder.Services.AddScoped<IInternSkillsService, InternSkillsService>();
 builder.Services.AddScoped<ITaskWorkflowService, TaskWorkflowService>();
 builder.Services.AddScoped<InternOnboardingValidationFilter>();
 builder.Services.AddProblemDetails();

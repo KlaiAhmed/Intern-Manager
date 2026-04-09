@@ -24,7 +24,8 @@ namespace InternManager.Api.Controllers;
 public sealed class InternProfileController(
     AppDbContext dbContext,
     IWebHostEnvironment environment,
-    INotificationService notificationService) : ControllerBase
+    INotificationService notificationService,
+    IInternSkillsService internSkillsService) : ControllerBase
 {
     private const long MaxCvUploadBytes = 2 * 1024 * 1024;
 
@@ -259,81 +260,21 @@ public sealed class InternProfileController(
             return pendingLockResult;
         }
 
-        var profile = await EnsureProfileAsync(internId.Value, cancellationToken);
-
-        var requestedSkillIds = (request.SkillIds ?? Array.Empty<Guid>())
-            .Where(value => value != Guid.Empty)
-            .Distinct()
-            .ToHashSet();
-
-        if (requestedSkillIds.Count > 0)
+        try
         {
-            var existingSkillIds = await dbContext.Skills
-                .AsNoTracking()
-                .Where(skill => requestedSkillIds.Contains(skill.Id))
-                .Select(skill => skill.Id)
-                .ToListAsync(cancellationToken);
+            var skills = await internSkillsService.ReplaceSkillsAsync(
+                internId.Value,
+                request.SkillIds,
+                internId,
+                UserContextHelper.ResolveCurrentActorName(User),
+                cancellationToken);
 
-            if (existingSkillIds.Count != requestedSkillIds.Count)
-            {
-                return BadRequest(new { message = "One or more skill ids are invalid." });
-            }
+            return Ok(new { data = skills });
         }
-
-        var currentLinks = await dbContext.InternProfileSkills
-            .Where(item => item.InternProfileId == profile.Id)
-            .ToListAsync(cancellationToken);
-
-        var linksToRemove = currentLinks
-            .Where(link => !requestedSkillIds.Contains(link.SkillId))
-            .ToList();
-
-        if (linksToRemove.Count > 0)
+        catch (ArgumentException exception)
         {
-            dbContext.InternProfileSkills.RemoveRange(linksToRemove);
+            return BadRequest(new { message = exception.Message });
         }
-
-        var currentSkillIds = currentLinks.Select(link => link.SkillId).ToHashSet();
-
-        var linksToAdd = requestedSkillIds
-            .Where(skillId => !currentSkillIds.Contains(skillId))
-            .Select(skillId => new InternProfileSkill
-            {
-                InternProfileId = profile.Id,
-                SkillId = skillId,
-                CreatedAt = DateTime.UtcNow
-            })
-            .ToList();
-
-        if (linksToAdd.Count > 0)
-        {
-            dbContext.InternProfileSkills.AddRange(linksToAdd);
-        }
-
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = internId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "intern.profile.skills.replace",
-            Entity = $"intern:{internId.Value} count:{requestedSkillIds.Count}",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        var skills = await dbContext.InternProfileSkills
-            .AsNoTracking()
-            .Where(item => item.InternProfileId == profile.Id)
-            .Include(item => item.Skill)
-            .OrderBy(item => item.Skill!.Name)
-            .Select(item => new
-            {
-                id = item.SkillId,
-                name = item.Skill != null ? item.Skill.Name : string.Empty
-            })
-            .ToListAsync(cancellationToken);
-
-        return Ok(new { data = skills });
     }
 
     /// <summary>
