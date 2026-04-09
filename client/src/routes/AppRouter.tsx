@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './guards/ProtectedRoute'
+import { GuestRoute } from './guards/GuestRoute'
 import { appRoutes, fallbackRoute, type RouteDefinition } from './routeConfig'
 
 function renderRouteElement(route: RouteDefinition) {
@@ -13,6 +14,10 @@ function renderRouteElement(route: RouteDefinition) {
 
   if (route.isProtected) {
     return <ProtectedRoute>{routeElement}</ProtectedRoute>
+  }
+
+  if (route.isGuestOnly) {
+    return <GuestRoute>{routeElement}</GuestRoute>
   }
 
   return routeElement
