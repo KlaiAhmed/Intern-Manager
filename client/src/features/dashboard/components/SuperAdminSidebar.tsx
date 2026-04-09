@@ -24,8 +24,9 @@ export type SuperAdminSection =
   | 'matching'
   | 'settings'
   | 'audit'
+  | 'biAccess'
 
-export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills'
+export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
 
 interface NavItem {
   id: SuperAdminSection
@@ -37,6 +38,8 @@ interface SuperAdminSidebarProps {
   activeSection: SuperAdminSection
   onSectionChange: (section: SuperAdminSection) => void
   onSettingsSubSectionChange?: (subsection: SettingsSubSection) => void
+  hideAdminManagement?: boolean
+  brandLabel?: string
 }
 
 const navItems: NavItem[] = [
@@ -53,6 +56,8 @@ export function SuperAdminSidebar({
   activeSection,
   onSectionChange,
   onSettingsSubSectionChange,
+  hideAdminManagement = false,
+  brandLabel = 'Super Admin',
 }: SuperAdminSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -83,6 +88,10 @@ export function SuperAdminSidebar({
     }
   }, [isMobile, onSectionChange])
 
+  const visibleNavItems = hideAdminManagement
+    ? navItems.filter((item) => item.id !== 'users')
+    : navItems
+
   const isSettingsActive = activeSection === 'settings'
 
   return (
@@ -97,7 +106,7 @@ export function SuperAdminSidebar({
           >
             <Menu />
           </button>
-          <span className="super-admin-mobile-title">Super Admin</span>
+          <span className="super-admin-mobile-title">{brandLabel}</span>
         </header>
       )}
 
@@ -148,7 +157,7 @@ export function SuperAdminSidebar({
         {/* Navigation */}
         <nav className="super-admin-nav" aria-label="Main navigation">
           <ul className="super-admin-nav-list" role="tablist">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <li key={item.id} role="presentation">
                 <button
                   role="tab"
@@ -203,6 +212,23 @@ export function SuperAdminSidebar({
                 </span>
                 <span className="super-admin-nav-label">Audit & Security</span>
                 {activeSection === 'audit' && <span className="super-admin-active-indicator" />}
+              </button>
+            </li>
+
+            <li role="presentation">
+              <button
+                role="tab"
+                aria-selected={activeSection === 'biAccess'}
+                id="nav-bi-access"
+                aria-controls="section-bi-access"
+                className={`super-admin-nav-item ${activeSection === 'biAccess' ? 'active' : ''}`}
+                onClick={() => handleNavClick('biAccess')}
+              >
+                <span className="super-admin-nav-icon" aria-hidden="true">
+                  <Settings />
+                </span>
+                <span className="super-admin-nav-label">BI Access</span>
+                {activeSection === 'biAccess' && <span className="super-admin-active-indicator" />}
               </button>
             </li>
           </ul>
