@@ -11,9 +11,11 @@ import {
   OperationalInternshipsSection,
   OperationalInternsSection,
   OperationalNotificationsEmailSection,
-  OperationalOverviewSection,
 } from '../shared/components'
+import { AdminOverviewSection } from './AdminDashboard/AdminOverviewSection'
+import { AdminUserManagementSection } from './AdminDashboard/AdminUserManagementSection'
 import { resolveAdminView, sectionByView, sectionPathMap } from '../shared/types/adminViews'
+import '../styles/pages/SuperAdminDashboard.css'
 import '../styles/pages/AdminDashboard.css'
 
 export function AdminDashboard() {
@@ -26,10 +28,6 @@ export function AdminDashboard() {
       navigate('/dashboard/admin', { replace: true })
       return
     }
-
-    if (location.pathname.startsWith('/dashboard/admin/users')) {
-      navigate('/dashboard/admin', { replace: true })
-    }
   }, [location.pathname, navigate])
 
   const activeView = useMemo(() => resolveAdminView(location.pathname), [location.pathname])
@@ -39,6 +37,8 @@ export function AdminDashboard() {
     switch (activeView) {
       case 'overview':
         return 'Admin Dashboard'
+      case 'users':
+        return 'User Management'
       case 'interns':
         return 'Interns'
       case 'internships':
@@ -67,7 +67,9 @@ export function AdminDashboard() {
   const renderView = () => {
     switch (activeView) {
       case 'overview':
-        return <OperationalOverviewSection />
+        return <AdminOverviewSection />
+      case 'users':
+        return <AdminUserManagementSection />
       case 'interns':
         return <OperationalInternsSection />
       case 'internships':
@@ -90,7 +92,7 @@ export function AdminDashboard() {
       case 'biAccess':
         return <OperationalBiAccessSection />
       default:
-        return <OperationalOverviewSection />
+        return <AdminOverviewSection />
     }
   }
 
@@ -99,7 +101,6 @@ export function AdminDashboard() {
       activeSection={activeSection}
       onSectionChange={handleSectionChange}
       onSettingsSubSectionChange={setActiveSettingsSubSection}
-      hideAdminManagement
       brandLabel="Admin"
       shellClassName="admin-dashboard"
       pageTitle={pageTitle}
