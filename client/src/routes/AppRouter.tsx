@@ -13,7 +13,7 @@ function renderRouteElement(route: RouteDefinition) {
   )
 
   if (route.isProtected) {
-    return <ProtectedRoute>{routeElement}</ProtectedRoute>
+    return <ProtectedRoute allowedRoles={route.allowedRoles}>{routeElement}</ProtectedRoute>
   }
 
   if (route.isGuestOnly) {
