@@ -5,8 +5,6 @@ import {
   Briefcase,
   BookOpen,
   ClipboardCheck,
-  FileCheck,
-  Sparkles,
   Settings,
   ShieldCheck,
   ChevronRight,
@@ -20,11 +18,8 @@ export type SuperAdminSection =
   | 'internships'
   | 'missions'
   | 'evaluations'
-  | 'deliverables'
-  | 'matching'
   | 'settings'
   | 'audit'
-  | 'biAccess'
 
 export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
 
@@ -46,10 +41,8 @@ const navItems: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <Overview /> },
   { id: 'users', label: 'User Management', icon: <Users /> },
   { id: 'internships', label: 'Internships', icon: <Briefcase /> },
-  { id: 'missions', label: 'Missions Library', icon: <BookOpen /> },
+  { id: 'missions', label: 'Interns Management', icon: <BookOpen /> },
   { id: 'evaluations', label: 'Evaluations', icon: <ClipboardCheck /> },
-  { id: 'deliverables', label: 'Deliverables', icon: <FileCheck /> },
-  { id: 'matching', label: 'Matching IA', icon: <Sparkles /> },
 ]
 
 export function SuperAdminSidebar({
@@ -212,23 +205,6 @@ export function SuperAdminSidebar({
                 </span>
                 <span className="super-admin-nav-label">Audit & Security</span>
                 {activeSection === 'audit' && <span className="super-admin-active-indicator" />}
-              </button>
-            </li>
-
-            <li role="presentation">
-              <button
-                role="tab"
-                aria-selected={activeSection === 'biAccess'}
-                id="nav-bi-access"
-                aria-controls="section-bi-access"
-                className={`super-admin-nav-item ${activeSection === 'biAccess' ? 'active' : ''}`}
-                onClick={() => handleNavClick('biAccess')}
-              >
-                <span className="super-admin-nav-icon" aria-hidden="true">
-                  <Settings />
-                </span>
-                <span className="super-admin-nav-label">BI Access</span>
-                {activeSection === 'biAccess' && <span className="super-admin-active-indicator" />}
               </button>
             </li>
           </ul>

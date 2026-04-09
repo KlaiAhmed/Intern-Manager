@@ -5,12 +5,9 @@ import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPa
 import type { SuperAdminSection } from '../components/SuperAdminSidebar'
 import {
   DashboardShell,
-  OperationalArchiveSection,
-  OperationalBiAccessSection,
   OperationalEvaluationsSection,
   OperationalInternshipsSection,
   OperationalInternsSection,
-  OperationalNotificationsEmailSection,
 } from '../shared/components'
 import { AdminOverviewSection } from './AdminDashboard/AdminOverviewSection'
 import { AdminUserManagementSection } from './AdminDashboard/AdminUserManagementSection'
@@ -49,12 +46,6 @@ export function AdminDashboard() {
         return 'Referential Settings'
       case 'audit':
         return 'Audit Log'
-      case 'notificationsEmail':
-        return 'Notification and Email Templates'
-      case 'archive':
-        return 'Archive Manager'
-      case 'biAccess':
-        return 'BI Access Control'
       default:
         return 'Admin Dashboard'
     }
@@ -95,12 +86,6 @@ export function AdminDashboard() {
         )
       case 'audit':
         return <AuditLogSection />
-      case 'notificationsEmail':
-        return <OperationalNotificationsEmailSection />
-      case 'archive':
-        return <OperationalArchiveSection />
-      case 'biAccess':
-        return <OperationalBiAccessSection />
       default:
         return <AdminOverviewSection />
     }

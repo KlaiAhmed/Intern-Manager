@@ -67,12 +67,9 @@ import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
 import {
   DashboardShell,
-  OperationalArchiveSection,
-  OperationalBiAccessSection,
   OperationalEvaluationsSection,
   OperationalInternshipsSection,
   OperationalInternsSection,
-  OperationalNotificationsEmailSection,
 } from '../shared/components'
 import '../styles/pages/SuperAdminDashboard.css'
 
@@ -288,10 +285,6 @@ export function SuperAdminDashboard() {
         return <OperationalInternsSection />
       case 'evaluations':
         return <OperationalEvaluationsSection />
-      case 'deliverables':
-        return <OperationalNotificationsEmailSection />
-      case 'matching':
-        return <OperationalArchiveSection />
       case 'settings':
         return (
           <SettingsPanel
@@ -301,8 +294,6 @@ export function SuperAdminDashboard() {
         )
       case 'audit':
         return <AuditLogSection />
-      case 'biAccess':
-        return <OperationalBiAccessSection />
       default:
         return <OverviewSection />
     }

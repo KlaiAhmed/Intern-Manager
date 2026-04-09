@@ -178,33 +178,6 @@ export interface AuditLogRecord {
   timestamp: string
 }
 
-export interface NotificationRule {
-  id: string
-  name: string
-  enabled: boolean
-  trigger: string
-}
-
-export interface EmailTemplate {
-  id: string
-  name: string
-  subject: string
-  body: string
-}
-
-export interface ArchiveHistoryRecord {
-  id: string
-  year: number
-  triggeredBy: string
-  triggeredAt: string
-  status: string
-}
-
-export interface BiAccessMatrix {
-  role: string
-  dashboards: Record<string, boolean>
-}
-
 export interface InternshipFormState {
   missionTitle: string
   supervisorId: string
@@ -215,13 +188,6 @@ export interface InternshipFormState {
   startDate: string
   endDate: string
   objectives: string
-}
-
-export interface EmailTemplateFormState {
-  id: string
-  name: string
-  subject: string
-  body: string
 }
 
 export interface AdminOverviewStats {
@@ -245,13 +211,3 @@ export const defaultInternshipFormState: InternshipFormState = {
   endDate: '',
   objectives: '',
 }
-
-export const defaultEmailTemplateFormState: EmailTemplateFormState = {
-  id: '',
-  name: '',
-  subject: '',
-  body: '',
-}
-
-export const roleRows = ['SuperAdmin', 'Admin', 'Manager', 'Supervisor', 'Intern']
-export const dashboardColumns = ['Executive', 'Operations', 'Evaluation', 'Recruitment']

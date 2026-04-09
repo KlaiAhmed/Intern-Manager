@@ -77,26 +77,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Notification> Notifications => Set<Notification>();
 
     /// <summary>
-    /// Table des regles de notifications administrables depuis le dashboard.
-    /// </summary>
-    public DbSet<AdminNotificationRule> AdminNotificationRules => Set<AdminNotificationRule>();
-
-    /// <summary>
-    /// Table des templates d email administrables.
-    /// </summary>
-    public DbSet<AdminEmailTemplate> AdminEmailTemplates => Set<AdminEmailTemplate>();
-
-    /// <summary>
-    /// Table de journal des jobs d archivage annuels.
-    /// </summary>
-    public DbSet<AdminArchiveJob> AdminArchiveJobs => Set<AdminArchiveJob>();
-
-    /// <summary>
-    /// Table des permissions BI par role et dashboard.
-    /// </summary>
-    public DbSet<AdminBiAccessPermission> AdminBiAccessPermissions => Set<AdminBiAccessPermission>();
-
-    /// <summary>
     /// Table des entrees de changelog des missions/stages.
     /// </summary>
     public DbSet<MissionHistoryEntry> MissionHistoryEntries => Set<MissionHistoryEntry>();
@@ -675,108 +655,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<AdminNotificationRule>(entity =>
-        {
-            entity.ToTable("AdminNotificationRules");
 
-            entity.HasKey(rule => rule.Id);
 
-            entity.Property(rule => rule.Id)
-                .ValueGeneratedOnAdd()
-                .HasDefaultValueSql("NEWID()");
 
-            entity.Property(rule => rule.Name)
-                .IsRequired()
-                .HasMaxLength(160);
-
-            entity.Property(rule => rule.Trigger)
-                .IsRequired()
-                .HasMaxLength(160);
-
-            entity.Property(rule => rule.Enabled)
-                .HasDefaultValue(true);
-
-            entity.HasIndex(rule => rule.Name)
-                .IsUnique();
-
-            entity.HasIndex(rule => rule.Trigger)
-                .IsUnique();
-        });
-
-        modelBuilder.Entity<AdminEmailTemplate>(entity =>
-        {
-            entity.ToTable("AdminEmailTemplates");
-
-            entity.HasKey(template => template.Id);
-
-            entity.Property(template => template.Id)
-                .ValueGeneratedOnAdd()
-                .HasDefaultValueSql("NEWID()");
-
-            entity.Property(template => template.Name)
-                .IsRequired()
-                .HasMaxLength(120);
-
-            entity.Property(template => template.Subject)
-                .IsRequired()
-                .HasMaxLength(300);
-
-            entity.Property(template => template.Body)
-                .IsRequired()
-                .HasMaxLength(12000);
-
-            entity.HasIndex(template => template.Name)
-                .IsUnique();
-        });
-
-        modelBuilder.Entity<AdminArchiveJob>(entity =>
-        {
-            entity.ToTable("AdminArchiveJobs");
-
-            entity.HasKey(job => job.Id);
-
-            entity.Property(job => job.Id)
-                .ValueGeneratedOnAdd()
-                .HasDefaultValueSql("NEWID()");
-
-            entity.Property(job => job.Year)
-                .IsRequired();
-
-            entity.Property(job => job.TriggeredBy)
-                .IsRequired()
-                .HasMaxLength(255);
-
-            entity.Property(job => job.TriggeredAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(job => job.Status)
-                .IsRequired()
-                .HasMaxLength(32);
-
-            entity.HasIndex(job => job.Year)
-                .IsUnique();
-
-            entity.HasIndex(job => job.TriggeredAt);
-        });
-
-        modelBuilder.Entity<AdminBiAccessPermission>(entity =>
-        {
-            entity.ToTable("AdminBiAccessPermissions");
-
-            entity.HasKey(permission => new { permission.Role, permission.Dashboard });
-
-            entity.Property(permission => permission.Role)
-                .IsRequired()
-                .HasMaxLength(32);
-
-            entity.Property(permission => permission.Dashboard)
-                .IsRequired()
-                .HasMaxLength(64);
-
-            entity.Property(permission => permission.Allowed)
-                .HasDefaultValue(false);
-        });
 
         modelBuilder.Entity<MissionHistoryEntry>(entity =>
         {
