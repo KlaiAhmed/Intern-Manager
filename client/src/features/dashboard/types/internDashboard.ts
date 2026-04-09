@@ -74,11 +74,25 @@ export interface NotificationItem {
   title: string
 }
 
+export interface ProfileSkillSummary {
+  id: string
+  name: string
+}
+
 export interface InternProfileReadOnly {
-  school?: string
-  specialty?: string
-  experience?: string
+  universityId?: string | null
+  universityName?: string | null
+  major?: string | null
+  currentYearOfStudy?: string | null
+  expectedGraduationDate?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  workPreference?: string | null
   cvFileUrl?: string | null
+  skills?: ProfileSkillSummary[]
+  school?: string | null
+  specialty?: string | null
+  experience?: string | null
 }
 
 export interface CvUploadResponse {

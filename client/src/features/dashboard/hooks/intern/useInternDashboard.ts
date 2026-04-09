@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { useAuth } from '../../../../stores/AuthContext'
 import { useDashboardApi } from '../useDashboardApi'
+import type { School } from '../../api/schoolsApi'
 import type {
   Deliverable,
   Evaluation,
@@ -97,7 +98,20 @@ export function useInternDashboard() {
         api.get<InternProfileReadOnly>('/api/intern/me/profile'),
       ])
 
-      setPendingProfile(profileResult)
+      let universityName: string | null = null
+      if (profileResult.universityId) {
+        try {
+          const schoolsResult = await api.get<School[]>('/api/intern/me/profile/schools')
+          universityName = schoolsResult.find((school) => school.id === profileResult.universityId)?.name ?? null
+        } catch {
+          universityName = null
+        }
+      }
+
+      setPendingProfile({
+        ...profileResult,
+        universityName,
+      })
 
       const firstLifecycleNotification = (notificationsResult.data ?? []).find((item) =>
         item.type === 'intern.profile.pending-assignment' || item.type === 'intern.cv.submitted')

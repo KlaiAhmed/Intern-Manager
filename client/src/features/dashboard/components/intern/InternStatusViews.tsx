@@ -1,7 +1,40 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
+import { buildApiUrl } from '../../../../lib/apiClient'
 import { uploadInternCvWithProgress } from '../../api/internCvApi'
 import type { InternLifecycleStatus, InternProfileReadOnly } from '../../types/internDashboard'
+
+function formatPendingDate(value: string | null | undefined, locale: string): string | null {
+  if (!value?.trim()) {
+    return null
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.valueOf())) {
+    return value.trim()
+  }
+
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(parsedDate)
+}
+
+function extractFileName(fileUrl: string | null | undefined): string | null {
+  if (!fileUrl?.trim()) {
+    return null
+  }
+
+  const cleanedPath = fileUrl.split('?')[0].split('#')[0]
+  const fileName = cleanedPath.slice(cleanedPath.lastIndexOf('/') + 1).trim()
+
+  return fileName.length > 0 ? fileName : null
+}
+
+function resolveUploadedCvUrl(fileUrl: string | null | undefined): string | null {
+  if (!fileUrl?.trim()) {
+    return null
+  }
+
+  return buildApiUrl('/api/intern/me/profile/cv')
+}
 
 export function StatusGateLoading() {
   const { t } = useI18n()
@@ -169,8 +202,56 @@ export function PendingStatusView({
   notificationMessage: string
   profile: InternProfileReadOnly | null
 }) {
-  const { t } = useI18n()
-  const [showProfile, setShowProfile] = useState(false)
+  const { t, locale } = useI18n()
+  const [showProfile, setShowProfile] = useState(true)
+
+  const formatCurrentYearOfStudy = (value: string | null | undefined) => {
+    const normalizedValue = value?.trim().toLowerCase()
+
+    if (!normalizedValue) {
+      return null
+    }
+
+    switch (normalizedValue) {
+      case 'licence':
+        return t('dashboard.intern.application.yearLicence')
+      case 'master':
+        return t('dashboard.intern.application.yearMaster')
+      case 'doctorat':
+        return t('dashboard.intern.application.yearDoctorate')
+      default:
+        return value?.trim() ?? null
+    }
+  }
+
+  const formatWorkPreference = (value: string | null | undefined) => {
+    const normalizedValue = value?.trim().toLowerCase()
+
+    if (!normalizedValue) {
+      return null
+    }
+
+    switch (normalizedValue) {
+      case 'remote':
+        return t('dashboard.intern.application.remote')
+      case 'hybrid':
+        return t('dashboard.intern.application.hybrid')
+      case 'onsite':
+        return t('dashboard.intern.application.onsite')
+      default:
+        return value?.trim() ?? null
+    }
+  }
+
+  const universityValue = profile?.universityName?.trim() || profile?.universityId?.trim() || null
+  const majorValue = profile?.major?.trim() || null
+  const currentYearValue = formatCurrentYearOfStudy(profile?.currentYearOfStudy)
+  const expectedGraduationValue = formatPendingDate(profile?.expectedGraduationDate, locale)
+  const startDateValue = formatPendingDate(profile?.startDate, locale)
+  const endDateValue = formatPendingDate(profile?.endDate, locale)
+  const workPreferenceValue = formatWorkPreference(profile?.workPreference)
+  const cvFileName = extractFileName(profile?.cvFileUrl)
+  const cvFileUrl = resolveUploadedCvUrl(profile?.cvFileUrl)
 
   return (
     <div className="intern-dashboard status-gate-page">
@@ -188,6 +269,8 @@ export function PendingStatusView({
           <button
             type="button"
             className="pending-btn pending-btn-primary"
+            aria-expanded={showProfile}
+            aria-controls="pending-profile-panel"
             onClick={() => setShowProfile((currentValue) => !currentValue)}
           >
             {showProfile ? t('dashboard.intern.statusGate.pending.hideProfile') : t('dashboard.intern.statusGate.pending.viewProfile')}
@@ -195,35 +278,96 @@ export function PendingStatusView({
         </div>
 
         {showProfile && (
-          <div className="pending-profile-panel" aria-live="polite">
+          <div className="pending-profile-panel" id="pending-profile-panel" aria-live="polite">
             <div className="pending-profile-panel-grid">
               <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.school')}</span>
-                <span className="pending-profile-value">
-                  {profile?.school || <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>}
-                </span>
+                <span className="pending-profile-label">{t('dashboard.intern.application.university')}</span>
+                <div className="pending-profile-value">
+                  {universityValue ? (
+                    <span>{universityValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.specialty')}</span>
-                <span className="pending-profile-value">
-                  {profile?.specialty || <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>}
-                </span>
+                <span className="pending-profile-label">{t('dashboard.intern.application.major')}</span>
+                <div className="pending-profile-value">
+                  {majorValue ? (
+                    <span>{majorValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.experience')}</span>
-                <span className="pending-profile-value">
-                  {profile?.experience || <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>}
-                </span>
+                <span className="pending-profile-label">{t('dashboard.intern.application.currentYear')}</span>
+                <div className="pending-profile-value">
+                  {currentYearValue ? (
+                    <span>{currentYearValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">{t('dashboard.intern.application.expectedGraduation')}</span>
+                <div className="pending-profile-value">
+                  {expectedGraduationValue ? (
+                    <span>{expectedGraduationValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">{t('dashboard.intern.application.availableStart')}</span>
+                <div className="pending-profile-value">
+                  {startDateValue ? (
+                    <span>{startDateValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">{t('dashboard.intern.application.availableEnd')}</span>
+                <div className="pending-profile-value">
+                  {endDateValue ? (
+                    <span>{endDateValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">{t('dashboard.intern.application.workPreference')}</span>
+                <div className="pending-profile-value">
+                  {workPreferenceValue ? (
+                    <span>{workPreferenceValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
               </div>
               <div className="pending-profile-row">
                 <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.cvFile')}</span>
-                <span className="pending-profile-value">
-                  {profile?.cvFileUrl ? (
-                    <a href={profile.cvFileUrl} target="_blank" rel="noreferrer">{t('dashboard.intern.statusGate.pending.viewCv')}</a>
+                <div className="pending-profile-value">
+                  {cvFileUrl ? (
+                    <a
+                      className="pending-cv-link"
+                      href={cvFileUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      title={cvFileName ?? undefined}
+                      aria-label={t('dashboard.intern.statusGate.pending.viewCv')}
+                    >
+                      {t('dashboard.intern.statusGate.pending.viewCv')}
+                    </a>
                   ) : (
                     <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notUploaded')}</span>
                   )}
-                </span>
+                </div>
               </div>
             </div>
           </div>

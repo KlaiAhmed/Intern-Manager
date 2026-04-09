@@ -415,4 +415,8 @@
   .status-gate-card {
     padding: var(--space-8);
   }
+
+  .pending-profile-panel-grid {
+    grid-template-columns: 1fr;
+  }
 }
