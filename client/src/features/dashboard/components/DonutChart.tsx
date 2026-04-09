@@ -5,11 +5,18 @@ interface DonutChartProps {
   data: Array<{ name: string; value: number }>
 }
 
-const COLORS = ['var(--color-primary)', 'var(--color-accent)', 'var(--color-warning)', '#8884d8', '#82ca9d']
+// Colors designed for both light and dark mode with good contrast
+// Light mode: darker values | Dark mode: lighter values
+const CHART_COLORS = [
+  { light: '#1d4ed8', dark: '#60a5fa' }, // Blue
+  { light: '#059669', dark: '#34d399' }, // Green
+  { light: '#d97706', dark: '#fbbf24' }, // Amber
+  { light: '#7c3aed', dark: '#a78bfa' }, // Purple
+]
 
 /**
- * Graphique donut (anneau).
- * Utilise une représentation CSS/SVG simple.
+ * Modern donut chart with clean, minimalistic design.
+ * No hover effects, stable positioning, theme-aware colors.
  */
 export const DonutChart = memo(function DonutChart({ data }: DonutChartProps) {
   const { t } = useI18n()
@@ -25,13 +32,13 @@ export const DonutChart = memo(function DonutChart({ data }: DonutChartProps) {
       name: string
       value: number
       percent: number
-      startPercent: number
-      color: string
+      startAngle: number
+      colorIndex: number
     }>>((accumulator, item, index) => {
       const previousSegment = accumulator[accumulator.length - 1]
-      const startPercent = previousSegment
-        ? previousSegment.startPercent + previousSegment.percent
-        : 0
+      const startAngle = previousSegment
+        ? previousSegment.startAngle + (previousSegment.percent / 100) * 360
+        : -90 // Start from top
       const percent = (item.value / total) * 100
 
       return [
@@ -39,57 +46,75 @@ export const DonutChart = memo(function DonutChart({ data }: DonutChartProps) {
         {
           ...item,
           percent,
-          startPercent,
-          color: COLORS[index % COLORS.length],
+          startAngle,
+          colorIndex: index % CHART_COLORS.length,
         },
       ]
     }, [])
   }, [data, total])
 
   if (data.length === 0 || total === 0) {
-    return <p className="chart-empty">{t('dashboard.noData')}</p>
-  }
-
-  const radius = 80
-  const strokeWidth = 30
-  const circumference = 2 * Math.PI * radius
+    return <p className="donut-empty">{t('dashboard.noData')}</p>}
+  // SVG parameters
+  const size = 140
+  const strokeWidth = 18
+  const radius = (size - strokeWidth) / 2
+  const center = size / 2
 
   return (
-    <div className="donut-chart-container">
-      <svg className="donut-chart" viewBox="0 0 200 200">
+    <div className="donut-container">
+      <svg
+        className="donut-svg"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={`Donut chart: ${segments.length} categories`}
+      >
         {segments.map((segment, index) => {
-          const offset = circumference * (1 - segment.startPercent / 100)
-          const length = circumference * (segment.percent / 100)
+          // Convert angles to arc path
+          const endAngle = segment.startAngle + (segment.percent / 100) * 360
+          const startRad = (segment.startAngle * Math.PI) / 180
+          const endRad = (endAngle * Math.PI) / 180
+
+          const x1 = center + radius * Math.cos(startRad)
+          const y1 = center + radius * Math.sin(startRad)
+          const x2 = center + radius * Math.cos(endRad)
+          const y2 = center + radius * Math.sin(endRad)
+
+          const largeArcFlag = segment.percent > 50 ? 1 : 0
+
           return (
-            <circle
+            <path
               key={index}
-              cx="100"
-              cy="100"
-              r={radius}
+              d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`}
               fill="none"
-              stroke={segment.color}
               strokeWidth={strokeWidth}
-              strokeDasharray={`${length} ${circumference - length}`}
-              strokeDashoffset={offset}
-              transform="rotate(-90 100 100)"
-              className="donut-segment"
+              strokeLinecap="round"
+              className={`donut-arc donut-arc-${segment.colorIndex}`}
             />
           )
         })}
-        <text x="100" y="100" textAnchor="middle" dominantBaseline="middle" className="donut-total">
+        <text
+          x={center}
+          y={center}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="donut-total"
+        >
           {total}
         </text>
       </svg>
+
       <div className="donut-legend">
         {segments.map((segment, index) => (
-          <div key={index} className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: segment.color }} />
-            <span className="legend-label">{segment.name}</span>
-            <span className="legend-value">{segment.value}</span>
+          <div key={index} className="legend-row">
+            <span className={`legend-dot legend-dot-${segment.colorIndex}`} />
+            <span className="legend-name">{segment.name}</span>
+            <span className="legend-count">{segment.value}</span>
           </div>
         ))}
       </div>
     </div>
   )
 })
-

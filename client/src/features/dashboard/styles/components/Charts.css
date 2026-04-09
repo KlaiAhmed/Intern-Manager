@@ -1,28 +1,33 @@
-.chart-empty {
+/* Charts.css - Modern, minimalistic chart styles */
+
+/* Empty state */
+.donut-empty {
   text-align: center;
-  color: var(--color-text-secondary);
-  padding: var(--space-8);
+  color: var(--dash-text-muted);
+  padding: var(--dash-space-8);
+  font-size: 0.875rem;
 }
 
+/* Bar Chart - Fallback */
 .bar-chart-fallback {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--dash-space-sm);
 }
 
 .bar-chart-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--dash-space-sm);
 }
 
 .bar-chart-label {
   flex: 0 0 100px;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--dash-text-secondary);
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -30,31 +35,119 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--dash-space-xs);
 }
 
 .bar-chart-bar {
   height: 24px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--dash-accent), var(--color-accent));
+  border-radius: var(--dash-radius-sm);
   min-width: 4px;
-  transition: width var(--duration-normal) var(--ease-standard);
 }
 
 .bar-chart-value {
   font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--color-text);
+  font-weight: 500;
+  color: var(--dash-text);
   min-width: 40px;
 }
 
-.donut-chart-container {
+/* ============================================
+   DONUT CHART - Modern, minimalistic design
+   ============================================ */
+
+.donut-container {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--dash-space-lg);
+  padding: var(--dash-space-md) 0;
+  width: 100%;
 }
 
-.donut-chart {
-  width: 140px;
-  height: 140px;
+.donut-svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Arc segments - theme-aware colors */
+.donut-arc-0 { stroke: var(--color-primary); }
+.donut-arc-1 { stroke: var(--color-success); }
+.donut-arc-2 { stroke: var(--color-warning); }
+.donut-arc-3 { stroke: #7c3aed; }
+
+/* Dark mode overrides for better contrast */
+html[data-theme='dark'] .donut-arc-0 { stroke: #60a5fa; }
+html[data-theme='dark'] .donut-arc-1 { stroke: #34d399; }
+html[data-theme='dark'] .donut-arc-2 { stroke: #fbbf24; }
+html[data-theme='dark'] .donut-arc-3 { stroke: #a78bfa; }
+
+/* Center total number */
+.donut-total {
+  font-family: var(--dash-font-heading);
+  font-size: 1.75rem;
+  font-weight: 500;
+  fill: var(--dash-text);
+  letter-spacing: -0.02em;
+}
+
+/* Legend - clean, minimal */
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-xs);
+  width: 100%;
+  padding: 0 var(--dash-space-xs);
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-sm);
+  padding: var(--dash-space-xs) 0;
+}
+
+.legend-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* Legend dot colors - matching arc colors */
+.legend-dot-0 { background: var(--color-primary); }
+.legend-dot-1 { background: var(--color-success); }
+.legend-dot-2 { background: var(--color-warning); }
+.legend-dot-3 { background: #7c3aed; }
+
+/* Dark mode legend colors */
+html[data-theme='dark'] .legend-dot-0 { background: #60a5fa; }
+html[data-theme='dark'] .legend-dot-1 { background: #34d399; }
+html[data-theme='dark'] .legend-dot-2 { background: #fbbf24; }
+html[data-theme='dark'] .legend-dot-3 { background: #a78bfa; }
+
+.legend-name {
+  flex: 1;
+  font-family: var(--dash-font-body);
+  font-size: 0.875rem;
+  color: var(--dash-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-count {
+  font-family: var(--dash-font-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--dash-text);
+  min-width: 2rem;
+  text-align: right;
+}
+
+/* Responsive */
+@media (max-width: 639px) {
+  .donut-total {
+    font-size: 1.5rem;
+  }
 }
