@@ -71,11 +71,14 @@ public sealed class DeliverablesController(
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Une liste paginée de livrables.</returns>
     /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Paramètre supervisorId invalide.</response>
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListDeliverables")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(typeof(PagedResponse<DeliverableQueueItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetDeliverables(
@@ -85,19 +88,33 @@ public sealed class DeliverablesController(
         [FromQuery] int limit = 20,
         CancellationToken cancellationToken = default)
     {
-        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!currentSupervisorId.HasValue)
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
         {
             return Unauthorized();
         }
 
-        if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentSupervisorId.Value))
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        var effectiveSupervisorId = currentUserId.Value;
+
+        if (isAdminScope)
+        {
+            if (!string.IsNullOrWhiteSpace(supervisorId) &&
+                !string.Equals(supervisorId, "me", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Guid.TryParse(supervisorId, out effectiveSupervisorId))
+                {
+                    return BadRequest(new { message = "Invalid supervisorId filter." });
+                }
+            }
+        }
+        else if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentUserId.Value))
         {
             return Forbid();
         }
 
         var response = await deliverablesService.GetSupervisorDeliverablesAsync(
-            currentSupervisorId.Value,
+            effectiveSupervisorId,
             status,
             page,
             limit,
@@ -122,7 +139,8 @@ public sealed class DeliverablesController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/deliverables", Name = "ListMyDeliverables")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -283,7 +301,8 @@ public sealed class DeliverablesController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
     [HttpPost("{id:guid}/submit", Name = "SubmitDeliverable")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [EnableRateLimiting("upload")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -436,7 +455,8 @@ public sealed class DeliverablesController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
     [HttpPatch("/api/intern/me/deliverables/{id:guid}/progress", Name = "UpdateDeliverableProgress")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -517,7 +537,8 @@ public sealed class DeliverablesController(
     /// <response code="404">Livrable non trouvé.</response>
     /// <response code="409">Livrable pas encore soumis.</response>
     [HttpPatch("{id:guid}/validate", Name = "ValidateDeliverable")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

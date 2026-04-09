@@ -88,7 +88,7 @@ export function OperationalBiAccessSection() {
       ) : matrix.length === 0 ? (
         <div className="dash-empty">
           <h3 className="dash-empty-title">No matrix data available</h3>
-          <p className="dash-empty-description">Matrix data will be available when BI access endpoints are implemented.</p>
+          <p className="dash-empty-description">No BI access entries were returned by the server.</p>
         </div>
       ) : (
         <div className="table-wrapper">
@@ -112,7 +112,7 @@ export function OperationalBiAccessSection() {
                           type="checkbox"
                           checked={Boolean(row.dashboards[dashboard])}
                           onChange={() => toggleCell(row.role, dashboard)}
-                          title="Local toggle only until /api/admin/bi-access is implemented"
+                          title="Toggle BI dashboard access for this role"
                         />
                         <span>{row.dashboards[dashboard] ? 'Granted' : 'Blocked'}</span>
                       </label>

@@ -148,11 +148,14 @@ public sealed class EvaluationsController(
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Une liste paginée d évaluations en attente.</returns>
     /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="400">Paramètre supervisorId invalide.</response>
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("pending", Name = "ListPendingEvaluations")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetPendingEvaluations(
@@ -167,7 +170,21 @@ public sealed class EvaluationsController(
             return Unauthorized();
         }
 
-        if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentSupervisorId.Value))
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        var effectiveSupervisorId = currentSupervisorId.Value;
+
+        if (isAdminScope)
+        {
+            if (!string.IsNullOrWhiteSpace(supervisorId) &&
+                !string.Equals(supervisorId, "me", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Guid.TryParse(supervisorId, out effectiveSupervisorId))
+                {
+                    return BadRequest(new { message = "Invalid supervisorId filter." });
+                }
+            }
+        }
+        else if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentSupervisorId.Value))
         {
             return Forbid();
         }
@@ -175,7 +192,7 @@ public sealed class EvaluationsController(
         var safePage = Math.Max(page, 1);
         var safeLimit = Math.Clamp(limit, 1, 100);
 
-        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
+        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(effectiveSupervisorId, cancellationToken);
         if (assignedInternIds.Count == 0)
         {
             return Ok(new { data = Array.Empty<object>(), total = 0, page = safePage, limit = safeLimit });
@@ -183,7 +200,7 @@ public sealed class EvaluationsController(
 
         var query = dbContext.Evaluations
             .AsNoTracking()
-            .Where(evaluation => evaluation.SupervisorId == currentSupervisorId.Value &&
+            .Where(evaluation => evaluation.SupervisorId == effectiveSupervisorId &&
                                  evaluation.Status == DomainStatuses.Evaluation.Pending &&
                                  assignedInternIds.Contains(evaluation.InternId));
 
@@ -214,7 +231,8 @@ public sealed class EvaluationsController(
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Deux colonnes : évaluations à faire et évaluations terminées.</returns>
     [HttpGet("supervisor/me/status", Name = "GetSupervisorEvaluationStatus")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(typeof(EvaluationStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -247,7 +265,8 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost("pending/sync", Name = "SyncPendingEvaluations")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -356,7 +375,8 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "SubmitEvaluation")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -393,10 +413,14 @@ public sealed class EvaluationsController(
             });
         }
 
-        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
-        if (!assignedInternIds.Contains(request.InternId))
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
         {
-            return Forbid();
+            var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
+            if (!assignedInternIds.Contains(request.InternId))
+            {
+                return Forbid();
+            }
         }
 
         var internExists = await dbContext.Users
@@ -476,7 +500,8 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Évaluation non trouvée.</response>
     [HttpPatch("{id:guid}", Name = "UpdateEvaluation")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -605,7 +630,8 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Évaluation non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetEvaluationById")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -659,7 +685,8 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/evaluations", Name = "ListMyEvaluations")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -117,8 +117,8 @@ export function useSuperAdminStats(): UseSuperAdminStatsReturn {
         pendingDeliverablesResponse,
         internshipsByStatusResponse,
       ] = await Promise.all([
-        get<{ count?: unknown }>('/api/stats/interns/active'),
-        get<{ count?: unknown }>('/api/stats/supervisors'),
+        get<{ count?: unknown }>('/api/stats/interns/count'),
+        get<{ count?: unknown }>('/api/stats/supervisors/count'),
         get<{ count?: unknown }>('/api/stats/missions'),
         get<{ count?: unknown }>('/api/stats/admins'),
         get<{ count?: unknown }>('/api/stats/deliverables/pending'),

@@ -19,7 +19,8 @@ namespace InternManager.Api.Controllers;
 /// <param name="notificationService">Service de notifications in-app.</param>
 [ApiController]
 [Route("api/intern/me/profile")]
-[Authorize(Roles = "Intern")]
+// RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Intern")]
 public sealed class InternProfileController(
     AppDbContext dbContext,
     IWebHostEnvironment environment,

@@ -1,4 +1,5 @@
 export { DashboardShell } from './DashboardShell'
+export { AdminOverviewContent } from './AdminOverviewContent'
 export { OperationalArchiveSection } from './OperationalArchiveSection'
 export { OperationalBiAccessSection } from './OperationalBiAccessSection'
 export { OperationalEvaluationsSection } from './OperationalEvaluationsSection'

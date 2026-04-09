@@ -156,7 +156,8 @@ public sealed class InternsController(
     }
 
     [HttpPost("{id:guid}/upload-cv", Name = "UploadInternCv")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [EnableRateLimiting("upload")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

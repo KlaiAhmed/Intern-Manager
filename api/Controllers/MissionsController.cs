@@ -20,7 +20,8 @@ namespace InternManager.Api.Controllers;
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/missions")]
-[Authorize(Roles = "Supervisor")]
+// RBAC policy: endpoints available to Supervisor must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
 [EnableRateLimiting("write-operations")]
 public sealed class MissionsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
@@ -42,6 +43,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMissions")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMyMissions(
@@ -50,13 +52,27 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         [FromQuery] int limit = 20,
         CancellationToken cancellationToken = default)
     {
-        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!currentSupervisorId.HasValue)
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
         {
             return Unauthorized();
         }
 
-        if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentSupervisorId.Value))
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        var effectiveSupervisorId = currentUserId.Value;
+
+        if (isAdminScope)
+        {
+            if (!string.IsNullOrWhiteSpace(supervisorId) &&
+                !string.Equals(supervisorId, "me", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Guid.TryParse(supervisorId, out effectiveSupervisorId))
+                {
+                    return BadRequest(new { message = "Invalid supervisorId filter." });
+                }
+            }
+        }
+        else if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentUserId.Value))
         {
             return Forbid();
         }
@@ -66,7 +82,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         var missionsQuery = dbContext.Missions
             .AsNoTracking()
-            .Where(mission => mission.SupervisorId == currentSupervisorId.Value)
+            .Where(mission => mission.SupervisorId == effectiveSupervisorId)
             .Include(mission => mission.Intern);
 
         var total = await missionsQuery.CountAsync(cancellationToken);

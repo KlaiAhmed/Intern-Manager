@@ -22,7 +22,8 @@ namespace InternManager.Api.Controllers;
 /// <param name="supervisorStatsService">Service métier des statistiques superviseur.</param>
 [ApiController]
 [Route("api/stats/supervisor/me")]
-[Authorize(Roles = "Supervisor")]
+// RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
 public sealed class SupervisorStatsController(
     AppDbContext dbContext,
     ISupervisorScopeService supervisorScopeService,

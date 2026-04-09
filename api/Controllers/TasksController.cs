@@ -40,7 +40,8 @@ public sealed class TasksController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/tasks", Name = "ListMyTasks")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -56,13 +57,17 @@ public sealed class TasksController(
             return Unauthorized();
         }
 
-        var isIntern = await dbContext.Users
-            .AsNoTracking()
-            .AnyAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
-
-        if (!isIntern)
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
         {
-            return Forbid();
+            var isIntern = await dbContext.Users
+                .AsNoTracking()
+                .AnyAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
+
+            if (!isIntern)
+            {
+                return Forbid();
+            }
         }
 
         var safePage = Math.Max(page, 1);
@@ -107,7 +112,8 @@ public sealed class TasksController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost("/api/intern/me/tasks/sync", Name = "SyncMyTasks")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -161,7 +167,8 @@ public sealed class TasksController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Tâche non trouvée.</response>
     [HttpPatch("{id:guid}/complete", Name = "CompleteTask")]
-    [Authorize(Roles = "Intern")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -231,7 +238,8 @@ public sealed class TasksController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "AssignTask")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -263,10 +271,14 @@ public sealed class TasksController(
             return BadRequest(new { message = "Intern not found." });
         }
 
-        var canAssign = await taskWorkflowService.CanSupervisorAssignInternAsync(supervisorId.Value, request.InternId, cancellationToken);
-        if (!canAssign)
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
         {
-            return Forbid();
+            var canAssign = await taskWorkflowService.CanSupervisorAssignInternAsync(supervisorId.Value, request.InternId, cancellationToken);
+            if (!canAssign)
+            {
+                return Forbid();
+            }
         }
 
         Guid? deliverableId = null;

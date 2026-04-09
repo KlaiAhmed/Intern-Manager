@@ -21,7 +21,8 @@ namespace InternManager.Api.Controllers;
 /// <param name="supervisorInternsService">Service métier des vues de suivi des stagiaires superviseur.</param>
 [ApiController]
 [Route("api/supervisor/me")]
-[Authorize(Roles = "Supervisor")]
+// RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
 public sealed class SupervisorInternsController(
     AppDbContext dbContext,
     ISupervisorInternsService supervisorInternsService) : ControllerBase
@@ -58,13 +59,15 @@ public sealed class SupervisorInternsController(
             return Unauthorized();
         }
 
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+
         var supervisor = await dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 user => user.Id == supervisorId.Value && user.Role == UserRole.Supervisor,
                 cancellationToken);
 
-        if (supervisor is null)
+        if (supervisor is null && !isAdminScope)
         {
             return Forbid();
         }

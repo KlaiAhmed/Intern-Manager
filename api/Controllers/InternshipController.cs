@@ -13,7 +13,8 @@ namespace InternManager.Api.Controllers;
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/intern/me")]
-[Authorize(Roles = "Intern")]
+// RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Intern")]
 public sealed class InternshipController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>

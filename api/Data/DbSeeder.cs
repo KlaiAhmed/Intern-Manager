@@ -39,6 +39,7 @@ public static class DbSeeder
         await SqlMigrationScriptRunner.ApplyPendingScriptsAsync(dbContext, logger, hostEnvironment.ContentRootPath);
 
         await ReferenceDataSeeder.SeedDefaultStatusReferencesAsync(dbContext, logger);
+        await AdminOperationsSeeder.SeedDefaultsAsync(dbContext, logger);
 
         await SeedDevelopmentBypassUsersAsync(dbContext, logger, hostEnvironment);
 

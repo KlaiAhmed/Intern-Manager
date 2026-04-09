@@ -30,10 +30,25 @@ export function OperationalNotificationsEmailSection() {
 
       setRules(rulesPayload)
       setTemplates(templatesPayload)
+      setTemplateForm((previous) => {
+        if (templatesPayload.length === 0) {
+          return defaultEmailTemplateFormState
+        }
+
+        const selectedTemplate = templatesPayload.find((template) => template.id === previous.id) ?? templatesPayload[0]
+
+        return {
+          id: selectedTemplate.id,
+          name: selectedTemplate.name,
+          subject: selectedTemplate.subject,
+          body: selectedTemplate.body,
+        }
+      })
     } catch (requestError) {
       setBannerError(toDashboardErrorMessage(requestError))
       setRules([])
       setTemplates([])
+      setTemplateForm(defaultEmailTemplateFormState)
     } finally {
       setLoading(false)
     }
@@ -44,11 +59,67 @@ export function OperationalNotificationsEmailSection() {
   }, [loadData])
 
   const saveTemplate = async () => {
+    if (!templateForm.id.trim()) {
+      setBannerError('Select a template before saving changes.')
+      return
+    }
+
     try {
-      await pendingAdminServices.saveEmailTemplate(templateForm)
+      await pendingAdminServices.saveEmailTemplate(templateForm.id, templateForm)
+      setTemplateModalOpen(false)
+      await loadData()
     } catch (requestError) {
       setBannerError(toDashboardErrorMessage(requestError))
     }
+  }
+
+  const toggleNotificationRule = async (rule: NotificationRule) => {
+    const nextEnabled = !rule.enabled
+
+    setRules((previous) => {
+      return previous.map((item) => {
+        if (item.id !== rule.id) {
+          return item
+        }
+
+        return {
+          ...item,
+          enabled: nextEnabled,
+        }
+      })
+    })
+
+    try {
+      await pendingAdminServices.updateNotificationRule(rule.id, nextEnabled)
+    } catch (requestError) {
+      setRules((previous) => {
+        return previous.map((item) => {
+          if (item.id !== rule.id) {
+            return item
+          }
+
+          return {
+            ...item,
+            enabled: rule.enabled,
+          }
+        })
+      })
+      setBannerError(toDashboardErrorMessage(requestError))
+    }
+  }
+
+  const selectTemplate = (templateId: string) => {
+    const selectedTemplate = templates.find((template) => template.id === templateId)
+    if (!selectedTemplate) {
+      return
+    }
+
+    setTemplateForm({
+      id: selectedTemplate.id,
+      name: selectedTemplate.name,
+      subject: selectedTemplate.subject,
+      body: selectedTemplate.body,
+    })
   }
 
   return (
@@ -67,8 +138,8 @@ export function OperationalNotificationsEmailSection() {
           <Skeleton height="180px" />
         ) : rules.length === 0 ? (
           <div className="dash-empty">
-            <h3 className="dash-empty-title">Endpoint not yet available</h3>
-            <p className="dash-empty-description">Rules will appear here when notification-rules endpoints are implemented.</p>
+            <h3 className="dash-empty-title">No notification rules found</h3>
+            <p className="dash-empty-description">No configurable notification rules are currently available.</p>
           </div>
         ) : (
           <div className="table-wrapper">
@@ -90,7 +161,7 @@ export function OperationalNotificationsEmailSection() {
                         <input
                           type="checkbox"
                           checked={rule.enabled}
-                          onChange={() => void pendingAdminServices.updateNotificationRule(rule.id, !rule.enabled)}
+                          onChange={() => void toggleNotificationRule(rule)}
                         />
                         <span>Toggle</span>
                       </label>
@@ -117,8 +188,8 @@ export function OperationalNotificationsEmailSection() {
           <Skeleton height="180px" />
         ) : templates.length === 0 ? (
           <div className="dash-empty">
-            <h3 className="dash-empty-title">Endpoint not yet available</h3>
-            <p className="dash-empty-description">Templates will appear when email-template endpoints are implemented.</p>
+            <h3 className="dash-empty-title">No email templates found</h3>
+            <p className="dash-empty-description">No editable email templates are currently available.</p>
           </div>
         ) : (
           <div className="table-wrapper">
@@ -154,6 +225,21 @@ export function OperationalNotificationsEmailSection() {
             void saveTemplate()
           }}
         >
+          <div className="form-field">
+            <label htmlFor="template-selector">Template</label>
+            <select
+              id="template-selector"
+              value={templateForm.id}
+              onChange={(event) => selectTemplate(event.target.value)}
+            >
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="form-field">
             <label htmlFor="template-name">Template Name</label>
             <input

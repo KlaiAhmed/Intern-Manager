@@ -20,7 +20,6 @@ namespace InternManager.Api.Controllers;
 [Authorize]
 public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBase
 {
-    private const string SuperAdminRole = "SuperAdmin";
     private const string AdminRole = "Admin,SuperAdmin";
 
     /// <summary>
@@ -36,7 +35,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns/active", Name = "GetActiveInterns")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -85,7 +84,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("supervisors", Name = "GetSupervisorsStats")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -134,7 +133,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("missions", Name = "GetMissionsStats")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -160,7 +159,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("admins", Name = "GetAdminsStats")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -215,7 +214,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns-by-department", Name = "GetInternsByDepartment")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -261,7 +260,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internships-by-status", Name = "GetInternshipsByStatus")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -306,7 +305,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internships-by-type", Name = "GetInternshipsByType")]
-    [Authorize(Roles = SuperAdminRole)]
+    [Authorize(Roles = AdminRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

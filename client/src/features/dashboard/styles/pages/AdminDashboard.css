@@ -1,41 +1,34 @@
 /* AdminDashboard styles */
 
-.admin-dashboard .admin-view-section {
-  animation: adminSectionFadeIn 180ms var(--dash-ease);
+/* Ensure Admin shell keeps canonical sidebar offsets in collapsed and expanded states */
+.admin-dashboard .super-admin-main {
+  margin-left: 80px;
+  min-height: 100vh;
+  transition: margin-left 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes adminSectionFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.admin-dashboard:has(.super-admin-sidebar[data-open="true"]) .super-admin-main {
+  margin-left: 280px;
 }
 
-.admin-endpoint-placeholder-card {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--dash-border) 70%, var(--dash-warning) 30%);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--dash-bg-primary) 92%, var(--dash-warning) 8%),
-    color-mix(in srgb, var(--dash-bg-primary) 97%, var(--dash-warning) 3%)
-  );
+/* Ensure overview KPI/chart grid classes resolve identically in Admin context */
+.admin-dashboard .kpi-row {
+  display: grid;
+  gap: var(--dash-space-xl);
 }
 
-.admin-endpoint-placeholder-title {
-  margin: 0;
-  font-family: var(--dash-font-heading);
-  color: var(--dash-text);
-  font-size: 0.95rem;
+.admin-dashboard .kpi-row-primary {
+  grid-template-columns: repeat(4, 1fr);
 }
 
-.admin-endpoint-placeholder-text {
-  margin: 0;
-  color: var(--dash-text-muted);
-  font-size: 0.85rem;
+.admin-dashboard .kpi-row-secondary {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.admin-dashboard .charts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--dash-space-xl);
 }
 
 .admin-toolbar {
@@ -195,12 +188,30 @@
 }
 
 @media (max-width: 1280px) {
+  .admin-dashboard .kpi-row-primary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-dashboard .kpi-row-secondary,
+  .admin-dashboard .charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .admin-toolbar-grid {
     grid-template-columns: repeat(3, minmax(140px, 1fr));
   }
 }
 
 @media (max-width: 1024px) {
+  .admin-dashboard .super-admin-main {
+    margin-left: 80px;
+  }
+
+  .admin-dashboard .kpi-row-secondary,
+  .admin-dashboard .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
   .admin-form-grid-three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -211,6 +222,20 @@
 }
 
 @media (max-width: 768px) {
+  .admin-dashboard .super-admin-main {
+    margin-left: 0;
+    margin-top: 64px;
+  }
+
+  .admin-dashboard:has(.super-admin-sidebar[data-open="true"]) .super-admin-main {
+    margin-left: 0;
+  }
+
+  .admin-dashboard .kpi-row-primary,
+  .admin-dashboard .kpi-row-secondary {
+    grid-template-columns: 1fr;
+  }
+
   .admin-toolbar-grid,
   .admin-toolbar-grid-three,
   .admin-form-grid-two,

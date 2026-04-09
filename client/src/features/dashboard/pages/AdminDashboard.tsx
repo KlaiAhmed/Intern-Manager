@@ -61,6 +61,16 @@ export function AdminDashboard() {
   }, [activeView])
 
   const handleSectionChange = useCallback((section: SuperAdminSection) => {
+    if (section === 'internships') {
+      navigate('/dashboard/admin/internships')
+      return
+    }
+
+    if (section === 'missions') {
+      navigate('/dashboard/admin/interns')
+      return
+    }
+
     navigate(sectionPathMap[section])
   }, [navigate])
 
@@ -101,6 +111,7 @@ export function AdminDashboard() {
       activeSection={activeSection}
       onSectionChange={handleSectionChange}
       onSettingsSubSectionChange={setActiveSettingsSubSection}
+      hideAdminManagement={false}
       brandLabel="Admin"
       shellClassName="admin-dashboard"
       pageTitle={pageTitle}

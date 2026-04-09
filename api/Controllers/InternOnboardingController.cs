@@ -14,7 +14,8 @@ namespace InternManager.Api.Controllers;
 
 [ApiController]
 [Route("api/interns/me/onboarding")]
-[Authorize(Roles = "Intern")]
+// RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Intern")]
 public sealed class InternOnboardingController(
     AppDbContext dbContext,
     INotificationService notificationService,

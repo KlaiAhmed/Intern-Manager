@@ -38,6 +38,7 @@ export function OperationalArchiveSection() {
 
     try {
       await pendingAdminServices.triggerArchive()
+      await loadHistory()
     } catch (requestError) {
       setBannerError(toDashboardErrorMessage(requestError))
     }
@@ -61,8 +62,8 @@ export function OperationalArchiveSection() {
         <Skeleton height="220px" />
       ) : history.length === 0 ? (
         <div className="dash-empty">
-          <h3 className="dash-empty-title">Endpoint not yet available</h3>
-          <p className="dash-empty-description">Archive history will appear when archive endpoints are implemented.</p>
+          <h3 className="dash-empty-title">No archive history yet</h3>
+          <p className="dash-empty-description">Trigger an archive job to create the first history record.</p>
         </div>
       ) : (
         <div className="table-wrapper">

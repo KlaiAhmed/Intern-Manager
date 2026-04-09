@@ -218,15 +218,19 @@ export interface InternshipFormState {
 }
 
 export interface EmailTemplateFormState {
+  id: string
   name: string
   subject: string
   body: string
 }
 
 export interface AdminOverviewStats {
+  activeInterns: number
+  activeSupervisors: number
+  totalMissions: number
+  activeAdmins: number
   totalInterns: number
   activeInternships: number
-  totalSupervisors: number
   pendingDeliverables: number
 }
 
@@ -243,6 +247,7 @@ export const defaultInternshipFormState: InternshipFormState = {
 }
 
 export const defaultEmailTemplateFormState: EmailTemplateFormState = {
+  id: '',
   name: '',
   subject: '',
   body: '',

@@ -18,7 +18,8 @@ namespace InternManager.Api.Controllers;
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/meetings")]
-[Authorize(Roles = "Supervisor,Intern")]
+// RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+[Authorize(Roles = "SuperAdmin,Admin,Supervisor,Intern")]
 [EnableRateLimiting("write-operations")]
 public sealed class MeetingsController(
     AppDbContext dbContext,
@@ -47,6 +48,7 @@ public sealed class MeetingsController(
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMeetings")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMeetings(
@@ -66,8 +68,9 @@ public sealed class MeetingsController(
 
         var safePage = Math.Max(page, 1);
         var safeLimit = Math.Clamp(limit, 1, 100);
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
 
-        if (User.IsInRole("Intern"))
+        if (!isAdminScope && User.IsInRole("Intern"))
         {
             if (!UserContextHelper.IsCurrentInternScope(internId, currentUserId.Value))
             {
@@ -105,19 +108,32 @@ public sealed class MeetingsController(
             return Ok(new { data = internData, total = internTotal, page = safePage, limit = safeLimit });
         }
 
-        if (!User.IsInRole("Supervisor"))
+        if (!isAdminScope && !User.IsInRole("Supervisor"))
         {
             return Forbid();
         }
 
-        if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentUserId.Value))
+        var effectiveSupervisorId = currentUserId.Value;
+
+        if (isAdminScope)
+        {
+            if (!string.IsNullOrWhiteSpace(supervisorId) &&
+                !string.Equals(supervisorId, "me", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Guid.TryParse(supervisorId, out effectiveSupervisorId))
+                {
+                    return BadRequest(new { message = "Invalid supervisorId filter." });
+                }
+            }
+        }
+        else if (!UserContextHelper.IsCurrentSupervisorScope(supervisorId, currentUserId.Value))
         {
             return Forbid();
         }
 
         var query = dbContext.Meetings
             .AsNoTracking()
-            .Where(meeting => meeting.SupervisorId == currentUserId.Value)
+            .Where(meeting => meeting.SupervisorId == effectiveSupervisorId)
             .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow)
             .Include(meeting => meeting.Intern);
 
@@ -166,7 +182,8 @@ public sealed class MeetingsController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="409">Conflit avec une réunion existante.</response>
     [HttpPost(Name = "CreateMeeting")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -174,11 +191,13 @@ public sealed class MeetingsController(
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateMeeting([FromBody] CreateMeetingRequest request, CancellationToken cancellationToken)
     {
-        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!currentSupervisorId.HasValue)
+        var currentActorUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentActorUserId.HasValue)
         {
             return Unauthorized();
         }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
 
         if (request.InternId == Guid.Empty)
         {
@@ -208,17 +227,20 @@ public sealed class MeetingsController(
             return BadRequest(new { message = "Intern not found." });
         }
 
-        var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
-        if (!assignedInternIds.Contains(request.InternId))
+        if (!isAdminScope)
         {
-            return Forbid();
+            var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentActorUserId.Value, cancellationToken);
+            if (!assignedInternIds.Contains(request.InternId))
+            {
+                return Forbid();
+            }
         }
 
         var conflictWindowStart = scheduledDate.AddMinutes(-59);
         var conflictWindowEnd = scheduledDate.AddMinutes(59);
         var hasConflict = await dbContext.Meetings
             .AsNoTracking()
-            .AnyAsync(meeting => meeting.SupervisorId == currentSupervisorId.Value &&
+            .AnyAsync(meeting => meeting.SupervisorId == currentActorUserId.Value &&
                                  meeting.Date >= conflictWindowStart &&
                                  meeting.Date <= conflictWindowEnd,
                       cancellationToken);
@@ -240,7 +262,7 @@ public sealed class MeetingsController(
         var meeting = new Meeting
         {
             Id = Guid.NewGuid(),
-            SupervisorId = currentSupervisorId.Value,
+            SupervisorId = currentActorUserId.Value,
             InternId = request.InternId,
             Date = scheduledDate,
             Notes = notes,
@@ -251,7 +273,7 @@ public sealed class MeetingsController(
 
         dbContext.AuditLogs.Add(new AuditLog
         {
-            ActorUserId = currentSupervisorId,
+            ActorUserId = currentActorUserId,
             Actor = UserContextHelper.ResolveCurrentActorName(User),
             Action = "meeting.create",
             Entity = $"meeting:{meeting.Id}",
@@ -359,7 +381,8 @@ public sealed class MeetingsController(
     /// <response code="404">Réunion non trouvée.</response>
     /// <response code="409">Conflit avec une autre réunion.</response>
     [HttpPatch("{id:guid}", Name = "UpdateMeeting")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -485,7 +508,8 @@ public sealed class MeetingsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Réunion non trouvée.</response>
     [HttpDelete("{id:guid}", Name = "DeleteMeeting")]
-    [Authorize(Roles = "Supervisor")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

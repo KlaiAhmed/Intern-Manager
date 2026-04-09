@@ -171,6 +171,8 @@ export function OperationalInternshipsSection() {
     return Math.max(1, Math.ceil(filteredInternships.length / pageSize))
   }, [filteredInternships.length])
 
+  const isEditing = editingInternshipId !== null
+
   const openCreateModal = () => {
     setEditingInternshipId(null)
     setFormState(defaultInternshipFormState)
@@ -214,15 +216,24 @@ export function OperationalInternshipsSection() {
     setFormSubmitting(true)
     setFormError(null)
 
+    const normalizedStatus = formState.status.trim().toLowerCase()
+
     const payload: Record<string, string> = {
       supervisorId: formState.supervisorId.trim(),
       coSupervisorId: formState.coSupervisorId.trim(),
       department: formState.department.trim(),
       type: formState.type.trim(),
-      status: formState.status.trim(),
       startDate: toIsoDate(formState.startDate),
       endDate: toIsoDate(formState.endDate),
       objectives: formState.objectives.trim(),
+    }
+
+    if (!editingInternshipId) {
+      // Create flow only allows template; activation is handled by assignment endpoints.
+      payload.status = 'template'
+    } else if (normalizedStatus && normalizedStatus !== 'active') {
+      // Avoid sending forbidden "active" in update payloads.
+      payload.status = normalizedStatus
     }
 
     try {
@@ -316,6 +327,7 @@ export function OperationalInternshipsSection() {
           <option value="">All Statuses</option>
           <option value="template">template</option>
           <option value="active">active</option>
+          <option value="paused">paused</option>
           <option value="completed">completed</option>
           <option value="cancelled">cancelled</option>
         </select>
@@ -451,15 +463,7 @@ export function OperationalInternshipsSection() {
             void saveInternship()
           }}
         >
-          <div className="form-field">
-            <label htmlFor="internship-mission-title">Mission Title (optional)</label>
-            <input
-              id="internship-mission-title"
-              type="text"
-              value={formState.missionTitle}
-              onChange={(event) => setFormState((prev) => ({ ...prev, missionTitle: event.target.value }))}
-            />
-          </div>
+          <p className="section-subtitle">Mission title is generated automatically by the backend.</p>
 
           <div className="admin-form-grid admin-form-grid-two">
             <div className="form-field">
@@ -501,7 +505,7 @@ export function OperationalInternshipsSection() {
               >
                 <option value="">Not assigned</option>
                 {departments.map((department) => (
-                  <option key={department.id} value={department.id}>{department.name}</option>
+                  <option key={department.id} value={department.name}>{department.name}</option>
                 ))}
               </select>
             </div>
@@ -515,7 +519,7 @@ export function OperationalInternshipsSection() {
               >
                 <option value="">Not assigned</option>
                 {types.map((type) => (
-                  <option key={type.id} value={type.id}>{type.name}</option>
+                  <option key={type.id} value={type.name}>{type.name}</option>
                 ))}
               </select>
             </div>
@@ -527,10 +531,17 @@ export function OperationalInternshipsSection() {
                 value={formState.status}
                 onChange={(event) => setFormState((prev) => ({ ...prev, status: event.target.value }))}
               >
-                <option value="template">template</option>
-                <option value="active">active</option>
-                <option value="completed">completed</option>
-                <option value="cancelled">cancelled</option>
+                {!isEditing ? (
+                  <option value="template">template</option>
+                ) : (
+                  <>
+                    <option value="template">template</option>
+                    <option value="active" disabled>active (managed by assignment)</option>
+                    <option value="paused">paused</option>
+                    <option value="completed">completed</option>
+                    <option value="cancelled">cancelled</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
