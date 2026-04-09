@@ -225,8 +225,88 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--dash-space-md);
+  flex-wrap: wrap;
   padding-top: var(--dash-space-lg);
   border-top: 1px solid var(--dash-border);
+}
+
+.intern-modal-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-md);
+}
+
+.intern-modal-section-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--dash-text);
+}
+
+.intern-modal-muted {
+  margin: 0;
+  color: var(--dash-text-muted);
+  font-size: 0.875rem;
+}
+
+.intern-modal-assignment {
+  margin-top: var(--dash-space-md);
+  padding-top: var(--dash-space-lg);
+  border-top: 1px solid var(--dash-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dash-space-md);
+}
+
+.intern-modal-warning {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--dash-warning);
+  background: color-mix(in srgb, var(--dash-warning) 10%, var(--dash-bg-primary));
+  border: 1px solid color-mix(in srgb, var(--dash-warning) 30%, transparent);
+  border-radius: var(--dash-radius-md);
+  padding: var(--dash-space-sm) var(--dash-space-md);
+}
+
+.intern-modal-success {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--dash-success);
+  background: color-mix(in srgb, var(--dash-success) 10%, var(--dash-bg-primary));
+  border: 1px solid color-mix(in srgb, var(--dash-success) 30%, transparent);
+  border-radius: var(--dash-radius-md);
+  padding: var(--dash-space-sm) var(--dash-space-md);
+}
+
+.intern-modal-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dash-space-sm);
+}
+
+.intern-modal-skill-chip {
+  appearance: none;
+  border: 1px solid var(--dash-border);
+  background: var(--dash-bg-primary);
+  color: var(--dash-text-secondary);
+  border-radius: 999px;
+  padding: 0.3rem 0.625rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition:
+    border-color var(--dash-duration-fast) var(--dash-ease),
+    background-color var(--dash-duration-fast) var(--dash-ease),
+    color var(--dash-duration-fast) var(--dash-ease);
+}
+
+.intern-modal-skill-chip:hover {
+  border-color: var(--dash-border-hover);
+}
+
+.intern-modal-skill-chip.is-selected {
+  border-color: color-mix(in srgb, var(--dash-accent) 40%, var(--dash-border));
+  background: color-mix(in srgb, var(--dash-accent) 12%, var(--dash-bg-primary));
+  color: var(--dash-accent);
 }
 
 /* Responsive Adjustments */
@@ -247,5 +327,10 @@
   .dept-card-stats,
   .supervisor-stats {
     flex-direction: row;
+  }
+
+  .intern-modal-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

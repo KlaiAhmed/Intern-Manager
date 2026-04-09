@@ -61,9 +61,12 @@ export function ManagerDashboard() {
     filteredInterns,
     selectedDepartment,
     setSelectedDepartment,
+    selectedVerificationStatus,
+    setSelectedVerificationStatus,
     internsSearch,
     setInternsSearch,
     departmentOptions,
+    verificationStatusOptions,
     getInitials,
     openInternModal,
     loadInterns,
@@ -108,9 +111,14 @@ export function ManagerDashboard() {
             filteredInterns={filteredInterns}
             selectedDepartment={selectedDepartment}
             setSelectedDepartment={setSelectedDepartment}
+            selectedVerificationStatus={selectedVerificationStatus}
+            setSelectedVerificationStatus={setSelectedVerificationStatus}
             internsSearch={internsSearch}
             setInternsSearch={setInternsSearch}
             departmentOptions={departmentOptions}
+            verificationStatusOptions={verificationStatusOptions}
+            loadingDepartments={loadingDepartments}
+            departmentsError={departmentsError}
             getInitials={getInitials}
             openInternModal={openInternModal}
             loadInterns={loadInterns}
@@ -162,9 +170,12 @@ export function ManagerDashboard() {
     filteredInterns,
     selectedDepartment,
     setSelectedDepartment,
+    selectedVerificationStatus,
+    setSelectedVerificationStatus,
     internsSearch,
     setInternsSearch,
     departmentOptions,
+    verificationStatusOptions,
     getInitials,
     openInternModal,
     loadInterns,
@@ -197,6 +208,10 @@ export function ManagerDashboard() {
             intern={selectedIntern}
             onClose={closeInternModal}
             getInitials={getInitials}
+            departments={departments}
+            loadingDepartments={loadingDepartments}
+            departmentsError={departmentsError}
+            onAssignmentSuccess={loadInterns}
           />
         </Suspense>
       )}

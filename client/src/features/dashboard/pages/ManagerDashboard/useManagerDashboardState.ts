@@ -7,6 +7,7 @@ import type {
   Department,
   DepartmentRecord,
   Intern,
+  InternDirectoryRecord,
   InternshipRecord,
   ManagerNavItem,
   ManagerTabId,
@@ -26,6 +27,11 @@ import {
   readNumericValue,
   resolveUserName,
 } from './utils'
+
+function normalizeFilterValue(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase()
+  return normalized && normalized.length > 0 ? normalized : 'unknown'
+}
 
 export function useManagerDashboardState() {
   const { t } = useI18n()
@@ -53,6 +59,7 @@ export function useManagerDashboardState() {
   const [activities, setActivities] = useState<Activity[]>([])
 
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
+  const [selectedVerificationStatus, setSelectedVerificationStatus] = useState<string>('all')
   const [internsSearch, setInternsSearch] = useState('')
   const [activeTab, setActiveTab] = useState<ManagerTabId>('overview')
 
@@ -98,9 +105,10 @@ export function useManagerDashboardState() {
     setInternsError(null)
 
     try {
-      const [internUsersPayload, internshipsPayload] = await Promise.all([
+      const [internUsersPayload, internshipsPayload, internDirectoryPayload] = await Promise.all([
         api.get<PagedResponse<UserRecord>>('/api/users?role=intern&page=1&limit=100'),
         api.get<PagedResponse<InternshipRecord>>('/api/internships?page=1&limit=200'),
+        api.get<PagedResponse<InternDirectoryRecord>>('/api/interns?limit=500'),
       ])
 
       const internshipsByInternId = new Map<string, InternshipRecord>()
@@ -109,13 +117,24 @@ export function useManagerDashboardState() {
         if (internId) internshipsByInternId.set(internId, internship)
       }
 
+      const internDirectoryById = new Map<string, InternDirectoryRecord>()
+      for (const internDirectoryEntry of internDirectoryPayload.data ?? []) {
+        const internId = asNonEmptyString(internDirectoryEntry.id)
+        if (internId) internDirectoryById.set(internId, internDirectoryEntry)
+      }
+
       const mappedInterns: Intern[] = (internUsersPayload.data ?? [])
         .map((user): Intern | null => {
           const userId = asNonEmptyString(user.id)
           if (!userId) return null
 
           const internship = internshipsByInternId.get(userId)
-          const statusSource = asNonEmptyString(internship?.status) || asNonEmptyString(user.status)
+          const internDirectoryEntry = internDirectoryById.get(userId)
+
+          const accountStatusSource = asNonEmptyString(user.status) || asNonEmptyString(internDirectoryEntry?.status)
+          const verificationStatusSource = asNonEmptyString(user.verificationStatus)
+            || asNonEmptyString(internDirectoryEntry?.verificationStatus)
+          const statusSource = asNonEmptyString(internship?.status) || accountStatusSource
 
           return {
             id: userId,
@@ -124,10 +143,19 @@ export function useManagerDashboardState() {
             department: asNonEmptyString(user.department) || asNonEmptyString(internship?.department) || undefined,
             missionTitle: asNonEmptyString(internship?.missionTitle) || undefined,
             supervisorName: asNonEmptyString(internship?.supervisorName) || undefined,
-            startDate: asNonEmptyString(internship?.startDate) || undefined,
-            endDate: asNonEmptyString(internship?.endDate) || undefined,
+            startDate: asNonEmptyString(internship?.startDate)
+              || asNonEmptyString(internDirectoryEntry?.startDate)
+              || undefined,
+            endDate: asNonEmptyString(internship?.endDate)
+              || asNonEmptyString(internDirectoryEntry?.endDate)
+              || undefined,
             progress: estimateProgress(internship?.startDate, internship?.endDate, statusSource),
             status: normalizeInternStatus(statusSource),
+            accountStatus: accountStatusSource || 'Unknown',
+            verificationStatus: verificationStatusSource || 'Unknown',
+            cvFileUrl: asNonEmptyString(internDirectoryEntry?.cvFileUrl) || null,
+            internshipId: asNonEmptyString(internship?.id) || undefined,
+            internshipType: asNonEmptyString(internship?.type) || undefined,
           }
         })
         .filter((intern): intern is Intern => intern !== null)
@@ -280,20 +308,25 @@ export function useManagerDashboardState() {
   const filteredInterns = useMemo(() => {
     return interns.filter((intern) => {
       const matchesDepartment = selectedDepartment === 'all' || intern.department === selectedDepartment
+      const matchesVerificationStatus = selectedVerificationStatus === 'all'
+        || normalizeFilterValue(intern.verificationStatus) === selectedVerificationStatus
       const matchesSearch = intern.name.toLowerCase().includes(internsSearch.toLowerCase())
         || intern.email.toLowerCase().includes(internsSearch.toLowerCase())
 
-      return matchesDepartment && matchesSearch
+      return matchesDepartment && matchesVerificationStatus && matchesSearch
     })
-  }, [interns, selectedDepartment, internsSearch])
+  }, [interns, selectedDepartment, selectedVerificationStatus, internsSearch])
 
   const departmentOptions = useMemo(() => {
-    const departmentsSet = new Set(
-      interns
-        .map((intern) => intern.department)
-        .filter((department): department is string => Boolean(department)),
+    return ['all', ...departments.map((department) => department.name)]
+  }, [departments])
+
+  const verificationStatusOptions = useMemo(() => {
+    const values = new Set(
+      interns.map((intern) => normalizeFilterValue(intern.verificationStatus)),
     )
-    return ['all', ...Array.from(departmentsSet)]
+
+    return ['all', ...Array.from(values)]
   }, [interns])
 
   const navItems: ManagerNavItem[] = [
@@ -310,6 +343,7 @@ export function useManagerDashboardState() {
 
   const closeInternModal = () => {
     setIsInternModalOpen(false)
+    setSelectedIntern(null)
   }
 
   return {
@@ -333,6 +367,8 @@ export function useManagerDashboardState() {
     activities,
     selectedDepartment,
     setSelectedDepartment,
+    selectedVerificationStatus,
+    setSelectedVerificationStatus,
     internsSearch,
     setInternsSearch,
     activeTab,
@@ -342,6 +378,7 @@ export function useManagerDashboardState() {
     navItems,
     filteredInterns,
     departmentOptions,
+    verificationStatusOptions,
     openInternModal,
     closeInternModal,
     refreshAll,

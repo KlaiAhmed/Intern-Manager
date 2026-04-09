@@ -9,6 +9,11 @@ export interface Intern {
   endDate?: string
   progress: number
   status: 'active' | 'completed' | 'pending'
+  accountStatus?: string
+  verificationStatus?: string
+  cvFileUrl?: string | null
+  internshipId?: string
+  internshipType?: string
 }
 
 export interface Supervisor {
@@ -50,6 +55,7 @@ export interface UserRecord {
   email?: string
   department?: string
   status?: string
+  verificationStatus?: string
 }
 
 export interface InternshipRecord {
@@ -59,9 +65,21 @@ export interface InternshipRecord {
   supervisorId?: string
   supervisorName?: string
   department?: string
+  type?: string
   startDate?: string
   endDate?: string
   status?: string
+}
+
+export interface InternDirectoryRecord {
+  id?: string
+  fullName?: string
+  email?: string
+  status?: string
+  verificationStatus?: string
+  cvFileUrl?: string | null
+  startDate?: string | null
+  endDate?: string | null
 }
 
 export interface AuditLogRecord {
