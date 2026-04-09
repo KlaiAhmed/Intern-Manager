@@ -1,0 +1,51 @@
+.dash-status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: var(--dash-font-body);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.dash-status-chip-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.dash-status-chip-md {
+  padding: 0.3rem 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.dash-status-chip-neutral {
+  color: var(--dash-text-muted);
+  border-color: var(--dash-border);
+  background: var(--dash-bg-secondary);
+}
+
+.dash-status-chip-info {
+  color: var(--dash-accent);
+  border-color: color-mix(in srgb, var(--dash-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--dash-accent) 12%, var(--dash-bg-primary));
+}
+
+.dash-status-chip-success {
+  color: var(--dash-success);
+  border-color: color-mix(in srgb, var(--dash-success) 30%, transparent);
+  background: color-mix(in srgb, var(--dash-success) 12%, var(--dash-bg-primary));
+}
+
+.dash-status-chip-warning {
+  color: var(--dash-warning);
+  border-color: color-mix(in srgb, var(--dash-warning) 30%, transparent);
+  background: color-mix(in srgb, var(--dash-warning) 14%, var(--dash-bg-primary));
+}
+
+.dash-status-chip-danger {
+  color: var(--dash-error);
+  border-color: color-mix(in srgb, var(--dash-error) 30%, transparent);
+  background: color-mix(in srgb, var(--dash-error) 14%, var(--dash-bg-primary));
+}

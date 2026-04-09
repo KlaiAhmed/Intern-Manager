@@ -1,0 +1,110 @@
+.supervisor-notification-panel {
+  position: absolute;
+  top: calc(100% + var(--dash-space-sm));
+  right: 0;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: 70vh;
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-lg);
+  background: var(--dash-bg-primary);
+  padding: var(--dash-space-md);
+  z-index: 40;
+  overflow: hidden;
+}
+
+.supervisor-notification-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dash-space-sm);
+  margin-bottom: var(--dash-space-sm);
+}
+
+.supervisor-notification-panel-title {
+  margin: 0;
+  font-family: var(--dash-font-heading);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--dash-text);
+}
+
+.supervisor-notification-panel-close {
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-sm);
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text);
+  font-family: var(--dash-font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.supervisor-notification-panel-close:hover {
+  border-color: var(--dash-border-hover);
+}
+
+.supervisor-notification-panel-state {
+  display: grid;
+  gap: var(--dash-space-sm);
+  color: var(--dash-text-muted);
+  font-size: 0.875rem;
+  padding: var(--dash-space-md) 0;
+}
+
+.supervisor-notification-panel-error {
+  margin: 0;
+  color: var(--dash-error);
+}
+
+.supervisor-notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--dash-space-sm);
+  max-height: calc(70vh - 5.5rem);
+  overflow: auto;
+}
+
+.supervisor-notification-item {
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-md);
+  padding: var(--dash-space-sm);
+  background: var(--dash-bg-secondary);
+}
+
+.supervisor-notification-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dash-space-sm);
+}
+
+.supervisor-notification-item-title {
+  margin: 0;
+  color: var(--dash-text);
+  font-family: var(--dash-font-heading);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.supervisor-notification-item-type {
+  margin: 0.25rem 0 0;
+  color: var(--dash-text-muted);
+  font-size: 0.74rem;
+}
+
+.supervisor-notification-item-message {
+  margin: 0.35rem 0 0;
+  color: var(--dash-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.supervisor-notification-item-date {
+  display: block;
+  margin-top: var(--dash-space-xs);
+  color: var(--dash-text-muted);
+  font-size: 0.72rem;
+}

@@ -1,0 +1,59 @@
+.supervisor-evaluation-row {
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-md);
+  padding: var(--dash-space-md);
+  background: var(--dash-bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dash-space-md);
+}
+
+.supervisor-evaluation-row + .supervisor-evaluation-row {
+  margin-top: var(--dash-space-sm);
+}
+
+.supervisor-evaluation-row-name {
+  margin: 0;
+  color: var(--dash-text);
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+  font-size: 0.92rem;
+}
+
+.supervisor-evaluation-row-type {
+  margin: 0.25rem 0 0;
+  color: var(--dash-text-muted);
+  font-size: 0.8rem;
+}
+
+.supervisor-evaluation-row-side {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dash-space-sm);
+}
+
+.supervisor-evaluation-row-score {
+  margin: 0;
+  color: var(--dash-text-muted);
+  font-size: 0.8rem;
+}
+
+.supervisor-evaluation-row-score span {
+  margin-left: 0.35rem;
+  color: var(--dash-text);
+  font-family: var(--dash-font-heading);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .supervisor-evaluation-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .supervisor-evaluation-row-side {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

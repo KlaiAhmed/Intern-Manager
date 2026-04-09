@@ -1,456 +1,400 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../../locales/I18nContext'
-import { useDashboardApi } from '../../hooks/useDashboardApi'
+import { useDelaysAlerts } from '../../hooks/supervisor/useDelaysAlerts'
+import { useEvaluations } from '../../hooks/supervisor/useEvaluations'
+import { useInternProgress } from '../../hooks/supervisor/useInternProgress'
+import { useMeetings } from '../../hooks/supervisor/useMeetings'
+import { useNotifications } from '../../hooks/supervisor/useNotifications'
+import { useSupervisorKpis } from '../../hooks/supervisor/useSupervisorKpis'
+import { useSupervisorWorkload } from '../../hooks/supervisor/useSupervisorWorkload'
+import { useValidationQueue } from '../../hooks/supervisor/useValidationQueue'
 import type {
-  Deliverable,
-  Evaluation,
-  Intern,
-  Meeting,
-  Mission,
-  PendingInternOption,
-  Skill,
-} from './types'
+  SupervisorEvaluationDueItem,
+  SupervisorEvaluationScores,
+  SupervisorInternProgressItem,
+  SupervisorMeetingForm,
+  SupervisorValidationQueueItem,
+} from '../../types/supervisorDashboard'
+
+type ProgressTone = 'on-track' | 'at-risk' | 'late'
+type DelaySeverityTone = 'info' | 'warning' | 'danger'
+
+const initialEvaluationScores: SupervisorEvaluationScores = {
+  technical: 5,
+  autonomy: 5,
+  communication: 5,
+  deadlineRespect: 5,
+  deliverableQuality: 5,
+}
+
+const initialMeetingForm: SupervisorMeetingForm = {
+  internId: '',
+  date: '',
+  note: '',
+}
+
+function normalizeToken(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s_.]+/g, '-')
+}
+
+function resolveProgressTone(item: SupervisorInternProgressItem): ProgressTone {
+  if (item.isLate) {
+    return 'late'
+  }
+
+  const normalizedStatus = normalizeToken(item.status)
+  if (normalizedStatus.includes('late') || normalizedStatus.includes('overdue')) {
+    return 'late'
+  }
+
+  if (
+    normalizedStatus.includes('risk') ||
+    normalizedStatus.includes('behind') ||
+    normalizedStatus.includes('warning') ||
+    item.progress < 35
+  ) {
+    return 'at-risk'
+  }
+
+  return 'on-track'
+}
+
+function severityWeight(rawSeverity: string): number {
+  const normalizedSeverity = normalizeToken(rawSeverity)
+
+  switch (normalizedSeverity) {
+    case 'critical':
+      return 4
+    case 'high':
+      return 3
+    case 'moderate':
+    case 'medium':
+      return 2
+    case 'low':
+      return 1
+    default:
+      return 0
+  }
+}
+
+function deduplicateInternOptions(
+  progressItems: SupervisorInternProgressItem[],
+  meetingInterns: Array<{ internId: string; internName: string }>
+) {
+  const byId = new Map<string, string>()
+
+  for (const item of progressItems) {
+    const internId = item.internId.trim()
+    const fullName = item.fullName.trim()
+    if (internId && fullName) {
+      byId.set(internId, fullName)
+    }
+  }
+
+  for (const item of meetingInterns) {
+    const internId = item.internId.trim()
+    const internName = item.internName.trim()
+    if (internId && internName && !byId.has(internId)) {
+      byId.set(internId, internName)
+    }
+  }
+
+  return Array.from(byId.entries())
+    .map(([id, fullName]) => ({ id, fullName }))
+    .sort((left, right) => left.fullName.localeCompare(right.fullName))
+}
 
 export function useSupervisorDashboardState() {
   const { t } = useI18n()
-  const api = useDashboardApi()
   const navigate = useNavigate()
 
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message
+  const kpisState = useSupervisorKpis()
+  const progressState = useInternProgress()
+  const workloadState = useSupervisorWorkload()
+  const delaysState = useDelaysAlerts()
+  const queueState = useValidationQueue()
+  const meetingsState = useMeetings()
+  const evaluationsState = useEvaluations()
+  const notificationsState = useNotifications()
+
+  const [meetingForm, setMeetingForm] = useState<SupervisorMeetingForm>(initialMeetingForm)
+  const [meetingFormError, setMeetingFormError] = useState<string | null>(null)
+
+  const [activeEvaluation, setActiveEvaluation] = useState<SupervisorEvaluationDueItem | null>(null)
+  const [evaluationScores, setEvaluationScores] = useState<SupervisorEvaluationScores>(initialEvaluationScores)
+  const [evaluationComment, setEvaluationComment] = useState('')
+
+  const isRefreshing =
+    kpisState.isLoading ||
+    progressState.isLoading ||
+    workloadState.isLoading ||
+    delaysState.isLoading ||
+    queueState.isLoading ||
+    meetingsState.isLoading ||
+    evaluationsState.isLoading
+
+  const progressItems = useMemo(
+    () =>
+      progressState.items.map((item) => {
+        const tone = resolveProgressTone(item)
+        const statusLabel =
+          tone === 'late'
+            ? t('dashboard.supervisor.status.late')
+            : tone === 'at-risk'
+              ? t('dashboard.supervisor.status.atRisk')
+              : t('dashboard.supervisor.status.onTrack')
+
+        return {
+          ...item,
+          tone,
+          statusLabel,
+        }
+      }),
+    [progressState.items, t]
+  )
+
+  const delayAlerts = useMemo(
+    () =>
+      [...delaysState.alerts].sort((left, right) => {
+        const severityDiff = severityWeight(right.severity) - severityWeight(left.severity)
+        if (severityDiff !== 0) {
+          return severityDiff
+        }
+
+        return right.daysOverdue - left.daysOverdue
+      }),
+    [delaysState.alerts]
+  )
+
+  const internOptions = useMemo(
+    () =>
+      deduplicateInternOptions(
+        progressState.items,
+        meetingsState.meetings.map((meeting) => ({
+          internId: meeting.internId,
+          internName: meeting.internName,
+        }))
+      ),
+    [progressState.items, meetingsState.meetings]
+  )
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      kpisState.refresh(),
+      progressState.refresh(),
+      workloadState.refresh(),
+      delaysState.refresh(),
+      queueState.refresh(),
+      meetingsState.refresh(),
+      evaluationsState.refresh(),
+      notificationsState.refresh(),
+    ])
+  }, [
+    delaysState,
+    evaluationsState,
+    kpisState,
+    meetingsState,
+    notificationsState,
+    progressState,
+    queueState,
+    workloadState,
+  ])
+
+  const openInternProfile = useCallback(
+    (internId: string) => {
+      navigate(`/interns/${internId}`)
+    },
+    [navigate]
+  )
+
+  const resolveDelaySeverityTone = useCallback((severity: string): DelaySeverityTone => {
+    const normalized = normalizeToken(severity)
+    if (normalized === 'critical' || normalized === 'high') {
+      return 'danger'
     }
 
-    return t('dashboard.error.load')
-  }
-
-  const [activeInternsCount, setActiveInternsCount] = useState<number | null>(null)
-  const [pendingValidationsCount, setPendingValidationsCount] = useState<number | null>(null)
-  const [avgProgress, setAvgProgress] = useState<number | null>(null)
-  const [overdueCount, setOverdueCount] = useState<number | null>(null)
-
-  const [interns, setInterns] = useState<Intern[]>([])
-  const [missions, setMissions] = useState<Mission[]>([])
-  const [pendingDeliverables, setPendingDeliverables] = useState<Deliverable[]>([])
-  const [pendingEvaluations, setPendingEvaluations] = useState<Evaluation[]>([])
-  const [meetings, setMeetings] = useState<Meeting[]>([])
-  const [skills, setSkills] = useState<Skill[]>([])
-  const [pendingInternOptions, setPendingInternOptions] = useState<PendingInternOption[]>([])
-  const [successToast, setSuccessToast] = useState<string | null>(null)
-
-  const [isCreateMissionModalOpen, setIsCreateMissionModalOpen] = useState(false)
-  const [isAddMeetingModalOpen, setIsAddMeetingModalOpen] = useState(false)
-  const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false)
-  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
-  const [selectedDeliverable, setSelectedDeliverable] = useState<Deliverable | null>(null)
-  const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null)
-
-  const [missionFormData, setMissionFormData] = useState({
-    title: '',
-    description: '',
-    skills: [] as string[],
-    tools: '',
-    level: 'junior',
-    deliverables: '',
-  })
-  const [assignmentFormData, setAssignmentFormData] = useState({
-    internId: '',
-    startDate: '',
-    endDate: '',
-  })
-  const [meetingFormData, setMeetingFormData] = useState({ internId: '', date: '', note: '' })
-  const [validationComment, setValidationComment] = useState('')
-  const [evaluationScores, setEvaluationScores] = useState({
-    technical: 0,
-    autonomy: 0,
-    communication: 0,
-    deadlineRespect: 0,
-    deliverableQuality: 0,
-    comments: '',
-  })
-
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-
-  const [loadingKpis, setLoadingKpis] = useState(true)
-  const [loadingInterns, setLoadingInterns] = useState(true)
-  const [loadingMissions, setLoadingMissions] = useState(true)
-  const [loadingDeliverables, setLoadingDeliverables] = useState(true)
-  const [loadingEvaluations, setLoadingEvaluations] = useState(true)
-  const [loadingMeetings, setLoadingMeetings] = useState(true)
-
-  const [kpisError, setKpisError] = useState<string | null>(null)
-  const [internsError, setInternsError] = useState<string | null>(null)
-  const [missionsError, setMissionsError] = useState<string | null>(null)
-  const [deliverablesError, setDeliverablesError] = useState<string | null>(null)
-  const [evaluationsError, setEvaluationsError] = useState<string | null>(null)
-  const [meetingsError, setMeetingsError] = useState<string | null>(null)
-
-  const loadKpis = async () => {
-    setLoadingKpis(true)
-    setKpisError(null)
-    try {
-      const [activeInterns, pending, avg, overdue] = await Promise.all([
-        api.get<{ count: number }>('/api/stats/supervisor/me/interns/active'),
-        api.get<{ count: number }>('/api/stats/supervisor/me/deliverables/pending'),
-        api.get<{ value: number }>('/api/stats/supervisor/me/avg-progress'),
-        api.get<{ count: number }>('/api/stats/supervisor/me/overdue'),
-      ])
-      setActiveInternsCount(activeInterns.count)
-      setPendingValidationsCount(pending.count)
-      setAvgProgress(avg.value)
-      setOverdueCount(overdue.count)
-    } catch (error) {
-      setKpisError(getErrorMessage(error))
-    } finally {
-      setLoadingKpis(false)
+    if (normalized === 'medium' || normalized === 'moderate') {
+      return 'warning'
     }
-  }
 
-  const loadInterns = async () => {
-    setLoadingInterns(true)
-    setInternsError(null)
-    try {
-      const result = await api.get<{ data: Intern[] }>('/api/supervisor/me/interns')
-      setInterns(result.data ?? [])
-    } catch (error) {
-      setInternsError(getErrorMessage(error))
-    } finally {
-      setLoadingInterns(false)
-    }
-  }
-
-  const loadMissions = async () => {
-    setLoadingMissions(true)
-    setMissionsError(null)
-    try {
-      const result = await api.get<{ data: Mission[] }>('/api/missions?supervisorId=me')
-      setMissions(result.data ?? [])
-    } catch (error) {
-      setMissionsError(getErrorMessage(error))
-    } finally {
-      setLoadingMissions(false)
-    }
-  }
-
-  const loadDeliverables = async () => {
-    setLoadingDeliverables(true)
-    setDeliverablesError(null)
-    try {
-      const result = await api.get<{ data: Deliverable[] }>('/api/deliverables?status=pending&supervisorId=me')
-      setPendingDeliverables(result.data ?? [])
-    } catch (error) {
-      setDeliverablesError(getErrorMessage(error))
-    } finally {
-      setLoadingDeliverables(false)
-    }
-  }
-
-  const loadEvaluations = async () => {
-    setLoadingEvaluations(true)
-    setEvaluationsError(null)
-    try {
-      const result = await api.get<{ data: Evaluation[] }>('/api/evaluations/pending?supervisorId=me')
-      setPendingEvaluations(result.data ?? [])
-    } catch (error) {
-      setEvaluationsError(getErrorMessage(error))
-    } finally {
-      setLoadingEvaluations(false)
-    }
-  }
-
-  const loadMeetings = async () => {
-    setLoadingMeetings(true)
-    setMeetingsError(null)
-    try {
-      const result = await api.get<{ data: Meeting[] }>('/api/meetings?supervisorId=me')
-      setMeetings(result.data ?? [])
-    } catch (error) {
-      setMeetingsError(getErrorMessage(error))
-    } finally {
-      setLoadingMeetings(false)
-    }
-  }
-
-  const loadSkills = async () => {
-    try {
-      const result = await api.get<{ data: Skill[] }>('/api/admin/settings/skills')
-      setSkills(result.data ?? [])
-    } catch (error) {
-      setMissionsError(getErrorMessage(error))
-    }
-  }
-
-  const loadPendingInternOptions = async () => {
-    try {
-      const result = await api.get<{ data?: PendingInternOption[] }>('/api/interns?status=PENDING&limit=200')
-      setPendingInternOptions(result.data ?? [])
-    } catch {
-      setPendingInternOptions([])
-    }
-  }
-
-  useEffect(() => {
-    void loadKpis()
-    void loadInterns()
-    void loadMissions()
-    void loadDeliverables()
-    void loadEvaluations()
-    void loadMeetings()
-    void loadSkills()
-    void loadPendingInternOptions()
+    return 'info'
   }, [])
 
-  useEffect(() => {
-    if (!successToast) {
+  const resolveDelaySeverityLabel = useCallback(
+    (severity: string): string => {
+      const normalized = normalizeToken(severity)
+      switch (normalized) {
+        case 'critical':
+          return t('dashboard.supervisor.severity.critical')
+        case 'high':
+          return t('dashboard.supervisor.severity.high')
+        case 'medium':
+        case 'moderate':
+          return t('dashboard.supervisor.severity.medium')
+        case 'low':
+          return t('dashboard.supervisor.severity.low')
+        default:
+          return t('dashboard.supervisor.severity.medium')
+      }
+    },
+    [t]
+  )
+
+  const resolveEvaluationTypeLabel = useCallback(
+    (rawType: string): string => {
+      const normalized = normalizeToken(rawType)
+      if (normalized.includes('mid')) {
+        return t('dashboard.evaluation.midTerm')
+      }
+
+      return t('dashboard.evaluation.endOfInternship')
+    },
+    [t]
+  )
+
+  const resolveNotificationTypeLabel = useCallback(
+    (rawType: string): string => {
+      const normalized = normalizeToken(rawType)
+
+      if (normalized.includes('meeting')) {
+        return t('dashboard.supervisor.notifications.typeMeeting')
+      }
+
+      if (normalized.includes('reject')) {
+        return t('dashboard.supervisor.notifications.typeRejection')
+      }
+
+      if (normalized.includes('deliverable') || normalized.includes('submit')) {
+        return t('dashboard.supervisor.notifications.typeSubmission')
+      }
+
+      return t('dashboard.supervisor.notifications.typeGeneric')
+    },
+    [t]
+  )
+
+  const handleQueueAccept = useCallback(
+    async (item: SupervisorValidationQueueItem) => {
+      await queueState.validateDeliverable(item, 'accept', '')
+      kpisState.applyPendingDelta(-1)
+    },
+    [kpisState, queueState]
+  )
+
+  const handleQueueReject = useCallback(
+    async (item: SupervisorValidationQueueItem, reason: string) => {
+      await queueState.validateDeliverable(item, 'reject', reason)
+      kpisState.applyPendingDelta(-1)
+    },
+    [kpisState, queueState]
+  )
+
+  const updateMeetingFormField = useCallback(
+    (field: keyof SupervisorMeetingForm, value: string) => {
+      setMeetingForm((previous) => ({
+        ...previous,
+        [field]: value,
+      }))
+    },
+    []
+  )
+
+  const submitMeetingForm = useCallback(async () => {
+    if (!meetingForm.internId.trim() || !meetingForm.date.trim()) {
+      setMeetingFormError(t('dashboard.form.required'))
       return
     }
 
-    const timer = window.setTimeout(() => {
-      setSuccessToast(null)
-    }, 3500)
+    setMeetingFormError(null)
 
-    return () => {
-      window.clearTimeout(timer)
+    try {
+      await meetingsState.scheduleMeeting(meetingForm)
+      setMeetingForm(initialMeetingForm)
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMeetingFormError(error.message)
+        return
+      }
+
+      setMeetingFormError(t('dashboard.error.load'))
     }
-  }, [successToast])
+  }, [meetingForm, meetingsState, t])
 
-  const handleCreateMission = async () => {
-    const errors: Record<string, string> = {}
-    if (!missionFormData.title.trim()) errors.title = t('dashboard.form.required')
+  const openEvaluationModal = useCallback((item: SupervisorEvaluationDueItem) => {
+    setActiveEvaluation(item)
+    setEvaluationScores(initialEvaluationScores)
+    setEvaluationComment('')
+  }, [])
 
-    if (assignmentFormData.internId) {
-      if (!assignmentFormData.startDate) {
-        errors.startDate = t('dashboard.form.required')
-      }
+  const closeEvaluationModal = useCallback(() => {
+    setActiveEvaluation(null)
+  }, [])
 
-      if (!assignmentFormData.endDate) {
-        errors.endDate = t('dashboard.form.required')
-      }
+  const setEvaluationScore = useCallback((criterion: keyof SupervisorEvaluationScores, value: number) => {
+    const normalizedScore = Math.max(0, Math.min(10, Math.round(value)))
+    setEvaluationScores((previous) => ({
+      ...previous,
+      [criterion]: normalizedScore,
+    }))
+  }, [])
 
-      if (assignmentFormData.startDate && assignmentFormData.endDate && assignmentFormData.endDate < assignmentFormData.startDate) {
-        errors.endDate = 'End date must be greater than or equal to start date.'
-      }
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors)
+  const submitEvaluation = useCallback(async () => {
+    if (!activeEvaluation) {
       return
     }
 
-    try {
-      const mission = await api.post<{ id: string; title?: string }>('/api/missions', {
-        ...missionFormData,
-        deliverables: missionFormData.deliverables.split('\n').filter(Boolean),
-      })
-
-      if (assignmentFormData.internId) {
-        await api.post('/api/stages/assign', {
-          missionId: mission.id,
-          internId: assignmentFormData.internId,
-          startDate: new Date(assignmentFormData.startDate).toISOString(),
-          endDate: new Date(assignmentFormData.endDate).toISOString(),
-        })
-
-        const internName = pendingInternOptions.find((intern) => intern.id === assignmentFormData.internId)?.fullName ?? 'Intern'
-        const missionName = mission.title ?? missionFormData.title
-        setSuccessToast(`Intern ${internName} has been activated and assigned to ${missionName}.`)
-      }
-
-      setIsCreateMissionModalOpen(false)
-      setMissionFormData({ title: '', description: '', skills: [], tools: '', level: 'junior', deliverables: '' })
-      setAssignmentFormData({ internId: '', startDate: '', endDate: '' })
-      setFormErrors({})
-      void loadMissions()
-      void loadInterns()
-      void loadKpis()
-      void loadPendingInternOptions()
-    } catch (error) {
-      setFormErrors({ submit: getErrorMessage(error) })
-    }
-  }
-
-  const handleAddMeeting = async () => {
-    const errors: Record<string, string> = {}
-    if (!meetingFormData.internId) errors.internId = t('dashboard.form.required')
-    if (!meetingFormData.date) errors.date = t('dashboard.form.required')
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors)
-      return
-    }
-
-    try {
-      await api.post('/api/meetings', {
-        internId: meetingFormData.internId,
-        date: meetingFormData.date,
-        notes: meetingFormData.note,
-      })
-      setIsAddMeetingModalOpen(false)
-      setMeetingFormData({ internId: '', date: '', note: '' })
-      void loadMeetings()
-    } catch (error) {
-      setFormErrors({ submit: getErrorMessage(error) })
-    }
-  }
-
-  const handleValidateDeliverable = async (action: 'accept' | 'reject') => {
-    if (!selectedDeliverable) return
-    if (action === 'reject' && !validationComment.trim()) {
-      setFormErrors({ comment: t('dashboard.form.commentRequired') })
-      return
-    }
-
-    try {
-      await api.patch(`/api/deliverables/${selectedDeliverable.id}/validate`, {
-        action,
-        comment: validationComment,
-      })
-      setIsValidationModalOpen(false)
-      setSelectedDeliverable(null)
-      setValidationComment('')
-      void loadDeliverables()
-    } catch (error) {
-      setFormErrors({ submit: getErrorMessage(error) })
-    }
-  }
-
-  const handleSubmitEvaluation = async () => {
-    if (!selectedEvaluation) return
-
-    try {
-      await api.post('/api/evaluations', {
-        internId: selectedEvaluation.internId ?? selectedEvaluation.id,
-        type: selectedEvaluation.type,
-        scores: {
-          technical: evaluationScores.technical,
-          autonomy: evaluationScores.autonomy,
-          communication: evaluationScores.communication,
-          deadlineRespect: evaluationScores.deadlineRespect,
-          deliverableQuality: evaluationScores.deliverableQuality,
-        },
-        comments: evaluationScores.comments,
-      })
-      setIsEvaluationModalOpen(false)
-      setSelectedEvaluation(null)
-      setEvaluationScores({
-        technical: 0,
-        autonomy: 0,
-        communication: 0,
-        deadlineRespect: 0,
-        deliverableQuality: 0,
-        comments: '',
-      })
-      void loadEvaluations()
-    } catch (error) {
-      setFormErrors({ submit: getErrorMessage(error) })
-    }
-  }
-
-  const openValidationModal = (deliverable: Deliverable) => {
-    setSelectedDeliverable(deliverable)
-    setIsValidationModalOpen(true)
-    setValidationComment('')
-    setFormErrors({})
-  }
-
-  const openEvaluationModal = (evaluation: Evaluation) => {
-    setSelectedEvaluation(evaluation)
-    setIsEvaluationModalOpen(true)
-    setEvaluationScores({
-      technical: 0,
-      autonomy: 0,
-      communication: 0,
-      deadlineRespect: 0,
-      deliverableQuality: 0,
-      comments: '',
+    await evaluationsState.submitEvaluation({
+      internId: activeEvaluation.internId,
+      type: activeEvaluation.type,
+      scores: evaluationScores,
+      comments: evaluationComment.trim(),
     })
-    setFormErrors({})
-  }
 
-  const closeCreateMissionModal = () => {
-    setIsCreateMissionModalOpen(false)
-    setFormErrors({})
-  }
+    setActiveEvaluation(null)
+    setEvaluationScores(initialEvaluationScores)
+    setEvaluationComment('')
+  }, [activeEvaluation, evaluationComment, evaluationScores, evaluationsState])
 
-  const openInternProfile = (internId: string) => {
-    navigate(`/interns/${internId}`)
-  }
-
-  const missionColumns = [
-    { key: 'title', label: t('dashboard.table.title') },
-    { key: 'internName', label: t('dashboard.table.intern') },
-    { key: 'status', label: t('dashboard.table.status') },
-    { key: 'deliverablesCount', label: t('dashboard.table.deliverables') },
-  ]
-
-  const meetingColumns = [
-    { key: 'internName', label: t('dashboard.table.intern') },
-    { key: 'date', label: t('dashboard.table.date') },
-    { key: 'notes', label: t('dashboard.table.notes') },
-  ]
+  const openNotificationsPanel = useCallback(async () => {
+    await notificationsState.openPanel().catch(() => undefined)
+  }, [notificationsState])
 
   return {
     t,
-    activeInternsCount,
-    pendingValidationsCount,
-    avgProgress,
-    overdueCount,
-    interns,
-    missions,
-    pendingDeliverables,
-    pendingEvaluations,
-    meetings,
-    skills,
-    pendingInternOptions,
-    successToast,
-    isCreateMissionModalOpen,
-    setIsCreateMissionModalOpen,
-    isAddMeetingModalOpen,
-    setIsAddMeetingModalOpen,
-    isEvaluationModalOpen,
-    setIsEvaluationModalOpen,
-    isValidationModalOpen,
-    setIsValidationModalOpen,
-    selectedDeliverable,
-    selectedEvaluation,
-    missionFormData,
-    setMissionFormData,
-    assignmentFormData,
-    setAssignmentFormData,
-    meetingFormData,
-    setMeetingFormData,
-    validationComment,
-    setValidationComment,
-    evaluationScores,
-    setEvaluationScores,
-    formErrors,
-    loadingKpis,
-    loadingInterns,
-    loadingMissions,
-    loadingDeliverables,
-    loadingEvaluations,
-    loadingMeetings,
-    kpisError,
-    internsError,
-    missionsError,
-    deliverablesError,
-    evaluationsError,
-    meetingsError,
-    loadKpis,
-    loadInterns,
-    loadMissions,
-    loadDeliverables,
-    loadEvaluations,
-    loadMeetings,
-    handleCreateMission,
-    handleAddMeeting,
-    handleValidateDeliverable,
-    handleSubmitEvaluation,
-    openValidationModal,
-    openEvaluationModal,
-    closeCreateMissionModal,
+    refreshAll,
+    isRefreshing,
+    kpisState,
+    progressState,
+    progressItems,
+    workloadState,
+    delaysState,
+    delayAlerts,
+    queueState,
+    meetingsState,
+    evaluationsState,
+    notificationsState,
+    internOptions,
+    meetingForm,
+    meetingFormError,
+    updateMeetingFormField,
+    submitMeetingForm,
     openInternProfile,
-    missionColumns,
-    meetingColumns,
+    resolveDelaySeverityLabel,
+    resolveDelaySeverityTone,
+    resolveEvaluationTypeLabel,
+    resolveNotificationTypeLabel,
+    handleQueueAccept,
+    handleQueueReject,
+    openNotificationsPanel,
+    closeNotificationsPanel: notificationsState.closePanel,
+    activeEvaluation,
+    evaluationScores,
+    evaluationComment,
+    setEvaluationComment,
+    setEvaluationScore,
+    openEvaluationModal,
+    closeEvaluationModal,
+    submitEvaluation,
   }
 }

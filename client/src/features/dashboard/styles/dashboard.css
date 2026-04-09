@@ -7,22 +7,29 @@
 @import './components/Charts.css';
 @import './components/DashboardButton.css';
 @import './components/DashboardLayout.css';
+@import './components/EvaluationRow.css';
 @import './components/ErrorState.css';
 @import './components/KPICard.css';
+@import './components/MetricBar.css';
 @import './components/Modal.css';
+@import './components/NotificationPanel.css';
 @import './components/Panel.css';
 @import './components/PlaceholderSection.css';
+@import './components/ProgressRow.css';
 @import './components/SettingsPanel.css';
 @import './components/StatCard.css';
+@import './components/StatusBadge.css';
 @import './components/SuperAdminSidebar.css';
 @import './components/SuperAdminStatCard.css';
 @import './components/UserManagementSection.css';
+@import './components/ValidationQueueItem.css';
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';
 @import './components/CustomDatePicker.css';
 @import './components/CustomRadio.css';
 @import './pages/DashboardPage.css';
+@import './pages/SupervisorDashboard.css';
 
 /* Shared dashboard utilities */
 
