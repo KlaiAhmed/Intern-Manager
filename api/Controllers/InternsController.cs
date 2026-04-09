@@ -1,7 +1,10 @@
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
+using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -14,7 +17,8 @@ namespace InternManager.Api.Controllers;
 [Authorize]
 public sealed class InternsController(
     AppDbContext dbContext,
-    IWebHostEnvironment environment) : ControllerBase
+    IWebHostEnvironment environment,
+    IInternSkillsService internSkillsService) : ControllerBase
 {
     [HttpGet(Name = "ListInterns")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
@@ -115,7 +119,7 @@ public sealed class InternsController(
     }
 
     [HttpGet("{id:guid}", Name = "GetInternById")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(InternDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -127,9 +131,20 @@ public sealed class InternsController(
             return accessDeniedResult;
         }
 
+        // Fixed-shape read with a bounded query count to avoid per-item N+1 fetch patterns.
         var intern = await dbContext.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(user => user.Id == id && user.Role == UserRole.Intern, cancellationToken);
+            .Where(user => user.Id == id && user.Role == UserRole.Intern)
+            .Select(user => new
+            {
+                user.Id,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                user.Status,
+                user.VerificationStatus
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (intern is null)
         {
@@ -138,22 +153,169 @@ public sealed class InternsController(
 
         var profile = await dbContext.InternProfiles
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.InternId == id, cancellationToken);
+            .Where(item => item.InternId == id)
+            .Select(item => new
+            {
+                item.Id,
+                item.UniversityId,
+                item.Major,
+                item.CurrentYearOfStudy,
+                item.CvFileUrl,
+                item.StartDate,
+                item.EndDate
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        return Ok(new
+        string? schoolName = null;
+        if (profile?.UniversityId is Guid universityId)
         {
-            id = intern.Id,
-            firstName = intern.FirstName,
-            lastName = intern.LastName,
-            fullName = $"{intern.FirstName} {intern.LastName}".Trim(),
-            email = intern.Email,
-            status = intern.VerificationStatus.ToString(),
-            accountStatus = intern.Status.ToString(),
-            verificationStatus = intern.VerificationStatus.ToString(),
-            cvFileUrl = profile?.CvFileUrl,
-            startDate = profile?.StartDate,
-            endDate = profile?.EndDate
-        });
+            schoolName = await dbContext.Schools
+                .AsNoTracking()
+                .Where(item => item.Id == universityId)
+                .Select(item => item.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        IReadOnlyList<InternDetailSkillResponse> skills = Array.Empty<InternDetailSkillResponse>();
+        if (profile is not null)
+        {
+            skills = await dbContext.InternProfileSkills
+                .AsNoTracking()
+                .Where(item => item.InternProfileId == profile.Id)
+                .OrderBy(item => item.Skill == null ? string.Empty : item.Skill.Name)
+                .Select(item => new InternDetailSkillResponse
+                {
+                    Id = item.SkillId,
+                    Name = item.Skill != null ? item.Skill.Name : string.Empty
+                })
+                .ToListAsync(cancellationToken);
+        }
+
+        var currentMission = await dbContext.Missions
+            .AsNoTracking()
+            .Where(item => item.InternId == id)
+            .OrderByDescending(item => item.Status == DomainStatuses.Mission.Active)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new
+            {
+                item.Id,
+                item.Title,
+                item.Status,
+                item.StartDate,
+                item.EndDate,
+                Type = item.InternshipType != null
+                    ? item.InternshipType.Name
+                    : (string.IsNullOrWhiteSpace(item.Level) ? null : item.Level),
+                Department = item.Intern != null && item.Intern.Department != null
+                    ? item.Intern.Department.Name
+                    : null,
+                SupervisorId = item.Supervisor != null ? (Guid?)item.Supervisor.Id : null,
+                SupervisorFirstName = item.Supervisor != null ? item.Supervisor.FirstName : null,
+                SupervisorLastName = item.Supervisor != null ? item.Supervisor.LastName : null,
+                SupervisorEmail = item.Supervisor != null ? item.Supervisor.Email : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var specialty = string.IsNullOrWhiteSpace(profile?.Major)
+            ? null
+            : profile.Major;
+
+        var level = string.IsNullOrWhiteSpace(profile?.CurrentYearOfStudy)
+            ? null
+            : profile.CurrentYearOfStudy;
+
+        InternCurrentInternshipResponse? currentInternship = null;
+        if (currentMission is not null)
+        {
+            InternCurrentInternshipSupervisorResponse? supervisor = null;
+            if (currentMission.SupervisorId.HasValue)
+            {
+                supervisor = new InternCurrentInternshipSupervisorResponse
+                {
+                    Id = currentMission.SupervisorId.Value,
+                    Name = $"{currentMission.SupervisorFirstName} {currentMission.SupervisorLastName}".Trim(),
+                    Email = currentMission.SupervisorEmail ?? string.Empty
+                };
+            }
+
+            currentInternship = new InternCurrentInternshipResponse
+            {
+                Id = currentMission.Id,
+                Type = currentMission.Type,
+                Department = currentMission.Department,
+                StartDate = currentMission.StartDate,
+                EndDate = currentMission.EndDate,
+                Status = currentMission.Status,
+                Supervisor = supervisor,
+                Mission = new InternCurrentInternshipMissionResponse
+                {
+                    Id = currentMission.Id,
+                    Title = currentMission.Title
+                }
+            };
+        }
+
+        var response = new InternDetailResponse
+        {
+            Id = intern.Id,
+            FirstName = intern.FirstName,
+            LastName = intern.LastName,
+            FullName = $"{intern.FirstName} {intern.LastName}".Trim(),
+            Email = intern.Email,
+            Status = intern.VerificationStatus.ToString(),
+            AccountStatus = intern.Status.ToString(),
+            VerificationStatus = intern.VerificationStatus.ToString(),
+            CvFileUrl = profile?.CvFileUrl,
+            StartDate = profile?.StartDate ?? currentMission?.StartDate,
+            EndDate = profile?.EndDate ?? currentMission?.EndDate,
+            Phone = null,
+            School = schoolName,
+            Specialty = specialty,
+            Level = level,
+            Skills = skills,
+            CurrentInternship = currentInternship
+        };
+
+        return Ok(response);
+    }
+
+    [HttpPut("{id:guid}/skills", Name = "UpdateInternSkills")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateInternSkills(
+        Guid id,
+        [FromBody] UpdateInternSkillsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var accessDeniedResult = await GetInternAccessDeniedResultAsync(id, cancellationToken);
+        if (accessDeniedResult is not null)
+        {
+            return accessDeniedResult;
+        }
+
+        try
+        {
+            var skills = await internSkillsService.ReplaceSkillsAsync(
+                id,
+                request.SkillIds,
+                UserContextHelper.ResolveCurrentUserId(User),
+                UserContextHelper.ResolveCurrentActorName(User),
+                cancellationToken);
+
+            return Ok(new { data = skills });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Intern not found." });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpPost("{id:guid}/upload-cv", Name = "UploadInternCv")]
@@ -178,7 +340,7 @@ public sealed class InternsController(
     /// Downloads an intern's CV file.
     /// </summary>
     /// <remarks>
-    /// This endpoint allows SuperAdmin and Admin users to download an intern's CV file.
+    /// This endpoint allows SuperAdmin, Admin, and Manager users to download an intern's CV file.
     /// The file is returned as a PDF attachment.
     /// </remarks>
     /// <param name="id">The intern's unique identifier.</param>
@@ -186,10 +348,10 @@ public sealed class InternsController(
     /// <returns>The CV file as a PDF.</returns>
     /// <response code="200">CV file returned successfully.</response>
     /// <response code="401">User not authenticated.</response>
-    /// <response code="403">User not authorized (SuperAdmin/Admin only).</response>
+    /// <response code="403">User not authorized (SuperAdmin/Admin/Manager only).</response>
     /// <response code="404">Intern not found or CV not available.</response>
     [HttpGet("{id:guid}/cv", Name = "DownloadInternCv")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -211,7 +373,7 @@ public sealed class InternsController(
 
         if (profile is null || string.IsNullOrWhiteSpace(profile.CvFileUrl))
         {
-            return NotFound(new { message = "CV not found for this intern." });
+            return NotFound(new { message = "No CV on file" });
         }
 
         var relativePath = profile.CvFileUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
@@ -219,9 +381,10 @@ public sealed class InternsController(
 
         if (!System.IO.File.Exists(absolutePath))
         {
-            return NotFound(new { message = "CV file is missing from storage." });
+            return NotFound(new { message = "No CV on file" });
         }
 
+        // Response type: streamed file via PhysicalFileResult.
         return PhysicalFile(absolutePath, "application/pdf", enableRangeProcessing: true);
     }
 
