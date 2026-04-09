@@ -6,6 +6,7 @@
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
+using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,10 +18,15 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur de statistiques pour le superviseur connecté.
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="supervisorScopeService">Service de résolution du périmètre des stagiaires d un superviseur.</param>
+/// <param name="supervisorStatsService">Service métier des statistiques superviseur.</param>
 [ApiController]
 [Route("api/stats/supervisor/me")]
 [Authorize(Roles = "Supervisor")]
-public sealed class SupervisorStatsController(AppDbContext dbContext, ISupervisorScopeService supervisorScopeService) : ControllerBase
+public sealed class SupervisorStatsController(
+    AppDbContext dbContext,
+    ISupervisorScopeService supervisorScopeService,
+    ISupervisorStatsService supervisorStatsService) : ControllerBase
 {
     /// <summary>
     /// Récupère le nombre de stagiaires actifs du superviseur.
@@ -120,17 +126,72 @@ public sealed class SupervisorStatsController(AppDbContext dbContext, ISuperviso
             return Unauthorized();
         }
 
-        var deliverableProgressValues = await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.SupervisorId == supervisorId.Value)
-            .Select(deliverable => deliverable.Progress)
-            .ToListAsync(cancellationToken);
+        var averageProgress = await supervisorStatsService.GetAverageProgressAsync(supervisorId.Value, cancellationToken);
 
-        var averageProgress = deliverableProgressValues.Count == 0
-            ? 0
-            : deliverableProgressValues.Average(progress => Math.Clamp(progress, 0, 100));
+        return Ok(new { value = averageProgress });
+    }
 
-        return Ok(new { value = Math.Round(averageProgress, 2) });
+    /// <summary>
+    /// Récupère le délai moyen de validation des livrables sur le mois courant.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le délai moyen en jours ainsi que la taille de l échantillon.</returns>
+    [HttpGet("avg-validation-delay", Name = "GetMyAvgValidationDelay")]
+    [ProducesResponseType(typeof(AvgValidationDelayResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetSupervisorAverageValidationDelay(CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var response = await supervisorStatsService.GetAverageValidationDelayAsync(supervisorId.Value, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Récupère la charge de supervision du superviseur connecté.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Charge actuelle, capacité et répartition par type de stage.</returns>
+    [HttpGet("workload", Name = "GetMyWorkload")]
+    [ProducesResponseType(typeof(SupervisorWorkloadResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetSupervisorWorkload(CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var response = await supervisorStatsService.GetWorkloadAsync(supervisorId.Value, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Récupère les alertes de retard des livrables du superviseur.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>La liste des livrables en retard ordonnée par criticité.</returns>
+    [HttpGet("delays-alerts", Name = "GetMyDelaysAlerts")]
+    [ProducesResponseType(typeof(DelaysAlertsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetSupervisorDelaysAlerts(CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var response = await supervisorStatsService.GetDelaysAlertsAsync(supervisorId.Value, cancellationToken);
+        return Ok(response);
     }
 
     /// <summary>

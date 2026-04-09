@@ -17,14 +17,14 @@ namespace InternManager.Api.Controllers;
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
-/// <param name="notificationService">Service pour envoyer des notifications.</param>
+/// <param name="deliverablesService">Service métier des livrables.</param>
 [ApiController]
 [Route("api/deliverables")]
 [Authorize]
 public sealed class DeliverablesController(
     AppDbContext dbContext,
     IWebHostEnvironment environment,
-    INotificationService notificationService) : ControllerBase
+    IDeliverablesService deliverablesService) : ControllerBase
 {
     private const long MaxUploadBytes = 10 * 1024 * 1024;
 
@@ -75,7 +75,7 @@ public sealed class DeliverablesController(
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListDeliverables")]
     [Authorize(Roles = "Supervisor")]
-    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<DeliverableQueueItemResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetDeliverables(
@@ -96,53 +96,14 @@ public sealed class DeliverablesController(
             return Forbid();
         }
 
-        var safePage = Math.Max(page, 1);
-        var safeLimit = Math.Clamp(limit, 1, 100);
+        var response = await deliverablesService.GetSupervisorDeliverablesAsync(
+            currentSupervisorId.Value,
+            status,
+            page,
+            limit,
+            cancellationToken);
 
-        var query = dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.SupervisorId == currentSupervisorId.Value)
-            .Include(deliverable => deliverable.Intern)
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            var normalizedStatus = status.Trim().ToLowerInvariant();
-
-            query = normalizedStatus switch
-            {
-                DomainStatuses.Deliverable.Pending => query.Where(
-                    deliverable =>
-                        deliverable.Status == DomainStatuses.Deliverable.Pending ||
-                        deliverable.Status == DomainStatuses.Deliverable.Submitted),
-                _ => query.Where(deliverable => deliverable.Status == normalizedStatus)
-            };
-        }
-
-        var total = await query.CountAsync(cancellationToken);
-
-        var data = await query
-            .OrderByDescending(deliverable => deliverable.SubmittedDate)
-            .ThenByDescending(deliverable => deliverable.CreatedAt)
-            .Skip((safePage - 1) * safeLimit)
-            .Take(safeLimit)
-            .Select(deliverable => new
-            {
-                id = deliverable.Id,
-                title = deliverable.Title,
-                internId = deliverable.InternId,
-                internName = deliverable.Intern != null
-                    ? $"{deliverable.Intern.FirstName} {deliverable.Intern.LastName}".Trim()
-                    : string.Empty,
-                submittedDate = deliverable.SubmittedDate,
-                fileUrl = string.IsNullOrWhiteSpace(deliverable.FileUrl)
-                    ? "#"
-                    : deliverable.FileUrl,
-                version = deliverable.Version
-            })
-            .ToListAsync(cancellationToken);
-
-        return Ok(new { data, total, page = safePage, limit = safeLimit });
+        return Ok(response);
     }
 
     /// <summary>
@@ -574,88 +535,31 @@ public sealed class DeliverablesController(
             return Unauthorized();
         }
 
-        var normalizedStatus = NormalizeValidationStatus(request.Status, request.Action);
-        if (normalizedStatus is null)
+        try
         {
-            return BadRequest(new { message = "Status must be 'accepted' or 'rejected'." });
-        }
-
-        var deliverable = await dbContext.Deliverables
-            .FirstOrDefaultAsync(
-                item => item.Id == id && item.SupervisorId == currentSupervisorId.Value,
+            var response = await deliverablesService.ValidateDeliverableAsync(
+                currentSupervisorId.Value,
+                id,
+                request.Status,
+                request.Action,
+                request.Comment,
+                UserContextHelper.ResolveCurrentActorName(User),
                 cancellationToken);
 
-        if (deliverable is null)
-        {
-            return NotFound(new { message = "Deliverable not found." });
+            return Ok(response);
         }
-
-        var currentStatus = deliverable.Status.Trim().ToLowerInvariant();
-        if (currentStatus != DomainStatuses.Deliverable.Submitted)
+        catch (ArgumentException exception)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = "Only submitted deliverables can be validated." });
+            return BadRequest(new { message = exception.Message });
         }
-
-        var latestVersion = await dbContext.DeliverableVersions
-            .Where(item => item.DeliverableId == deliverable.Id)
-            .OrderByDescending(item => item.VersionNumber)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (latestVersion is null)
+        catch (KeyNotFoundException exception)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = "No submission version was found for this deliverable." });
+            return NotFound(new { message = exception.Message });
         }
-
-        deliverable.Status = normalizedStatus;
-        deliverable.SupervisorComment = string.IsNullOrWhiteSpace(request.Comment)
-            ? null
-            : request.Comment.Trim();
-
-        latestVersion.Status = normalizedStatus;
-        latestVersion.SupervisorComment = deliverable.SupervisorComment;
-        latestVersion.ValidatedAt = DateTime.UtcNow;
-
-        if (!deliverable.SubmittedDate.HasValue)
+        catch (InvalidOperationException exception)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = "Submitted date is required before validation." });
+            return StatusCode(StatusCodes.Status409Conflict, new { message = exception.Message });
         }
-
-        if (normalizedStatus == DomainStatuses.Deliverable.Accepted)
-        {
-            deliverable.Progress = 100;
-        }
-
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = currentSupervisorId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "deliverable.validate",
-            Entity = $"deliverable:{deliverable.Id} version:{latestVersion.VersionNumber} status:{deliverable.Status}",
-            Timestamp = DateTime.UtcNow
-        });
-
-        if (deliverable.InternId.HasValue)
-        {
-            var title = normalizedStatus == DomainStatuses.Deliverable.Accepted ? "Deliverable accepted" : "Deliverable rejected";
-            var message = normalizedStatus == DomainStatuses.Deliverable.Accepted
-                ? $"Your deliverable '{deliverable.Title}' (v{latestVersion.VersionNumber}) was accepted."
-                : $"Your deliverable '{deliverable.Title}' (v{latestVersion.VersionNumber}) was rejected.";
-
-            notificationService.QueueNotification(
-                deliverable.InternId.Value,
-                "deliverable.validation",
-                title,
-                message,
-                $"deliverable:{deliverable.Id}:v{latestVersion.VersionNumber}");
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Ok(new
-        {
-            id = deliverable.Id,
-            status = deliverable.Status
-        });
     }
 
     private static string NormalizeStatusForIntern(string rawStatus)
@@ -672,39 +576,15 @@ public sealed class DeliverablesController(
         };
     }
 
-    private static string? NormalizeValidationStatus(string? status, string? action)
-    {
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            var normalized = status.Trim().ToLowerInvariant();
-            return normalized is DomainStatuses.Deliverable.Accepted or DomainStatuses.Deliverable.Rejected
-                ? normalized
-                : null;
-        }
-
-        if (string.IsNullOrWhiteSpace(action))
-        {
-            return null;
-        }
-
-        var normalizedAction = action.Trim().ToLowerInvariant();
-        return normalizedAction switch
-        {
-            "accept" or DomainStatuses.Deliverable.Accepted => DomainStatuses.Deliverable.Accepted,
-            "reject" or DomainStatuses.Deliverable.Rejected => DomainStatuses.Deliverable.Rejected,
-            _ => null
-        };
-    }
-
 }
 
 public sealed class ValidateDeliverableRequest
 {
-    public string Status { get; init; } = string.Empty;
+    public string? Status { get; init; }
 
-    public string Action { get; init; } = string.Empty;
+    public string? Action { get; init; }
 
-    public string Comment { get; init; } = string.Empty;
+    public string? Comment { get; init; }
 }
 
 public sealed class SubmitDeliverableForm

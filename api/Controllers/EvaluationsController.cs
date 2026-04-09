@@ -16,11 +16,16 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur de gestion des évaluations.
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="supervisorScopeService">Service de résolution du périmètre des stagiaires superviseur.</param>
+/// <param name="evaluationStatusService">Service métier des états d évaluation superviseur.</param>
 [ApiController]
 [Route("api/evaluations")]
 [Authorize]
 [EnableRateLimiting("write-operations")]
-public sealed class EvaluationsController(AppDbContext dbContext, ISupervisorScopeService supervisorScopeService) : ControllerBase
+public sealed class EvaluationsController(
+    AppDbContext dbContext,
+    ISupervisorScopeService supervisorScopeService,
+    IEvaluationStatusService evaluationStatusService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des évaluations.
@@ -201,6 +206,31 @@ public sealed class EvaluationsController(AppDbContext dbContext, ISupervisorSco
             .ToListAsync(cancellationToken);
 
         return Ok(new { data = pendingData, total, page = safePage, limit = safeLimit });
+    }
+
+    /// <summary>
+    /// Récupère les évaluations dues et complétées du superviseur connecté.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Deux colonnes : évaluations à faire et évaluations terminées.</returns>
+    [HttpGet("supervisor/me/status", Name = "GetSupervisorEvaluationStatus")]
+    [Authorize(Roles = "Supervisor")]
+    [ProducesResponseType(typeof(EvaluationStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetSupervisorEvaluationStatus(CancellationToken cancellationToken)
+    {
+        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentSupervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var response = await evaluationStatusService.GetSupervisorEvaluationStatusAsync(
+            currentSupervisorId.Value,
+            cancellationToken);
+
+        return Ok(response);
     }
 
     /// <summary>

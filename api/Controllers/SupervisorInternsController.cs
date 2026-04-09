@@ -7,6 +7,7 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
+using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,10 +18,13 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur de consultation des stagiaires d un superviseur.
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
+/// <param name="supervisorInternsService">Service métier des vues de suivi des stagiaires superviseur.</param>
 [ApiController]
 [Route("api/supervisor/me")]
 [Authorize(Roles = "Supervisor")]
-public sealed class SupervisorInternsController(AppDbContext dbContext) : ControllerBase
+public sealed class SupervisorInternsController(
+    AppDbContext dbContext,
+    ISupervisorInternsService supervisorInternsService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des stagiaires du superviseur connecté.
@@ -139,6 +143,27 @@ public sealed class SupervisorInternsController(AppDbContext dbContext) : Contro
             .ToListAsync(cancellationToken);
 
         return Ok(new { data, total, page = safePage, limit = safeLimit });
+    }
+
+    /// <summary>
+    /// Récupère la progression synthétique des stagiaires du superviseur connecté.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste avec mission, type de stage, progression et statut de risque.</returns>
+    [HttpGet("interns/progress", Name = "ListMyInternsProgress")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyInternsProgress(CancellationToken cancellationToken = default)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var data = await supervisorInternsService.GetInternProgressAsync(supervisorId.Value, cancellationToken);
+        return Ok(new { data, total = data.Count });
     }
 
 }

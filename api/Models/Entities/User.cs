@@ -48,6 +48,11 @@ public class User
     public UserStatus Status { get; set; }
 
     /// <summary>
+    /// Capacite maximale de stagiaires pour un superviseur. Null signifie non limite.
+    /// </summary>
+    public int? MaxCapacity { get; set; }
+
+    /// <summary>
     /// Statut de verification du parcours onboarding pour les stagiaires.
     /// </summary>
     public InternVerificationStatus VerificationStatus { get; set; } = InternVerificationStatus.INCOMPLETE;

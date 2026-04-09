@@ -167,6 +167,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion<string>()
                 .HasMaxLength(32);
 
+            entity.Property(u => u.MaxCapacity);
+
             entity.Property(u => u.VerificationStatus)
                 .IsRequired()
                 .HasConversion<string>()
