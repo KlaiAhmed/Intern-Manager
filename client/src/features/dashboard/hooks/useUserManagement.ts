@@ -16,6 +16,10 @@ export interface DepartmentOption {
   name: string
 }
 
+type UserUpsertPayload = Omit<User, 'id' | 'created'> & {
+  password?: string
+}
+
 interface UseUserManagementReturn {
   users: User[]
   departments: DepartmentOption[]
@@ -32,8 +36,8 @@ interface UseUserManagementReturn {
   setFilters: (filters: Partial<{ role: string; status: string; department: string; search: string }>) => void
   goToPage: (page: number) => void
   refresh: () => Promise<void>
-  createUser: (userData: Omit<User, 'id' | 'created'>) => Promise<void>
-  updateUser: (id: string, userData: Partial<User>) => Promise<void>
+  createUser: (userData: UserUpsertPayload) => Promise<void>
+  updateUser: (id: string, userData: Partial<UserUpsertPayload>) => Promise<void>
   archiveUser: (id: string) => Promise<void>
   deleteUser: (id: string) => Promise<void>
 }
@@ -81,7 +85,7 @@ function parseDepartmentOptions(payload: unknown): DepartmentOption[] {
   return []
 }
 
-function buildUserUpsertPayload(userData: Partial<Omit<User, 'id' | 'created'>>): Record<string, string> {
+function buildUserUpsertPayload(userData: Partial<UserUpsertPayload>): Record<string, string> {
   const payload: Record<string, string> = {}
 
   if (typeof userData.name === 'string' && userData.name.trim()) {
@@ -94,6 +98,10 @@ function buildUserUpsertPayload(userData: Partial<Omit<User, 'id' | 'created'>>)
 
   if (typeof userData.role === 'string' && userData.role.trim()) {
     payload.role = userData.role.trim()
+  }
+
+  if (typeof userData.password === 'string' && userData.password.trim()) {
+    payload.password = userData.password.trim()
   }
 
   if (typeof userData.status === 'string' && userData.status.trim()) {
@@ -180,12 +188,12 @@ export function useUserManagement(): UseUserManagementReturn {
     await fetchUsers(page, filters)
   }, [fetchUsers, page, filters])
 
-  const createUser = useCallback(async (userData: Omit<User, 'id' | 'created'>) => {
+  const createUser = useCallback(async (userData: UserUpsertPayload) => {
     await post('/api/users', buildUserUpsertPayload(userData))
     await refresh()
   }, [post, refresh])
 
-  const updateUser = useCallback(async (id: string, userData: Partial<User>) => {
+  const updateUser = useCallback(async (id: string, userData: Partial<UserUpsertPayload>) => {
     await patch(`/api/users/${id}`, buildUserUpsertPayload(userData))
     await refresh()
   }, [patch, refresh])

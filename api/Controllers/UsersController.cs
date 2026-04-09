@@ -132,7 +132,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// </summary>
     /// <remarks>
     /// Cette route crée un compte avec les informations fournies. L email doit être unique.
-    /// Si aucun mot de passe n est fourni, un mot de passe temporaire est généré automatiquement.
+    /// Un mot de passe conforme à la politique de sécurité est obligatoire.
     /// Les administrateurs ne peuvent pas créer de comptes SuperAdmin.
     /// </remarks>
     /// <param name="request">Objet contenant les informations du nouvel utilisateur.</param>
@@ -204,9 +204,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             return Conflict(new { message = "A user with this email already exists." });
         }
 
-        var effectivePassword = string.IsNullOrWhiteSpace(request.Password)
-            ? BuildTemporaryPassword()
-            : request.Password.Trim();
+        var effectivePassword = request.Password?.Trim() ?? string.Empty;
 
         if (!PasswordPolicyValidator.IsValid(effectivePassword))
         {
@@ -876,11 +874,6 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
         firstName = parts[0];
         lastName = string.Join(' ', parts.Skip(1));
         return true;
-    }
-
-    private static string BuildTemporaryPassword()
-    {
-        return $"Tmp@{Guid.NewGuid():N}aA1";
     }
 
     private static bool TryParseRole(string? rawRole, out UserRole role)
