@@ -13,7 +13,8 @@ namespace InternManager.Api.Controllers;
 [Route("api/interns")]
 [Authorize]
 public sealed class InternsController(
-    AppDbContext dbContext) : ControllerBase
+    AppDbContext dbContext,
+    IWebHostEnvironment environment) : ControllerBase
 {
     [HttpGet(Name = "ListInterns")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
@@ -171,6 +172,57 @@ public sealed class InternsController(
         {
             message = "This endpoint has been retired. Use POST /api/intern/me/profile/cv."
         });
+    }
+
+    /// <summary>
+    /// Downloads an intern's CV file.
+    /// </summary>
+    /// <remarks>
+    /// This endpoint allows SuperAdmin and Admin users to download an intern's CV file.
+    /// The file is returned as a PDF attachment.
+    /// </remarks>
+    /// <param name="id">The intern's unique identifier.</param>
+    /// <param name="cancellationToken">Token to cancel the operation if needed.</param>
+    /// <returns>The CV file as a PDF.</returns>
+    /// <response code="200">CV file returned successfully.</response>
+    /// <response code="401">User not authenticated.</response>
+    /// <response code="403">User not authorized (SuperAdmin/Admin only).</response>
+    /// <response code="404">Intern not found or CV not available.</response>
+    [HttpGet("{id:guid}/cv", Name = "DownloadInternCv")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadCv(Guid id, CancellationToken cancellationToken)
+    {
+        var intern = await dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.Id == id && user.Role == UserRole.Intern, cancellationToken);
+
+        if (intern is null)
+        {
+            return NotFound(new { message = "Intern not found." });
+        }
+
+        var profile = await dbContext.InternProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InternId == id, cancellationToken);
+
+        if (profile is null || string.IsNullOrWhiteSpace(profile.CvFileUrl))
+        {
+            return NotFound(new { message = "CV not found for this intern." });
+        }
+
+        var relativePath = profile.CvFileUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var absolutePath = Path.Combine(environment.ContentRootPath, relativePath);
+
+        if (!System.IO.File.Exists(absolutePath))
+        {
+            return NotFound(new { message = "CV file is missing from storage." });
+        }
+
+        return PhysicalFile(absolutePath, "application/pdf", enableRangeProcessing: true);
     }
 
     private async Task<IActionResult?> GetInternAccessDeniedResultAsync(Guid internId, CancellationToken cancellationToken)

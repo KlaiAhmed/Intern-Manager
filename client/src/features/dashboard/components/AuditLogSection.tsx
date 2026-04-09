@@ -42,6 +42,8 @@ export function AuditLogSection() {
     setFilter,
     goToPage,
     refresh,
+    exportAll,
+    exporting,
   } = useAuditLogs()
 
   const [actorInput, setActorInput] = useState(filter.actor)
@@ -54,9 +56,13 @@ export function AuditLogSection() {
           <h2 className="section-title">{t('dashboard.superAdmin.auditSecurity')}</h2>
           <p className="section-subtitle">{t('dashboard.superAdmin.auditDesc')}</p>
         </div>
-        <button className="dash-btn dash-btn-secondary dash-btn-md" onClick={refresh}>
+        <button
+          className="dash-btn dash-btn-secondary dash-btn-md"
+          onClick={() => void exportAll()}
+          disabled={exporting}
+        >
           <span className="btn-icon"><Download /></span>
-          <span>Export</span>
+          <span>{exporting ? 'Exporting...' : 'Export'}</span>
         </button>
       </header>
 

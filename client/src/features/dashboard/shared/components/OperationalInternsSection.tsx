@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
 import { DashboardButton } from '../../components/DashboardButton'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
+import { apiBaseUrl } from '../../../../lib/apiClient'
 import type { InternApi, InternRecord, PagedResponse } from '../types/operations'
 import { toDashboardErrorMessage } from '../utils/errorMessage'
 import { mapInternApi } from '../utils/operations'
@@ -229,7 +230,16 @@ export function OperationalInternsSection() {
             <div className="admin-modal-span-all">
               <h3>CV</h3>
               {selectedIntern.cvFileUrl ? (
-                <a href={selectedIntern.cvFileUrl} target="_blank" rel="noreferrer">Open CV file</a>
+                <button
+                  type="button"
+                  className="admin-link-button"
+                  onClick={() => {
+                    const cvUrl = `${apiBaseUrl}/api/interns/${selectedIntern.id}/cv`
+                    window.open(cvUrl, '_blank', 'noopener,noreferrer')
+                  }}
+                >
+                  Open CV file
+                </button>
               ) : (
                 <p>No CV uploaded.</p>
               )}

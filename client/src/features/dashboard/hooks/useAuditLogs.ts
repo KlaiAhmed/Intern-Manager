@@ -23,6 +23,8 @@ interface UseAuditLogsReturn {
   setFilter: (filter: Partial<{ actor: string; action: string }>) => void
   goToPage: (page: number) => void
   refresh: () => Promise<void>
+  exportAll: () => Promise<void>
+  exporting: boolean
 }
 
 const parseApiLog = (log: Record<string, unknown>): AuditLog => ({
@@ -46,6 +48,7 @@ export function useAuditLogs(): UseAuditLogsReturn {
     actor: '',
     action: '',
   })
+  const [exporting, setExporting] = useState(false)
 
   const fetchLogs = useCallback(
     async (currentPage: number, currentFilter: typeof filter) => {
@@ -93,6 +96,59 @@ export function useAuditLogs(): UseAuditLogsReturn {
     await fetchLogs(page, filter)
   }, [fetchLogs, page, filter])
 
+  const exportAll = useCallback(async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('page', '1')
+      params.set('limit', '10000')
+      if (filter.actor) params.set('actor', filter.actor)
+      if (filter.action) params.set('action', filter.action)
+
+      const result = await api.get<{
+        data: Record<string, unknown>[]
+        total: number
+      }>(`/api/admin/audit-logs?${params.toString()}`)
+
+      const allLogs = (result.data ?? []).map(parseApiLog)
+
+      const csvRows = [
+        ['ID', 'Actor', 'Action', 'Entity', 'Date', 'Time'],
+        ...allLogs.map((log) => {
+          const date = new Date(log.timestamp)
+          return [
+            log.id,
+            log.actor,
+            log.action,
+            log.entity,
+            date.toLocaleDateString(),
+            date.toLocaleTimeString(),
+          ]
+        }),
+      ]
+
+      const csvContent = csvRows
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const blobUrl = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      const timestamp = new Date().toISOString().split('T')[0]
+
+      anchor.href = blobUrl
+      anchor.setAttribute('download', `audit-logs-${timestamp}.csv`)
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      console.error('Failed to export audit logs:', err)
+    } finally {
+      setExporting(false)
+    }
+  }, [api, filter])
+
   useEffect(() => {
     void fetchLogs(page, filter)
   }, [fetchLogs, page, filter])
@@ -107,5 +163,7 @@ export function useAuditLogs(): UseAuditLogsReturn {
     setFilter,
     goToPage,
     refresh,
+    exportAll,
+    exporting,
   }
 }
