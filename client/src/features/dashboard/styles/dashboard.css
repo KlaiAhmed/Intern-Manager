@@ -20,6 +20,7 @@
 @import './components/StatCard.css';
 @import './components/StatusBadge.css';
 @import './components/SuperAdminSidebar.css';
+@import './components/ManagerSidebar.css';
 @import './components/SuperAdminStatCard.css';
 @import './components/UserManagementSection.css';
 @import './components/ValidationQueueItem.css';

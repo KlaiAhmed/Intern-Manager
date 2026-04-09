@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback } from 'react'
 import { DashboardButton } from '../../components/DashboardButton'
-import { DashboardLayout } from '../../components/DashboardLayout'
+import { ManagerSidebar, getManagerNavItems } from '../../components/ManagerSidebar'
 import type { ManagerTabId } from './types'
 import { useManagerDashboardState } from './useManagerDashboardState'
 import '../../styles/pages/ManagerDashboard.css'
@@ -37,7 +37,6 @@ export function ManagerDashboard() {
   const {
     activeTab,
     setActiveTab,
-    navItems,
     refreshAll,
     loadingKPIs,
     loadingDepartments,
@@ -185,21 +184,43 @@ export function ManagerDashboard() {
     loadSupervisors,
   ])
 
+  // Build nav items with proper icons for ManagerSidebar
+  const sidebarNavItems = getManagerNavItems(
+    filteredInterns.length,
+    supervisors.length,
+    departments.length,
+  )
+
   return (
-    <DashboardLayout
-      title="Manager Dashboard"
-      subtitle="Overview of internship program across departments"
-      navItems={navItems}
-      activeTab={activeTab}
-      onTabChange={(tabId) => setActiveTab(tabId as ManagerTabId)}
-      onRefresh={refreshAll}
-      headerActions={
-        <DashboardButton variant="secondary" size="sm" onClick={refreshAll}>
-          Refresh
-        </DashboardButton>
-      }
-    >
-      <Suspense fallback={<TabLoadingFallback />}>{renderTabContent()}</Suspense>
+    <div className="manager-dashboard-layout">
+      <ManagerSidebar
+        activeSection={activeTab}
+        onSectionChange={(section) => setActiveTab(section as ManagerTabId)}
+        brandLabel="Manager"
+        navItems={sidebarNavItems}
+      />
+
+      <main className="manager-main" id="main-content" tabIndex={-1}>
+        {/* Desktop Header */}
+        <header className="manager-header">
+          <div className="manager-header-content">
+            <div className="manager-header-text">
+              <h1 className="manager-header-title">Manager Dashboard</h1>
+              <p className="manager-header-subtitle">Overview of internship program across departments</p>
+            </div>
+            <div className="manager-header-actions">
+              <DashboardButton variant="secondary" size="sm" onClick={refreshAll}>
+                Refresh
+              </DashboardButton>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="manager-content">
+          <Suspense fallback={<TabLoadingFallback />}>{renderTabContent()}</Suspense>
+        </div>
+      </main>
 
       {isInternModalOpen && (
         <Suspense fallback={null}>
@@ -215,6 +236,6 @@ export function ManagerDashboard() {
           />
         </Suspense>
       )}
-    </DashboardLayout>
+    </div>
   )
 }

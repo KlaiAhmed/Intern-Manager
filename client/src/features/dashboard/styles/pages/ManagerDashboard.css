@@ -1,2 +1,21 @@
 ﻿@import './managerDashboard/manager-dashboard.part.01.css';
 @import './managerDashboard/manager-dashboard.part.02.css';
+
+/* Manager Dashboard Layout */
+.manager-dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--dash-bg-tertiary);
+  font-family: var(--dash-font-body);
+}
+
+/* Ensure proper spacing when using manager-sidebar */
+.manager-dashboard-layout .manager-sidebar + .manager-main {
+  margin-left: 80px;
+}
+
+@media (max-width: 767px) {
+  .manager-dashboard-layout .manager-sidebar + .manager-main {
+    margin-left: 0;
+  }
+}
