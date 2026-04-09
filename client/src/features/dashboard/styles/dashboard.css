@@ -2,6 +2,7 @@
 /* Import all dashboard CSS in order of specificity */
 
 @import './dashboard-tokens.css';
+@import '../../../components/ui/Input/Input.css';
 @import './components/AuditLogSection.css';
 @import './components/Charts.css';
 @import './components/DashboardButton.css';

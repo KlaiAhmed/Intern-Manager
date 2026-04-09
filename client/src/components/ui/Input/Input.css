@@ -1,0 +1,70 @@
+/* Modern Input Styles */
+
+.modern-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.modern-input-icon {
+  position: absolute;
+  left: 16px;
+  color: var(--dash-text-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  z-index: 1;
+}
+
+.modern-input {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--dash-border);
+  background: var(--dash-bg-primary);
+  color: var(--dash-text);
+  font-family: var(--dash-font-body);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  padding: 10px 14px;
+  border-radius: var(--dash-radius-md);
+  width: 100%;
+  outline: none;
+  transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-input::placeholder {
+  color: var(--dash-text-muted);
+  opacity: 0.7;
+}
+
+.modern-input:hover:not(:disabled) {
+  border-color: var(--dash-border-hover);
+}
+
+.modern-input:focus {
+  border-color: var(--dash-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dash-accent) 12%, transparent);
+}
+
+.modern-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--dash-bg-secondary);
+}
+
+/* Input with icon variant */
+.modern-input--with-icon {
+  padding-left: 48px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .modern-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
