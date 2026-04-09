@@ -17,7 +17,7 @@ namespace InternManager.Api.Controllers;
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 [ApiController]
 [Route("api/admin/audit-logs")]
-[Authorize(Roles = "SuperAdmin,Admin")]
+[Authorize(Roles = "SuperAdmin,Admin,Manager")]
 public sealed class AuditLogsController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>

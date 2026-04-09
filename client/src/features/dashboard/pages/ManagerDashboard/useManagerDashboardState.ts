@@ -187,7 +187,7 @@ export function useManagerDashboardState() {
 
     try {
       const [departmentPayload, internUsersPayload, supervisorUsersPayload, internshipsPayload] = await Promise.all([
-        api.get<DepartmentRecord[]>('/api/admin/settings/departments'),
+        api.get<PagedResponse<DepartmentRecord>>('/api/admin/settings/departments'),
         api.get<PagedResponse<UserRecord>>('/api/users?role=intern&page=1&limit=200'),
         api.get<PagedResponse<UserRecord>>('/api/users?role=supervisor&page=1&limit=200'),
         api.get<PagedResponse<InternshipRecord>>('/api/internships?page=1&limit=200'),
@@ -204,7 +204,7 @@ export function useManagerDashboardState() {
         progressByDepartment.set(departmentName, current)
       }
 
-      const mappedDepartments: Department[] = (departmentPayload ?? [])
+      const mappedDepartments: Department[] = (departmentPayload.data ?? [])
         .map((department): Department | null => {
           const name = asNonEmptyString(department.name)
           const id = asNonEmptyString(department.id)

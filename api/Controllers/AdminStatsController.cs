@@ -21,13 +21,14 @@ namespace InternManager.Api.Controllers;
 public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBase
 {
     private const string AdminRole = "Admin,SuperAdmin";
+    private const string DashboardReadRole = "Admin,SuperAdmin,Manager";
 
     /// <summary>
     /// Récupère le nombre de stagiaires actifs.
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre total de stagiaires avec le statut "actif".
-    /// Réservé aux super-administrateurs.
+    /// Réservé aux super-administrateurs et accessible aux managers pour la lecture du tableau de bord.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de stagiaires actifs.</returns>
@@ -35,7 +36,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns/active", Name = "GetActiveInterns")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -53,7 +54,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre de stagiaires actifs.
-    /// Accessible aux administrateurs.
+    /// Accessible aux administrateurs et aux managers.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de stagiaires.</returns>
@@ -61,7 +62,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns/count", Name = "GetInternsCount")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -76,7 +77,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre total de superviseurs avec le statut "actif".
-    /// Réservé aux super-administrateurs.
+    /// Réservé aux super-administrateurs et accessible aux managers pour le tableau de bord.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de superviseurs.</returns>
@@ -84,7 +85,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("supervisors", Name = "GetSupervisorsStats")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -102,7 +103,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre de superviseurs actifs.
-    /// Accessible aux administrateurs.
+    /// Accessible aux administrateurs et aux managers.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de superviseurs.</returns>
@@ -110,7 +111,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("supervisors/count", Name = "GetSupervisorsCount")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -125,7 +126,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre de missions enregistrées dans le système.
-    /// Réservé aux super-administrateurs.
+    /// Réservé aux super-administrateurs et accessible aux managers pour le tableau de bord.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de missions.</returns>
@@ -133,7 +134,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("missions", Name = "GetMissionsStats")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -174,7 +175,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre de stagiaires actuellement en stage actif.
-    /// Accessible aux administrateurs.
+    /// Accessible aux administrateurs et aux managers.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de stages actifs.</returns>
@@ -182,7 +183,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internships/active", Name = "GetActiveInternships")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -357,7 +358,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <remarks>
     /// Cette route retourne le nombre de livrables avec le statut "pending"
     /// ou "submitted" qui n ont pas encore été traités.
-    /// Accessible aux administrateurs.
+    /// Accessible aux administrateurs et aux managers.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de livrables en attente.</returns>
@@ -365,7 +366,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("deliverables/pending", Name = "GetPendingDeliverablesStats")]
-    [Authorize(Roles = AdminRole)]
+    [Authorize(Roles = DashboardReadRole)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

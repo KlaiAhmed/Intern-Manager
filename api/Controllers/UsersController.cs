@@ -32,7 +32,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// </summary>
     /// <remarks>
     /// Cette route retourne une liste paginée d utilisateurs. Vous pouvez filtrer par rôle, statut,
-    /// département ou faire une recherche par nom/email. Seuls les administrateurs peuvent y accéder.
+    /// département ou faire une recherche par nom/email. Seuls les administrateurs et les managers peuvent y accéder.
     /// Les résultats sont triés par date de création, du plus récent au plus ancien.
     /// </remarks>
     /// <param name="role">Filtre par rôle (ex: Intern, Supervisor, Admin).</param>
@@ -48,7 +48,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé (rôle insuffisant).</response>
     [HttpGet(Name = "ListUsers")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
