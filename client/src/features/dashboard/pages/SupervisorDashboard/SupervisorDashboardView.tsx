@@ -10,6 +10,7 @@ import { ProgressRow } from '../../components/ProgressRow'
 import { Skeleton } from '../../components/Skeleton'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ValidationQueueItem } from '../../components/ValidationQueueItem'
+import { SupervisorMeetingForm } from '../../components/supervisor/SupervisorMeetingForm'
 import { useSupervisorDashboardState } from './useSupervisorDashboardState'
 
 interface SupervisorDashboardViewProps {
@@ -403,63 +404,15 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
               )}
             </div>
 
-            <form
-              className="supervisor-meeting-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                void submitMeetingForm()
-              }}
-            >
-              <h3 className="supervisor-subpanel-title">{t('dashboard.supervisor.meetings.quickAdd')}</h3>
-
-              <div className="form-field">
-                <label htmlFor="meeting-intern-id">{t('dashboard.form.intern')}</label>
-                <select
-                  id="meeting-intern-id"
-                  value={meetingForm.internId}
-                  onChange={(event) => updateMeetingFormField('internId', event.target.value)}
-                  disabled={internOptions.length === 0 || meetingsState.isSubmitting}
-                >
-                  <option value="">--</option>
-                  {internOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-field">
-                <label htmlFor="meeting-date">{t('dashboard.form.date')}</label>
-                <input
-                  id="meeting-date"
-                  type="datetime-local"
-                  value={meetingForm.date}
-                  onChange={(event) => updateMeetingFormField('date', event.target.value)}
-                  disabled={meetingsState.isSubmitting}
-                />
-              </div>
-
-              <div className="form-field">
-                <label htmlFor="meeting-note">{t('dashboard.form.note')}</label>
-                <textarea
-                  id="meeting-note"
-                  value={meetingForm.note}
-                  onChange={(event) => updateMeetingFormField('note', event.target.value)}
-                  rows={3}
-                  disabled={meetingsState.isSubmitting}
-                />
-              </div>
-
-              {internOptions.length === 0 && <p className="field-helper">{t('dashboard.supervisor.meetings.noInterns')}</p>}
-              {(meetingFormError || meetingsState.submitError) && (
-                <p className="form-error">{meetingFormError ?? meetingsState.submitError}</p>
-              )}
-
-              <DashboardButton type="submit" variant="primary" size="sm" loading={meetingsState.isSubmitting}>
-                {t('dashboard.supervisor.addMeeting')}
-              </DashboardButton>
-            </form>
+            <SupervisorMeetingForm
+              internOptions={internOptions}
+              meetingForm={meetingForm}
+              meetingFormError={meetingFormError}
+              submitError={meetingsState.submitError}
+              isSubmitting={meetingsState.isSubmitting}
+              onFieldChange={updateMeetingFormField}
+              onSubmit={submitMeetingForm}
+            />
           </div>
         </Panel>
 

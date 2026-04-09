@@ -178,8 +178,8 @@
 }
 
 .supervisor-meetings-layout {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: var(--dash-space-lg);
 }
 
@@ -222,16 +222,6 @@
   margin: var(--dash-space-xs) 0 0;
   font-size: 0.84rem;
   color: var(--dash-text-muted);
-}
-
-.supervisor-meeting-form {
-  border: 1px solid var(--dash-border);
-  border-radius: var(--dash-radius-md);
-  background: var(--dash-bg-secondary);
-  padding: var(--dash-space-md);
-  display: grid;
-  gap: var(--dash-space-sm);
-  align-content: start;
 }
 
 .supervisor-evaluations-layout {

@@ -23,6 +23,7 @@
 @import './components/SuperAdminStatCard.css';
 @import './components/UserManagementSection.css';
 @import './components/ValidationQueueItem.css';
+@import '../components/supervisor/SupervisorMeetingForm.css';
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';
