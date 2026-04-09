@@ -164,9 +164,13 @@ export function Header() {
     >
       <div className={classNames("container", styles.headerContent)}>
         <a className={styles.brand} href="/" aria-label="Axia Intern Manager">
-          <span className={styles.brandMark} aria-hidden="true">
-            SA
-          </span>
+          <img
+            src="/axiaLogo.png"
+            alt="Axia logo"
+            className={styles.brandMark}
+            width="40"
+            height="40"
+          />
           <span className={styles.brandText}>Axia Intern Manager</span>
         </a>
 
