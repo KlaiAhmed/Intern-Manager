@@ -63,23 +63,23 @@ export function UserManagementSection() {
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
-    if (!formData.name.trim()) errors.name = t('dashboard.form.required')
-    if (!formData.email.trim()) errors.email = t('dashboard.form.required')
+    if (!formData.name.trim()) errors.name = t('auth.validation.firstNameRequired')
+    if (!formData.email.trim()) errors.email = t('auth.validation.emailRequired')
     if (!formData.email.includes('@')) errors.email = t('auth.validation.emailInvalid')
-    if (!editingUser && !formData.department.trim()) errors.department = t('dashboard.form.required')
+    // Department is now optional - no validation needed
 
     // Password validation for new users
     if (!editingUser) {
       if (!formData.password.trim()) {
-        errors.password = t('dashboard.form.required')
+        errors.password = t('auth.validation.passwordRequired')
       } else if (formData.password.length < 8) {
-        errors.password = 'Password must be at least 8 characters'
+        errors.password = t('auth.validation.passwordMin')
       }
 
       if (!formData.confirmPassword.trim()) {
-        errors.confirmPassword = t('dashboard.form.required')
+        errors.confirmPassword = t('auth.validation.confirmPasswordRequired')
       } else if (formData.password !== formData.confirmPassword) {
-        errors.confirmPassword = 'Passwords do not match'
+        errors.confirmPassword = t('auth.validation.passwordsMismatch')
       }
     }
 
