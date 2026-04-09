@@ -383,9 +383,10 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             }
         }
 
-        if (request.Type is not null)
+        if (request.Type is not null || request.InternshipTypeId is not null)
         {
-            var requestedType = await ResolveOptionalInternshipTypeAsync(request.Type, cancellationToken);
+            var rawType = request.InternshipTypeId ?? request.Type;
+            var requestedType = await ResolveOptionalInternshipTypeAsync(rawType, cancellationToken);
             var requestedTypeName = requestedType?.Name;
             var requestedTypeId = requestedType?.Id;
 
@@ -407,12 +408,13 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             }
         }
 
-        if (request.Department is not null)
+        if (request.Department is not null || request.DepartmentId is not null)
         {
             Department? requestedDepartment = null;
-            if (!string.IsNullOrWhiteSpace(request.Department))
+            var rawDepartment = request.DepartmentId ?? request.Department;
+            if (!string.IsNullOrWhiteSpace(rawDepartment))
             {
-                requestedDepartment = await ResolveOptionalDepartmentAsync(request.Department, cancellationToken);
+                requestedDepartment = await ResolveOptionalDepartmentAsync(rawDepartment, cancellationToken);
             }
 
             var requestedDepartmentName = requestedDepartment?.Name;

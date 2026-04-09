@@ -6,7 +6,11 @@ public class UpdateInternshipRequest
 
     public string? CoSupervisorId { get; set; }
 
+    public string? DepartmentId { get; set; }
+
     public string? Department { get; set; }
+
+    public string? InternshipTypeId { get; set; }
 
     public string? Type { get; set; }
 

@@ -252,7 +252,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="404">Stage non trouvé.</response>
     /// <response code="409">Conflit lors de la mise à jour.</response>
     [HttpPatch("{id:guid}", Name = "UpdateInternship")]
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
