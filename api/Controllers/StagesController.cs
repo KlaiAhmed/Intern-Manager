@@ -16,7 +16,7 @@ namespace InternManager.Api.Controllers;
 public sealed class StagesController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
     [HttpPost("assign", Name = "AssignStage")]
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
     [EnableRateLimiting("write-heavy")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
