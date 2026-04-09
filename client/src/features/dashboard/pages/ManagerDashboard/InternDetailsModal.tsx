@@ -10,7 +10,7 @@ import { useDashboardApi } from '../../hooks/useDashboardApi'
 import { toDashboardErrorMessage } from '../../shared/utils/errorMessage'
 import { toDateInputValue, toIsoDate } from '../../shared/utils/operations'
 import { asNonEmptyString } from './utils'
-import type { Department, Intern, InternshipRecord, PagedResponse } from './types'
+import type { Department, Intern, PagedResponse } from './types'
 
 interface InternDetailsModalProps {
   isOpen: boolean
@@ -35,6 +35,39 @@ interface InternDetailsPayload {
   cvFileUrl?: string | null
   startDate?: string | null
   endDate?: string | null
+  phone?: string | null
+  school?: string | null
+  specialty?: string | null
+  level?: string | null
+  skills?: InternSkillPayload[]
+  currentInternship?: InternCurrentInternshipPayload | null
+}
+
+interface InternSkillPayload {
+  id?: string
+  name?: string
+}
+
+interface InternCurrentInternshipSupervisorPayload {
+  id?: string
+  name?: string
+  email?: string
+}
+
+interface InternCurrentInternshipMissionPayload {
+  id?: string
+  title?: string
+}
+
+interface InternCurrentInternshipPayload {
+  id?: string
+  type?: string | null
+  department?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  status?: string
+  supervisor?: InternCurrentInternshipSupervisorPayload | null
+  mission?: InternCurrentInternshipMissionPayload | null
 }
 
 interface MissionPayload {
@@ -65,17 +98,32 @@ interface MissionOption {
 
 interface AssignmentFormState {
   missionId: string
-  department: string
-  internshipType: string
+  departmentId: string
+  internshipTypeId: string
   startDate: string
   endDate: string
   skillIds: string[]
 }
 
+interface AssignmentFieldErrors {
+  missionId?: string
+  startDate?: string
+  endDate?: string
+}
+
+interface AssignStageResponse {
+  missionId?: string
+  internId?: string
+  status?: string
+  verificationStatus?: string
+  startDate?: string
+  endDate?: string
+}
+
 const defaultAssignmentForm: AssignmentFormState = {
   missionId: '',
-  department: '',
-  internshipType: '',
+  departmentId: '',
+  internshipTypeId: '',
   startDate: '',
   endDate: '',
   skillIds: [],
@@ -161,13 +209,13 @@ export function InternDetailsModal({
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [detailsError, setDetailsError] = useState<string | null>(null)
   const [internDetails, setInternDetails] = useState<InternDetailsPayload | null>(null)
-  const [internshipDetails, setInternshipDetails] = useState<InternshipRecord | null>(null)
 
   const [cvLoading, setCvLoading] = useState(false)
   const [cvError, setCvError] = useState<string | null>(null)
 
   const [showAssignSection, setShowAssignSection] = useState(false)
   const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(defaultAssignmentForm)
+  const [assignmentFieldErrors, setAssignmentFieldErrors] = useState<AssignmentFieldErrors>({})
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null)
@@ -185,32 +233,29 @@ export function InternDetailsModal({
     setDetailsError(null)
 
     try {
-      const [internPayload, internshipsPayload] = await Promise.all([
-        api.get<InternDetailsPayload>(`/api/interns/${internId}`),
-        api.get<PagedResponse<InternshipRecord>>('/api/internships?page=1&limit=500'),
-      ])
-
-      const matchingInternship = (internshipsPayload.data ?? []).find((entry) => asNonEmptyString(entry.internId) === internId) ?? null
+      const internPayload = await api.get<InternDetailsPayload>(`/api/interns/${internId}`)
 
       const profileStartDate = asNonEmptyString(internPayload.startDate)
       const profileEndDate = asNonEmptyString(internPayload.endDate)
-      const internshipStartDate = asNonEmptyString(matchingInternship?.startDate)
-      const internshipEndDate = asNonEmptyString(matchingInternship?.endDate)
+      const internshipStartDate = asNonEmptyString(internPayload.currentInternship?.startDate)
+      const internshipEndDate = asNonEmptyString(internPayload.currentInternship?.endDate)
+      const selectedSkillIds = (internPayload.skills ?? [])
+        .map((skill) => asNonEmptyString(skill.id))
+        .filter((skillId) => skillId.length > 0)
 
       setInternDetails(internPayload)
-      setInternshipDetails(matchingInternship)
       setAssignmentForm({
         missionId: '',
-        department: asNonEmptyString(matchingInternship?.department),
-        internshipType: asNonEmptyString(matchingInternship?.type),
+        departmentId: '',
+        internshipTypeId: '',
         startDate: toDateInputValue(profileStartDate || internshipStartDate || null),
         endDate: toDateInputValue(profileEndDate || internshipEndDate || null),
-        skillIds: [],
+        skillIds: selectedSkillIds,
       })
+      setAssignmentFieldErrors({})
     } catch (error) {
       setDetailsError(toDashboardErrorMessage(error))
       setInternDetails(null)
-      setInternshipDetails(null)
     } finally {
       setDetailsLoading(false)
     }
@@ -287,16 +332,19 @@ export function InternDetailsModal({
       setAssignmentError(null)
       setAssignmentSuccess(null)
       setCvError(null)
+      setAssignmentFieldErrors({})
       setAssignmentForm(defaultAssignmentForm)
     }
   }, [isOpen])
 
-  const selectedSkillNames = useMemo(() => {
-    const namesById = new Map(skillOptions.map((skill) => [skill.id, skill.name]))
-    return assignmentForm.skillIds
-      .map((skillId) => namesById.get(skillId) || '')
-      .filter((name): name is string => name.length > 0)
-  }, [assignmentForm.skillIds, skillOptions])
+  const internSkillItems = useMemo(() => {
+    return (internDetails?.skills ?? [])
+      .map((skill) => ({
+        id: asNonEmptyString(skill.id),
+        name: asNonEmptyString(skill.name),
+      }))
+      .filter((skill) => skill.id.length > 0 && skill.name.length > 0)
+  }, [internDetails?.skills])
 
   const hasCv = useMemo(() => {
     return Boolean(asNonEmptyString(internDetails?.cvFileUrl) || asNonEmptyString(intern?.cvFileUrl))
@@ -340,8 +388,36 @@ export function InternDetailsModal({
       })
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('No CV on file for this intern')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You do not have permission to view this CV')
+        }
+
         const message = await readResponseMessage(response)
         throw new Error(message || 'Unable to open this CV.')
+      }
+
+      const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+        const rawPayload = (await response.text()).trim()
+
+        try {
+          const jsonPayload = JSON.parse(rawPayload) as Record<string, unknown>
+          const rawUrl = typeof jsonPayload.url === 'string' ? jsonPayload.url.trim() : ''
+          if (rawUrl) {
+            window.open(rawUrl, '_blank', 'noopener,noreferrer')
+            return
+          }
+        } catch {
+          const normalizedUrl = rawPayload.replace(/^"|"$/g, '')
+          if (/^https?:\/\//i.test(normalizedUrl) || normalizedUrl.startsWith('/')) {
+            window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
+            return
+          }
+        }
       }
 
       const cvBlob = await response.blob()
@@ -349,7 +425,16 @@ export function InternDetailsModal({
       window.open(blobUrl, '_blank', 'noopener,noreferrer')
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
     } catch (error) {
-      setCvError(toDashboardErrorMessage(error))
+      if (error instanceof Error && error.message.trim()) {
+        setCvError(error.message)
+      } else {
+        setCvError('Unable to open this CV.')
+      }
+
+      if (!(error instanceof Error && (error.message.includes('No CV') || error.message.includes('permission')))) {
+        // Keep diagnostics for unexpected failures without exposing internal details to users.
+        console.error('Failed to open intern CV', error)
+      }
     } finally {
       setCvLoading(false)
     }
@@ -361,83 +446,104 @@ export function InternDetailsModal({
       return
     }
 
+    const fieldErrors: AssignmentFieldErrors = {}
     if (!assignmentForm.missionId.trim()) {
-      setAssignmentError('Mission is required.')
+      fieldErrors.missionId = 'Mission is required.'
+    }
+
+    if (!assignmentForm.startDate) {
+      fieldErrors.startDate = 'Start date is required.'
+    }
+
+    if (!assignmentForm.endDate) {
+      fieldErrors.endDate = 'End date is required.'
+    }
+
+    if (assignmentForm.startDate && assignmentForm.endDate) {
+      const startDate = new Date(assignmentForm.startDate)
+      const endDate = new Date(assignmentForm.endDate)
+      if (endDate <= startDate) {
+        fieldErrors.endDate = 'End date must be later than start date.'
+      }
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setAssignmentFieldErrors(fieldErrors)
+      setAssignmentError(null)
       return
     }
 
-    if (!assignmentForm.startDate || !assignmentForm.endDate) {
-      setAssignmentError('Start date and end date are required.')
-      return
-    }
-
-    if (new Date(assignmentForm.endDate) < new Date(assignmentForm.startDate)) {
-      setAssignmentError('End date must be greater than or equal to start date.')
-      return
-    }
+    setAssignmentFieldErrors({})
 
     setAssignmentSubmitting(true)
     setAssignmentError(null)
     setAssignmentSuccess(null)
 
     try {
-      await api.post('/api/stages/assign', {
+      const assignmentResponse = await api.post<AssignStageResponse>('/api/stages/assign', {
         missionId: assignmentForm.missionId,
         internId: targetInternId,
         startDate: toIsoDate(assignmentForm.startDate),
         endDate: toIsoDate(assignmentForm.endDate),
       })
 
-      const followUpWarnings: string[] = []
+      const internshipId = asNonEmptyString(assignmentResponse.missionId)
 
-      const internshipUpdatePayload: Record<string, string> = {}
-      if (assignmentForm.department.trim()) {
-        internshipUpdatePayload.department = assignmentForm.department.trim()
-      }
-      if (assignmentForm.internshipType.trim()) {
-        internshipUpdatePayload.type = assignmentForm.internshipType.trim()
-      }
+      const followUpErrors: string[] = []
 
-      if (Object.keys(internshipUpdatePayload).length > 0) {
-        if (asNonEmptyString(internshipDetails?.id)) {
-          try {
-            await api.patch(`/api/internships/${asNonEmptyString(internshipDetails?.id)}`, internshipUpdatePayload)
-          } catch (error) {
-            followUpWarnings.push(`Internship metadata update failed: ${toDashboardErrorMessage(error)}`)
-          }
+      if (assignmentForm.departmentId || assignmentForm.internshipTypeId) {
+        if (!internshipId) {
+          followUpErrors.push('Internship update step failed: missing internship id from assignment response.')
         } else {
-          followUpWarnings.push('No existing internship record was found for department/type update.')
+          const internshipUpdatePayload: Record<string, string> = {}
+          if (assignmentForm.departmentId) {
+            internshipUpdatePayload.departmentId = assignmentForm.departmentId
+          }
+
+          if (assignmentForm.internshipTypeId) {
+            internshipUpdatePayload.internshipTypeId = assignmentForm.internshipTypeId
+          }
+
+          try {
+            await api.patch(`/api/internships/${internshipId}`, internshipUpdatePayload)
+          } catch (error) {
+            followUpErrors.push(`Internship update step failed: ${toDashboardErrorMessage(error)}`)
+          }
         }
       }
 
-      if (selectedSkillNames.length > 0) {
+      if (assignmentForm.skillIds.length > 0) {
         try {
-          await api.patch(`/api/missions/${assignmentForm.missionId}`, {
-            skills: selectedSkillNames,
+          await api.put(`/api/interns/${targetInternId}/skills`, {
+            skillIds: assignmentForm.skillIds,
           })
         } catch (error) {
-          followUpWarnings.push(`Mission skills update failed: ${toDashboardErrorMessage(error)}`)
+          followUpErrors.push(`Skills update step failed: ${toDashboardErrorMessage(error)}`)
         }
       }
 
       await Promise.resolve(onAssignmentSuccess())
       await loadInternDetails(targetInternId)
 
+      if (followUpErrors.length > 0) {
+        setAssignmentError(
+          `${followUpErrors.join(' ')} Assignment created but additional details could not be saved. Please edit the internship manually.`,
+        )
+        return
+      }
+
       setShowAssignSection(false)
-      setAssignmentSuccess(
-        followUpWarnings.length > 0
-          ? `Intern assigned with warnings: ${followUpWarnings.join(' ')}`
-          : 'Intern assignment completed successfully.',
-      )
+      setAssignmentSuccess('Intern successfully assigned')
+      window.setTimeout(() => onClose(), 300)
     } catch (error) {
-      setAssignmentError(toDashboardErrorMessage(error))
+      setAssignmentError(`Assignment step failed: ${toDashboardErrorMessage(error)}`)
     } finally {
       setAssignmentSubmitting(false)
     }
   }
 
   const internDisplayName = asNonEmptyString(internDetails?.fullName) || asNonEmptyString(intern?.name)
-  const internshipStatusValue = asNonEmptyString(internshipDetails?.status)
+  const internshipStatusValue = asNonEmptyString(internDetails?.currentInternship?.status)
   const accountStatusValue = asNonEmptyString(internDetails?.accountStatus) || asNonEmptyString(intern?.accountStatus)
   const verificationStatusValue = asNonEmptyString(internDetails?.verificationStatus) || asNonEmptyString(intern?.verificationStatus) || 'Unknown'
 
@@ -469,35 +575,35 @@ export function InternDetailsModal({
             <div className="admin-modal-details-grid">
               <div>
                 <h3>Name</h3>
-                <p>{internDisplayName || '-'}</p>
+                <p>{internDisplayName || '—'}</p>
               </div>
               <div>
                 <h3>Email</h3>
-                <p>{asNonEmptyString(internDetails?.email) || intern.email || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.email) || intern.email || '—'}</p>
               </div>
               <div>
                 <h3>Phone</h3>
-                <p>-</p>
+                <p>{asNonEmptyString(internDetails?.phone) || '—'}</p>
               </div>
               <div>
                 <h3>School</h3>
-                <p>-</p>
+                <p>{asNonEmptyString(internDetails?.school) || '—'}</p>
               </div>
               <div>
                 <h3>Specialty</h3>
-                <p>-</p>
+                <p>{asNonEmptyString(internDetails?.specialty) || '—'}</p>
               </div>
               <div>
                 <h3>Level</h3>
-                <p>-</p>
+                <p>{asNonEmptyString(internDetails?.level) || '—'}</p>
               </div>
               <div>
                 <h3>First name</h3>
-                <p>{asNonEmptyString(internDetails?.firstName) || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.firstName) || '—'}</p>
               </div>
               <div>
                 <h3>Last name</h3>
-                <p>{asNonEmptyString(internDetails?.lastName) || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.lastName) || '—'}</p>
               </div>
             </div>
           </div>
@@ -507,23 +613,23 @@ export function InternDetailsModal({
             <div className="admin-modal-details-grid">
               <div>
                 <h3>Type</h3>
-                <p>{asNonEmptyString(internshipDetails?.type) || asNonEmptyString(intern?.internshipType) || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.currentInternship?.type) || asNonEmptyString(intern?.internshipType) || '—'}</p>
               </div>
               <div>
                 <h3>Department</h3>
-                <p>{asNonEmptyString(internshipDetails?.department) || intern.department || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.currentInternship?.department) || intern.department || '—'}</p>
               </div>
               <div>
                 <h3>Start Date</h3>
-                <p>{toDateInputValue(asNonEmptyString(internDetails?.startDate) || asNonEmptyString(internshipDetails?.startDate) || null) || '-'}</p>
+                <p>{toDateInputValue(asNonEmptyString(internDetails?.startDate) || asNonEmptyString(internDetails?.currentInternship?.startDate) || null) || '—'}</p>
               </div>
               <div>
                 <h3>End Date</h3>
-                <p>{toDateInputValue(asNonEmptyString(internDetails?.endDate) || asNonEmptyString(internshipDetails?.endDate) || null) || '-'}</p>
+                <p>{toDateInputValue(asNonEmptyString(internDetails?.endDate) || asNonEmptyString(internDetails?.currentInternship?.endDate) || null) || '—'}</p>
               </div>
               <div>
                 <h3>Internship Status</h3>
-                <p>{internshipStatusValue ? toDisplayLabel(internshipStatusValue) : '-'}</p>
+                <p>{internshipStatusValue ? toDisplayLabel(internshipStatusValue) : '—'}</p>
               </div>
               <div>
                 <h3>Account Status</h3>
@@ -543,23 +649,23 @@ export function InternDetailsModal({
               </div>
               <div>
                 <h3>CV URL</h3>
-                <p>{asNonEmptyString(internDetails?.cvFileUrl) || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.cvFileUrl) || '—'}</p>
               </div>
             </div>
           </div>
 
           <div className="intern-modal-block">
             <h4 className="intern-modal-section-title">Skills</h4>
-            {selectedSkillNames.length > 0 ? (
+            {internSkillItems.length > 0 ? (
               <div className="intern-modal-chip-list" role="list" aria-label="Selected skills">
-                {selectedSkillNames.map((skillName) => (
-                  <span key={skillName} role="listitem" className="dash-status-chip dash-status-chip-info dash-status-chip-sm">
-                    {skillName}
+                {internSkillItems.map((skill) => (
+                  <span key={skill.id} role="listitem" className="dash-status-chip dash-status-chip-info dash-status-chip-sm">
+                    {skill.name}
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="intern-modal-muted">No intern-specific skills were returned by the current manager-accessible detail endpoint.</p>
+              <p className="intern-modal-muted">No skills added</p>
             )}
           </div>
 
@@ -568,11 +674,11 @@ export function InternDetailsModal({
             <div className="admin-modal-details-grid">
               <div>
                 <h3>Mission</h3>
-                <p>{asNonEmptyString(internshipDetails?.missionTitle) || intern.missionTitle || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.currentInternship?.mission?.title) || 'Not assigned'}</p>
               </div>
               <div>
                 <h3>Supervisor</h3>
-                <p>{asNonEmptyString(internshipDetails?.supervisorName) || intern.supervisorName || '-'}</p>
+                <p>{asNonEmptyString(internDetails?.currentInternship?.supervisor?.name) || 'Not assigned'}</p>
               </div>
             </div>
           </div>
@@ -655,22 +761,23 @@ export function InternDetailsModal({
                           </option>
                         ))}
                       </select>
+                      {assignmentFieldErrors.missionId && <p className="form-error">{assignmentFieldErrors.missionId}</p>}
                     </div>
 
                     <div className="form-field">
                       <label htmlFor="manager-assign-department">Department</label>
                       <select
                         id="manager-assign-department"
-                        value={assignmentForm.department}
+                        value={assignmentForm.departmentId}
                         onChange={(event) => setAssignmentForm((previous) => ({
                           ...previous,
-                          department: event.target.value,
+                          departmentId: event.target.value,
                         }))}
                         disabled={loadingDepartments}
                       >
-                        <option value="">All Departments</option>
+                        <option value="">Select department</option>
                         {departments.map((department) => (
-                          <option key={department.id} value={department.name}>{department.name}</option>
+                          <option key={department.id} value={department.id}>{department.name}</option>
                         ))}
                       </select>
                     </div>
@@ -681,15 +788,15 @@ export function InternDetailsModal({
                       <label htmlFor="manager-assign-type">Internship Type</label>
                       <select
                         id="manager-assign-type"
-                        value={assignmentForm.internshipType}
+                        value={assignmentForm.internshipTypeId}
                         onChange={(event) => setAssignmentForm((previous) => ({
                           ...previous,
-                          internshipType: event.target.value,
+                          internshipTypeId: event.target.value,
                         }))}
                       >
                         <option value="">Select internship type</option>
                         {typeOptions.map((typeOption) => (
-                          <option key={typeOption.id} value={typeOption.name}>{typeOption.name}</option>
+                          <option key={typeOption.id} value={typeOption.id}>{typeOption.name}</option>
                         ))}
                       </select>
                     </div>
@@ -706,6 +813,7 @@ export function InternDetailsModal({
                         }))}
                         required
                       />
+                      {assignmentFieldErrors.startDate && <p className="form-error">{assignmentFieldErrors.startDate}</p>}
                     </div>
                   </div>
 
@@ -722,6 +830,7 @@ export function InternDetailsModal({
                         }))}
                         required
                       />
+                      {assignmentFieldErrors.endDate && <p className="form-error">{assignmentFieldErrors.endDate}</p>}
                     </div>
                   </div>
 

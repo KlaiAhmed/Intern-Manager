@@ -184,6 +184,26 @@ export function useDashboardApi() {
     return parseJsonBody<T>(response)
   }, [])
 
+  const put = useCallback(async <T>(path: string, body: unknown): Promise<T> => {
+    const csrfToken = getCsrfCookieToken()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
+
+    const response = await apiFetch(path, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(body),
+    })
+
+    await ensureSuccess(response)
+
+    return parseJsonBody<T>(response)
+  }, [])
+
   const del = useCallback(async (path: string): Promise<void> => {
     const csrfToken = getCsrfCookieToken()
     const headers: Record<string, string> = {}
@@ -219,7 +239,7 @@ export function useDashboardApi() {
   }, [])
 
   return useMemo(
-    () => ({ get, post, patch, del, postFormData }),
-    [get, post, patch, del, postFormData]
+    () => ({ get, post, patch, put, del, postFormData }),
+    [get, post, patch, put, del, postFormData]
   )
 }
