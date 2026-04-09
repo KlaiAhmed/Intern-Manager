@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 import { KPICard } from '../components/KPICard'
 import { DataTable } from '../components/DataTable'
@@ -30,6 +30,24 @@ interface Department {
 }
 
 type UserTab = 'intern' | 'supervisor' | 'manager'
+
+interface PasswordValidation {
+  hasMinLength: boolean
+  hasUppercase: boolean
+  hasLowercase: boolean
+  hasNumber: boolean
+  hasSpecialChar: boolean
+}
+
+function validatePassword(password: string): PasswordValidation {
+  return {
+    hasMinLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  }
+}
 
 /**
  * Tableau de bord pour le rôle admin.
@@ -68,8 +86,16 @@ export function AdminDashboard() {
 
   // Modal state
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
-  const [userFormData, setUserFormData] = useState({ firstName: '', lastName: '', email: '', role: 'intern', department: '', status: 'active' })
-  const [userFormErrors, setUserFormErrors] = useState<Record<string, string>>({})
+  const [userFormData, setUserFormData] = useState({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '', role: 'intern', department: '', status: 'active' })
+  const [userFormErrors, setUserFormErrors] = useState<Record<string, string | string[]>>({})
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidation>({
+    hasMinLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  })
 
   // Loading states
   const [loadingKpis, setLoadingKpis] = useState(true)
@@ -110,7 +136,7 @@ export function AdminDashboard() {
       if (statusFilter !== 'all') url += `&status=${statusFilter}`
       if (departmentFilter !== 'all') url += `&department=${departmentFilter}`
       if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery)}`
-      
+
       const result = await api.get<{ data: User[]; total: number }>(url)
       setUsers(result.data ?? [])
       setUsersTotal(result.total ?? 0)
@@ -161,12 +187,97 @@ export function AdminDashboard() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  const getPasswordErrors = useCallback((password: string): string[] => {
+    const errors: string[] = []
+    const validation = validatePassword(password)
+
+    if (!password) {
+      errors.push(t('auth.validation.passwordRequired'))
+      return errors
+    }
+    if (!validation.hasMinLength) {
+      errors.push(t('auth.validation.passwordMin'))
+    }
+    if (!validation.hasUppercase) {
+      errors.push(t('auth.validation.passwordUppercase'))
+    }
+    if (!validation.hasLowercase) {
+      errors.push(t('auth.validation.passwordLowercase'))
+    }
+    if (!validation.hasNumber) {
+      errors.push(t('auth.validation.passwordNumber'))
+    }
+    if (!validation.hasSpecialChar) {
+      errors.push(t('auth.validation.passwordSpecial'))
+    }
+
+    return errors
+  }, [t])
+
+  const validateField = useCallback((field: string, value: string, formData: typeof userFormData): string | string[] => {
+    switch (field) {
+      case 'firstName':
+        return value.trim() ? '' : t('dashboard.form.required')
+      case 'lastName':
+        return value.trim() ? '' : t('dashboard.form.required')
+      case 'email':
+        if (!value.trim()) return t('dashboard.form.required')
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return t('auth.validation.emailInvalid')
+        return ''
+      case 'password':
+        return getPasswordErrors(value)
+      case 'confirmPassword':
+        if (!value.trim()) return t('auth.validation.confirmPasswordRequired')
+        if (value !== formData.password) return t('auth.validation.passwordsMismatch')
+        return ''
+      default:
+        return ''
+    }
+  }, [t, getPasswordErrors])
+
+  const handleFieldChange = (field: string, value: string) => {
+    const newFormData = { ...userFormData, [field]: value }
+    setUserFormData(newFormData)
+
+    if (!touchedFields[field]) {
+      setTouchedFields(prev => ({ ...prev, [field]: true }))
+    }
+
+    const error = validateField(field, value, newFormData)
+    setUserFormErrors(prev => ({ ...prev, [field]: error }))
+
+    if (field === 'password') {
+      setPasswordValidation(validatePassword(value))
+      if (touchedFields.confirmPassword && newFormData.confirmPassword) {
+        const confirmError = validateField('confirmPassword', newFormData.confirmPassword, newFormData)
+        setUserFormErrors(prev => ({ ...prev, confirmPassword: confirmError as string }))
+      }
+    }
+  }
+
   const validateUserForm = (): boolean => {
-    const errors: Record<string, string> = {}
-    if (!userFormData.firstName.trim()) errors.firstName = t('dashboard.form.required')
-    if (!userFormData.lastName.trim()) errors.lastName = t('dashboard.form.required')
-    if (!userFormData.email.trim()) errors.email = t('dashboard.form.required')
+    const errors: Record<string, string | string[]> = {}
+
+    const firstNameError = validateField('firstName', userFormData.firstName, userFormData)
+    if (firstNameError) errors.firstName = firstNameError
+
+    const lastNameError = validateField('lastName', userFormData.lastName, userFormData)
+    if (lastNameError) errors.lastName = lastNameError
+
+    const emailError = validateField('email', userFormData.email, userFormData)
+    if (emailError) errors.email = emailError
+
+    const passwordErrors = validateField('password', userFormData.password, userFormData)
+    if (Array.isArray(passwordErrors) && passwordErrors.length > 0) {
+      errors.password = passwordErrors
+    }
+
+    const confirmPasswordError = validateField('confirmPassword', userFormData.confirmPassword, userFormData)
+    if (confirmPasswordError) errors.confirmPassword = confirmPasswordError
+
     setUserFormErrors(errors)
+    setTouchedFields({ firstName: true, lastName: true, email: true, password: true, confirmPassword: true })
+
     return Object.keys(errors).length === 0
   }
 
@@ -177,16 +288,40 @@ export function AdminDashboard() {
         firstName: userFormData.firstName.trim(),
         lastName: userFormData.lastName.trim(),
         email: userFormData.email.trim(),
+        password: userFormData.password.trim(),
         role: userFormData.role,
         department: userFormData.department,
         status: userFormData.status,
       })
       setIsAddUserModalOpen(false)
-      setUserFormData({ firstName: '', lastName: '', email: '', role: 'intern', department: '', status: 'active' })
+      setUserFormData({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '', role: 'intern', department: '', status: 'active' })
+      setUserFormErrors({})
+      setTouchedFields({})
+      setPasswordValidation({
+        hasMinLength: false,
+        hasUppercase: false,
+        hasLowercase: false,
+        hasNumber: false,
+        hasSpecialChar: false,
+      })
       void loadUsers(usersPage)
     } catch (error) {
       setUserFormErrors({ submit: getErrorMessage(error) })
     }
+  }
+
+  const handleCloseModal = () => {
+    setIsAddUserModalOpen(false)
+    setUserFormData({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '', role: 'intern', department: '', status: 'active' })
+    setUserFormErrors({})
+    setTouchedFields({})
+    setPasswordValidation({
+      hasMinLength: false,
+      hasUppercase: false,
+      hasLowercase: false,
+      hasNumber: false,
+      hasSpecialChar: false,
+    })
   }
 
   const handleEditUser = (userId: string) => {
@@ -231,6 +366,14 @@ export function AdminDashboard() {
     { key: 'supervisor', label: t('dashboard.admin.tabSupervisors') },
     { key: 'manager', label: t('dashboard.admin.tabManagers') },
   ]
+
+  const passwordRequirements = [
+    { key: 'hasMinLength', label: t('auth.validation.passwordMin') },
+    { key: 'hasUppercase', label: t('auth.validation.passwordUppercase') },
+    { key: 'hasLowercase', label: t('auth.validation.passwordLowercase') },
+    { key: 'hasNumber', label: t('auth.validation.passwordNumber') },
+    { key: 'hasSpecialChar', label: t('auth.validation.passwordSpecial') },
+  ] as const
 
   return (
     <div className="dashboard-container">
@@ -384,7 +527,7 @@ export function AdminDashboard() {
       </section>
 
       {/* Add User Modal */}
-      <Modal isOpen={isAddUserModalOpen} onClose={() => setIsAddUserModalOpen(false)} title={t('dashboard.admin.addUser')}>
+      <Modal isOpen={isAddUserModalOpen} onClose={handleCloseModal} title={t('dashboard.admin.addUser')}>
         <form className="modal-form" onSubmit={(e) => { e.preventDefault(); void handleAddUser() }}>
           <div className="form-field">
             <label htmlFor="user-first-name">First Name</label>
@@ -392,10 +535,10 @@ export function AdminDashboard() {
               id="user-first-name"
               type="text"
               value={userFormData.firstName}
-              onChange={(e) => setUserFormData({ ...userFormData, firstName: e.target.value })}
-              className={userFormErrors.firstName ? 'input-error' : ''}
+              onChange={(e) => handleFieldChange('firstName', e.target.value)}
+              className={touchedFields.firstName && userFormErrors.firstName ? 'input-error' : ''}
             />
-            {userFormErrors.firstName && <span className="field-error">{userFormErrors.firstName}</span>}
+            {touchedFields.firstName && userFormErrors.firstName && <span className="field-error">{userFormErrors.firstName}</span>}
           </div>
           <div className="form-field">
             <label htmlFor="user-last-name">Last Name</label>
@@ -403,10 +546,10 @@ export function AdminDashboard() {
               id="user-last-name"
               type="text"
               value={userFormData.lastName}
-              onChange={(e) => setUserFormData({ ...userFormData, lastName: e.target.value })}
-              className={userFormErrors.lastName ? 'input-error' : ''}
+              onChange={(e) => handleFieldChange('lastName', e.target.value)}
+              className={touchedFields.lastName && userFormErrors.lastName ? 'input-error' : ''}
             />
-            {userFormErrors.lastName && <span className="field-error">{userFormErrors.lastName}</span>}
+            {touchedFields.lastName && userFormErrors.lastName && <span className="field-error">{userFormErrors.lastName}</span>}
           </div>
           <div className="form-field">
             <label htmlFor="user-email">{t('dashboard.form.email')}</label>
@@ -414,17 +557,50 @@ export function AdminDashboard() {
               id="user-email"
               type="email"
               value={userFormData.email}
-              onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
-              className={userFormErrors.email ? 'input-error' : ''}
+              onChange={(e) => handleFieldChange('email', e.target.value)}
+              className={touchedFields.email && userFormErrors.email ? 'input-error' : ''}
             />
-            {userFormErrors.email && <span className="field-error">{userFormErrors.email}</span>}
+            {touchedFields.email && userFormErrors.email && <span className="field-error">{userFormErrors.email}</span>}
           </div>
+
+          <div className="form-field">
+            <label htmlFor="user-password">{t('dashboard.form.password')}</label>
+            <input
+              id="user-password"
+              type="password"
+              value={userFormData.password}
+              onChange={(e) => handleFieldChange('password', e.target.value)}
+              className={touchedFields.password && userFormErrors.password && Array.isArray(userFormErrors.password) && userFormErrors.password.length > 0 ? 'input-error' : ''}
+            />
+            {touchedFields.password && userFormData.password && (
+              <ul className="field-error-list">
+                {passwordRequirements.map((req) => (
+                  <li key={req.key} className={passwordValidation[req.key] ? 'requirement-met' : 'requirement-unmet'}>
+                    {req.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="user-confirm-password">{t('auth.signin.confirmPassword')}</label>
+            <input
+              id="user-confirm-password"
+              type="password"
+              value={userFormData.confirmPassword}
+              onChange={(e) => handleFieldChange('confirmPassword', e.target.value)}
+              className={touchedFields.confirmPassword && userFormErrors.confirmPassword ? 'input-error' : ''}
+            />
+            {touchedFields.confirmPassword && userFormErrors.confirmPassword && <span className="field-error">{userFormErrors.confirmPassword}</span>}
+          </div>
+
           <div className="form-field">
             <label htmlFor="user-role">{t('dashboard.form.role')}</label>
             <select
               id="user-role"
               value={userFormData.role}
-              onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
+              onChange={(e) => handleFieldChange('role', e.target.value)}
             >
               <option value="intern">{t('role.intern')}</option>
               <option value="supervisor">{t('role.supervisor')}</option>
@@ -436,7 +612,7 @@ export function AdminDashboard() {
             <select
               id="user-department"
               value={userFormData.department}
-              onChange={(e) => setUserFormData({ ...userFormData, department: e.target.value })}
+              onChange={(e) => handleFieldChange('department', e.target.value)}
             >
               <option value="">{t('dashboard.admin.allDepartments')}</option>
               {departments.map((dept) => (
@@ -449,7 +625,7 @@ export function AdminDashboard() {
             <select
               id="user-status"
               value={userFormData.status}
-              onChange={(e) => setUserFormData({ ...userFormData, status: e.target.value })}
+              onChange={(e) => handleFieldChange('status', e.target.value)}
             >
               <option value="active">{t('dashboard.admin.statusActive')}</option>
               <option value="archived">{t('dashboard.admin.statusArchived')}</option>
@@ -457,7 +633,7 @@ export function AdminDashboard() {
           </div>
           {userFormErrors.submit && <p className="form-error">{userFormErrors.submit}</p>}
           <div className="modal-actions">
-            <button type="button" className="button button-secondary button-sm" onClick={() => setIsAddUserModalOpen(false)}>
+            <button type="button" className="button button-secondary button-sm" onClick={handleCloseModal}>
               {t('dashboard.form.cancel')}
             </button>
             <button type="submit" className="button button-primary button-sm">
@@ -469,4 +645,3 @@ export function AdminDashboard() {
     </div>
   )
 }
-

@@ -287,6 +287,45 @@
   color: var(--dash-error);
 }
 
+.field-error-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--dash-space-xs) 0 0 0;
+}
+
+.field-error-list li {
+  font-size: 0.8125rem;
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-xs);
+}
+
+.field-error-list li.requirement-unmet {
+  color: var(--dash-error);
+}
+
+.field-error-list li.requirement-met {
+  color: var(--dash-success);
+}
+
+.field-error-list li::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.field-error-list li.requirement-unmet::before {
+  background-color: var(--dash-error);
+}
+
+.field-error-list li.requirement-met::before {
+  background-color: var(--dash-success);
+}
+
 .form-error {
   font-size: 0.9375rem;
   color: var(--dash-error);
