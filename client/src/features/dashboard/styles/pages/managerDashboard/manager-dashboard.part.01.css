@@ -170,6 +170,12 @@
   width: 240px;
 }
 
+.dash-filter-error {
+  margin: 0 0 var(--dash-space-md) 0;
+  font-size: 0.8125rem;
+  color: var(--dash-error);
+}
+
 /* Intern Cell in Table */
 .intern-cell {
   display: flex;
@@ -249,6 +255,42 @@
 .view-button:focus-visible {
   outline: 2px solid var(--dash-accent);
   outline-offset: 2px;
+}
+
+/* Modern Intern Action Button */
+.intern-action-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--dash-text-muted);
+  border-radius: var(--dash-radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--dash-duration-fast) var(--dash-ease),
+    color var(--dash-duration-fast) var(--dash-ease),
+    transform var(--dash-duration-fast) var(--dash-ease);
+}
+
+.intern-action-btn:hover {
+  background: color-mix(in srgb, var(--dash-accent) 10%, var(--dash-bg-secondary));
+  color: var(--dash-accent);
+}
+
+.intern-action-btn:active {
+  transform: scale(0.92);
+}
+
+.intern-action-btn:focus-visible {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--dash-accent) 10%, var(--dash-bg-secondary));
+  color: var(--dash-accent);
 }
 
 /* Supervisor Cards */
