@@ -29,6 +29,7 @@
 @import './components/CustomDatePicker.css';
 @import './components/CustomRadio.css';
 @import './pages/DashboardPage.css';
+@import './pages/AdminDashboard.css';
 @import './pages/SupervisorDashboard.css';
 
 /* Shared dashboard utilities */
