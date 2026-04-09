@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
-import { availableRoles } from '../../../../types/role'
 import { classNames } from '../../../../utils/classNames'
 import { LanguageSwitcher } from '../../../../components/ui/LanguageSwitcher'
 import { ThemeSwitcher } from '../../../../components/ui/ThemeSwitcher'
-import type { RoleTranslationKey } from '../../types/authScreen'
 import type { AuthScreenLogic } from './types'
 import { PasswordVisibilityIcon } from './PasswordVisibilityIcon'
 import styles from '../../styles/SignUpAuthView.module.css'
@@ -15,7 +13,6 @@ interface SignUpAuthViewProps {
 export function SignUpAuthView({ logic }: SignUpAuthViewProps) {
   const {
     t,
-    roleMenuRef,
     registerValues,
     setRegisterValues,
     registerErrors,
@@ -25,14 +22,10 @@ export function SignUpAuthView({ logic }: SignUpAuthViewProps) {
     setIsPasswordVisible,
     isConfirmPasswordVisible,
     setIsConfirmPasswordVisible,
-    isRoleMenuOpen,
-    setIsRoleMenuOpen,
-    isRoleMenuUpward,
     submitError,
     setSubmitError,
     heading,
     submitLabel,
-    toggleRoleMenu,
     validateRegisterField,
     handleRegister,
   } = logic
@@ -266,70 +259,6 @@ export function SignUpAuthView({ logic }: SignUpAuthViewProps) {
                   {registerErrors.confirmPassword}
                 </p>
               ) : null}
-            </div>
-
-            <div className={styles.fieldStack}>
-              <label className={styles.label} htmlFor="role">
-                {t('auth.signin.role')}
-              </label>
-              <div ref={roleMenuRef} className={styles.relative}>
-                <button
-                  id="role"
-                  name="role"
-                  type="button"
-                  className={styles.customSelectTrigger}
-                  onClick={toggleRoleMenu}
-                  aria-haspopup="listbox"
-                  aria-expanded={isRoleMenuOpen}
-                  aria-label={t('auth.aria.selectRole')}
-                >
-                  <span className={styles.customSelectValue}>
-                    {t(`role.${registerValues.role}` as RoleTranslationKey)}
-                  </span>
-                </button>
-
-                {isRoleMenuOpen ? (
-                  <div
-                    className={classNames(styles.customSelectMenu, isRoleMenuUpward && styles.customSelectMenuTop)}
-                    role="listbox"
-                    aria-label={t('auth.aria.roleOptions')}
-                  >
-                    {availableRoles.map((role) => {
-                      const isSelected = role === registerValues.role
-
-                      return (
-                        <button
-                          key={role}
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected}
-                          className={classNames(styles.customSelectOption, isSelected && styles.customSelectOptionActive)}
-                          onClick={() => {
-                            setRegisterValues((previous) => ({ ...previous, role }))
-                            setSubmitError(null)
-                            setIsRoleMenuOpen(false)
-                          }}
-                        >
-                          {t(`role.${role}` as RoleTranslationKey)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : null}
-
-                <span className={styles.selectCaret} aria-hidden="true">
-                  <svg viewBox="0 0 20 20" fill="none" className={styles.selectCaretIcon}>
-                    <path
-                      d="M5 7.5L10 12.5L15 7.5"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <p className={styles.roleHint}>{t('auth.signin.roleHint')}</p>
             </div>
 
             <button

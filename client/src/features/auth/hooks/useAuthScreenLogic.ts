@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../locales/I18nContext'
-import { availableRoles } from '../../../types/role'
 import { usePageMetadata } from '../../../hooks/usePageMetadata'
 import { useAuth } from '../../../stores/AuthContext'
 import { ApiRequestError } from '../../../lib/authApi'
@@ -22,7 +21,6 @@ export function useAuthScreenLogic(variant: AuthVariant) {
   const { t } = useI18n()
   const navigate = useNavigate()
   const { login, signup } = useAuth()
-  const roleMenuRef = useRef<HTMLDivElement | null>(null)
 
   const [values, setValues] = useState<FormValues>({
     email: '',
@@ -45,8 +43,6 @@ export function useAuthScreenLogic(variant: AuthVariant) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
   const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false)
-  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
-  const [isRoleMenuUpward, setIsRoleMenuUpward] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const isSignUpVariant = variant === 'signup'
@@ -60,80 +56,6 @@ export function useAuthScreenLogic(variant: AuthVariant) {
     description: t('auth.meta.description'),
     path: isSignUpVariant ? '/signup' : '/login',
   })
-
-  useEffect(() => {
-    const onPointerDown = (event: MouseEvent): void => {
-      if (!roleMenuRef.current) {
-        return
-      }
-
-      const target = event.target
-      if (!(target instanceof Node)) {
-        return
-      }
-
-      if (!roleMenuRef.current.contains(target)) {
-        setIsRoleMenuOpen(false)
-      }
-    }
-
-    const onEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setIsRoleMenuOpen(false)
-      }
-    }
-
-    window.addEventListener('mousedown', onPointerDown)
-    window.addEventListener('keydown', onEscape)
-
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown)
-      window.removeEventListener('keydown', onEscape)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isRoleMenuOpen) {
-      return
-    }
-
-    const updateRoleMenuDirection = (): void => {
-      if (!roleMenuRef.current) {
-        return
-      }
-
-      const roleCount = availableRoles.length
-      const estimatedMenuHeight = roleCount * 42 + 20
-      const rect = roleMenuRef.current.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - rect.bottom
-      const spaceAbove = rect.top
-
-      setIsRoleMenuUpward(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow)
-    }
-
-    updateRoleMenuDirection()
-    window.addEventListener('resize', updateRoleMenuDirection)
-
-    return () => {
-      window.removeEventListener('resize', updateRoleMenuDirection)
-    }
-  }, [isRoleMenuOpen])
-
-  const toggleRoleMenu = (): void => {
-    setIsRoleMenuOpen((previous) => {
-      if (!previous && roleMenuRef.current) {
-        const roleCount = availableRoles.length
-        const estimatedMenuHeight = roleCount * 42 + 20
-        const rect = roleMenuRef.current.getBoundingClientRect()
-        const spaceBelow = window.innerHeight - rect.bottom
-        const spaceAbove = rect.top
-
-        setIsRoleMenuUpward(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow)
-      }
-
-      return !previous
-    })
-  }
 
   const validateLoginField = (field: LoginFieldName, value: string): string | undefined => {
     if (field === 'email') {
@@ -302,18 +224,16 @@ export function useAuthScreenLogic(variant: AuthVariant) {
       return
     }
 
-    const payload = {
-      firstName: registerValues.firstName.trim(),
-      lastName: registerValues.lastName.trim(),
-      email: registerValues.email.trim(),
-      password: registerValues.password,
-      role: registerValues.role,
-    }
-
     setIsLoading(true)
 
     try {
-      await signup(payload.firstName, payload.lastName, payload.email, payload.password, payload.role)
+      await signup(
+        registerValues.firstName.trim(),
+        registerValues.lastName.trim(),
+        registerValues.email.trim(),
+        registerValues.password,
+        registerValues.role,
+      )
       navigate('/', { replace: true })
     } catch (error) {
       if (error instanceof ApiRequestError) {
@@ -336,7 +256,6 @@ export function useAuthScreenLogic(variant: AuthVariant) {
 
   return {
     t,
-    roleMenuRef,
     values,
     setValues,
     registerValues,
@@ -352,20 +271,15 @@ export function useAuthScreenLogic(variant: AuthVariant) {
     setIsConfirmPasswordVisible,
     isLoginPasswordVisible,
     setIsLoginPasswordVisible,
-    isRoleMenuOpen,
-    setIsRoleMenuOpen,
-    isRoleMenuUpward,
     submitError,
     setSubmitError,
     isSignUpVariant,
     heading,
     description,
     submitLabel,
-    toggleRoleMenu,
     validateLoginField,
     validateRegisterField,
     handleLogin,
     handleRegister,
   }
 }
-
