@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using InternManager.Api.Common.Utilities;
 using Microsoft.AspNetCore.Authorization;
 
 namespace InternManager.Api.Middleware;
@@ -15,13 +16,6 @@ public sealed class DevelopmentLazyAuthBypassMiddleware(RequestDelegate next)
     private const string DevelopmentBypassClaimValue = "true";
     private const string DefaultRole = "SuperAdmin";
     private const string DevelopmentCsrfToken = "dev-lazy-csrf-token";
-
-    private static readonly Guid SuperAdminUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-    private static readonly Guid AdminUserId = Guid.Parse("00000000-0000-0000-0000-000000000002");
-    private static readonly Guid ManagerUserId = Guid.Parse("00000000-0000-0000-0000-000000000003");
-    private static readonly Guid SupervisorUserId = Guid.Parse("00000000-0000-0000-0000-000000000004");
-    private static readonly Guid InternUserId = Guid.Parse("00000000-0000-0000-0000-000000000005");
-    private static readonly Guid GenericUserId = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
     private static readonly string[] RolePreferenceOrder =
     [
@@ -101,20 +95,18 @@ public sealed class DevelopmentLazyAuthBypassMiddleware(RequestDelegate next)
     private static void InjectDevelopmentPrincipal(HttpContext context)
     {
         var role = ResolveRoleForEndpoint(context);
-        var roleToken = role.ToLowerInvariant();
-        var userId = ResolveUserIdForRole(role);
-        var email = $"dev.{roleToken}@axia.local";
+        var developmentUser = DevelopmentAuthUsers.ResolveForRole(role);
 
         var claims = new List<Claim>
         {
             new(DevelopmentBypassClaimType, DevelopmentBypassClaimValue),
-            new("userId", userId.ToString()),
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new("email", email),
-            new(ClaimTypes.Email, email),
-            new(ClaimTypes.Name, email),
-            new("role", role),
-            new(ClaimTypes.Role, role),
+            new("userId", developmentUser.Id.ToString()),
+            new(ClaimTypes.NameIdentifier, developmentUser.Id.ToString()),
+            new("email", developmentUser.Email),
+            new(ClaimTypes.Email, developmentUser.Email),
+            new(ClaimTypes.Name, developmentUser.Email),
+            new("role", developmentUser.Role.ToString()),
+            new(ClaimTypes.Role, developmentUser.Role.ToString()),
             new("csrf", DevelopmentCsrfToken)
         };
 
@@ -180,19 +172,6 @@ public sealed class DevelopmentLazyAuthBypassMiddleware(RequestDelegate next)
         }
 
         return fallbackRole ?? DefaultRole;
-    }
-
-    private static Guid ResolveUserIdForRole(string role)
-    {
-        return role switch
-        {
-            "SuperAdmin" => SuperAdminUserId,
-            "Admin" => AdminUserId,
-            "Manager" => ManagerUserId,
-            "Supervisor" => SupervisorUserId,
-            "Intern" => InternUserId,
-            _ => GenericUserId
-        };
     }
 
     private static void EnsureDevelopmentEnvironment()

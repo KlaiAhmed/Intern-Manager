@@ -40,6 +40,8 @@ public static class DbSeeder
 
         await ReferenceDataSeeder.SeedDefaultStatusReferencesAsync(dbContext, logger);
 
+        await SeedDevelopmentBypassUsersAsync(dbContext, logger, hostEnvironment);
+
         var superAdminExists = await dbContext.Users
             .AsNoTracking()
             .AnyAsync(u => u.Role == UserRole.SuperAdmin);
@@ -75,6 +77,50 @@ public static class DbSeeder
         await dbContext.SaveChangesAsync();
 
         logger.LogInformation("SuperAdmin created successfully.");
+    }
+
+    private static async Task SeedDevelopmentBypassUsersAsync(AppDbContext dbContext, ILogger logger, IHostEnvironment hostEnvironment)
+    {
+        if (!hostEnvironment.IsDevelopment() && !hostEnvironment.IsEnvironment("Testing"))
+        {
+            return;
+        }
+
+        var developmentUsers = new List<User>();
+
+        foreach (var seed in DevelopmentAuthUsers.Seeds)
+        {
+            var userExists = await dbContext.Users
+                .AsNoTracking()
+                .AnyAsync(user => user.Id == seed.Id);
+
+            if (userExists)
+            {
+                continue;
+            }
+
+            developmentUsers.Add(new User
+            {
+                Id = seed.Id,
+                FirstName = seed.FirstName,
+                LastName = seed.LastName,
+                Email = seed.Email,
+                PasswordHash = PasswordHasher.HashPassword("DevPassword123!"),
+                Role = seed.Role,
+                Status = UserStatus.Active,
+                VerificationStatus = seed.VerificationStatus
+            });
+        }
+
+        if (developmentUsers.Count == 0)
+        {
+            return;
+        }
+
+        dbContext.Users.AddRange(developmentUsers);
+        await dbContext.SaveChangesAsync();
+
+        logger.LogInformation("Seeded {Count} development bypass user(s).", developmentUsers.Count);
     }
 
     /// <summary>
