@@ -58,14 +58,22 @@ import type { ReactNode } from 'react'
 import { Suspense, lazy, useState, useCallback } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 import { useSuperAdminStats } from '../hooks/useSuperAdminStats'
-import { SuperAdminSidebar, type SuperAdminSection } from '../components/SuperAdminSidebar'
+import type { SuperAdminSection } from '../components/SuperAdminSidebar'
 import { SuperAdminStatCard } from '../components/SuperAdminStatCard'
 import { UserManagementSection } from '../components/UserManagementSection'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import { AuditLogSection } from '../components/AuditLogSection'
-import { PlaceholderSection } from '../components/PlaceholderSection'
 import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
+import {
+  DashboardShell,
+  OperationalArchiveSection,
+  OperationalBiAccessSection,
+  OperationalEvaluationsSection,
+  OperationalInternshipsSection,
+  OperationalInternsSection,
+  OperationalNotificationsEmailSection,
+} from '../shared/components'
 import '../styles/pages/SuperAdminDashboard.css'
 
 // Lazy-load chart components - only loaded when Overview section renders charts
@@ -258,19 +266,6 @@ function OverviewSection() {
   )
 }
 
-// Matching IA Section (with 501 placeholder handling)
-function MatchingIA() {
-  const { t } = useI18n()
-
-  return (
-    <PlaceholderSection
-      title={t('dashboard.superAdmin.matchingIA')}
-      subtitle={t('dashboard.superAdmin.matchingIADesc')}
-      icon="🤖"
-    />
-  )
-}
-
 // Main Dashboard Component
 export function SuperAdminDashboard() {
   const { t } = useI18n()
@@ -288,35 +283,15 @@ export function SuperAdminDashboard() {
       case 'users':
         return <UserManagementSection />
       case 'internships':
-        return (
-          <PlaceholderSection
-            title={t('dashboard.superAdmin.internships')}
-            subtitle={t('dashboard.superAdmin.internshipsDesc')}
-          />
-        )
+        return <OperationalInternshipsSection />
       case 'missions':
-        return (
-          <PlaceholderSection
-            title={t('dashboard.superAdmin.missionsLibrary')}
-            subtitle={t('dashboard.superAdmin.missionsDesc')}
-          />
-        )
+        return <OperationalInternsSection />
       case 'evaluations':
-        return (
-          <PlaceholderSection
-            title={t('dashboard.superAdmin.evaluations')}
-            subtitle={t('dashboard.superAdmin.evaluationsDesc')}
-          />
-        )
+        return <OperationalEvaluationsSection />
       case 'deliverables':
-        return (
-          <PlaceholderSection
-            title={t('dashboard.superAdmin.deliverables')}
-            subtitle={t('dashboard.superAdmin.deliverablesDesc')}
-          />
-        )
+        return <OperationalNotificationsEmailSection />
       case 'matching':
-        return <MatchingIA />
+        return <OperationalArchiveSection />
       case 'settings':
         return (
           <SettingsPanel
@@ -326,30 +301,22 @@ export function SuperAdminDashboard() {
         )
       case 'audit':
         return <AuditLogSection />
+      case 'biAccess':
+        return <OperationalBiAccessSection />
       default:
         return <OverviewSection />
     }
   }, [activeSection, activeSettingsSubSection, t])
 
   return (
-    <div className="super-admin-dashboard">
-      <SuperAdminSidebar
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
-        onSettingsSubSectionChange={setActiveSettingsSubSection}
-      />
-
-      <main className="super-admin-main" id="main-content">
-        <div className="super-admin-content-wrapper">
-          <h1 className="page-title">{t('dashboard.superAdmin.title')}</h1>
-          <div
-            className="content-fade-in"
-            key={activeSection}
-          >
-            {renderContent()}
-          </div>
-        </div>
-      </main>
-    </div>
+    <DashboardShell
+      activeSection={activeSection}
+      onSectionChange={handleSectionChange}
+      onSettingsSubSectionChange={setActiveSettingsSubSection}
+      pageTitle={t('dashboard.superAdmin.title')}
+      contentKey={activeSection}
+    >
+      {renderContent()}
+    </DashboardShell>
   )
 }
