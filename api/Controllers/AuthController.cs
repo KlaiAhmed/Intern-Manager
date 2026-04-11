@@ -218,10 +218,10 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Demande un lien de réinitialisation de mot de passe.
+    /// Demande un code de réinitialisation de mot de passe.
     /// </summary>
     /// <remarks>
-    /// Cette route envoie un email avec un lien de réinitialisation si le compte existe.
+    /// Cette route envoie un email avec un code de réinitialisation si le compte existe.
     /// Pour des raisons de sécurité, elle répond toujours 200 même si l email n existe pas,
     /// afin de ne pas révéler quels comptes sont enregistrés.
     /// </remarks>
@@ -230,36 +230,70 @@ public sealed class AuthController(
     /// <returns>Un message confirmant que le processus est lancé.</returns>
     /// <response code="200">Message de confirmation (même si l email n existe pas).</response>
     [AllowAnonymous]
-    [HttpPost("forgot-password", Name = "ForgotPassword")]
+    [HttpPost("/api/auth/forgot-password", Name = "ForgotPassword")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
-            return Ok(new { message = "If the account exists, a reset link has been sent." });
+            return Ok(new { message = "If the account exists, a reset code has been sent." });
         }
 
-        await passwordResetService.CreateResetTokenAsync(request.Email, cancellationToken);
+        await passwordResetService.CreateResetCodeAsync(request.Email, cancellationToken);
 
-        return Ok(new { message = "If the account exists, a reset link has been sent." });
+        return Ok(new { message = "If the account exists, a reset code has been sent." });
     }
 
     /// <summary>
-    /// Réinitialise le mot de passe avec un jeton reçu par email.
+    /// Vérifie le code de réinitialisation reçu par email.
     /// </summary>
     /// <remarks>
-    /// Cette route prend le jeton envoyé par email et un nouveau mot de passe.
-    /// Le jeton ne peut être utilisé qu une seule fois et expire après un certain temps.
+    /// Cette route valide un code à 6 chiffres non expiré et renvoie un jeton de vérification
+    /// temporaire utilisé ensuite pour changer le mot de passe.
+    /// </remarks>
+    /// <param name="request">Objet contenant l email du compte et le code à 6 chiffres.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Un jeton de vérification temporaire si le code est valide.</returns>
+    /// <response code="200">Code valide, jeton de vérification renvoyé.</response>
+    /// <response code="400">Code invalide ou expiré.</response>
+    [AllowAnonymous]
+    [HttpPost("/api/auth/verify-reset-code", Name = "VerifyResetCode")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new { message = "Invalid or expired code." });
+        }
+
+        var verificationToken = await passwordResetService.VerifyResetCodeAsync(request.Email, request.Code, cancellationToken);
+        if (string.IsNullOrWhiteSpace(verificationToken))
+        {
+            return BadRequest(new { message = "Invalid or expired code." });
+        }
+
+        return Ok(new { verificationToken });
+    }
+
+    /// <summary>
+    /// Réinitialise le mot de passe avec un jeton de vérification.
+    /// </summary>
+    /// <remarks>
+    /// Cette route prend un jeton de vérification court et un nouveau mot de passe.
+    /// Le jeton de vérification est délivré par /api/auth/verify-reset-code.
+    /// Le code de réinitialisation en base ne peut être utilisé qu une seule fois.
     /// Après réinitialisation, l utilisateur est déconnecté de toutes ses sessions.
     /// </remarks>
-    /// <param name="request">Objet contenant le jeton de réinitialisation et le nouveau mot de passe.</param>
+    /// <param name="request">Objet contenant le jeton de vérification et le nouveau mot de passe.</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Un message confirmant le changement de mot de passe.</returns>
     /// <response code="200">Mot de passe réinitialisé avec succès.</response>
     /// <response code="400">Jeton invalide ou expiré.</response>
     [AllowAnonymous]
-    [HttpPost("reset-password", Name = "ResetPassword")]
+    [HttpPost("/api/auth/reset-password", Name = "ResetPassword")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -270,10 +304,23 @@ public sealed class AuthController(
             return BadRequest(new { message = "Invalid payload." });
         }
 
-        var updatedUserId = await passwordResetService.ResetPasswordAsync(request.Token, request.NewPassword, cancellationToken);
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            return BadRequest(new { message = "Passwords do not match." });
+        }
+
+        if (!PasswordPolicyValidator.IsValid(request.NewPassword))
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["password"] = PasswordPolicyValidator.ErrorMessage
+            });
+        }
+
+        var updatedUserId = await passwordResetService.ResetPasswordAsync(request.VerificationToken, request.NewPassword, cancellationToken);
         if (!updatedUserId.HasValue)
         {
-            return BadRequest(new { message = "Invalid or expired reset token." });
+            return BadRequest(new { message = "Invalid or expired verification token." });
         }
 
         await authService.LogoutAsync(updatedUserId, refreshToken: null, cancellationToken);

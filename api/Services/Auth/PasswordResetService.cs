@@ -1,25 +1,39 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Options;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Services.Email;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace InternManager.Api.Services.Auth;
 
 /// <summary>
-/// Stores and validates one-time password reset tokens.
+/// Stores and validates one-time password reset codes.
 /// </summary>
-public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordResetService
+public sealed class PasswordResetService(
+    AppDbContext dbContext,
+    IEmailService emailService,
+    IOptions<JwtOptions> jwtOptions,
+    ILogger<PasswordResetService> logger) : IPasswordResetService
 {
-    private static readonly TimeSpan ResetTokenLifetime = TimeSpan.FromHours(1);
+    private static readonly TimeSpan ResetCodeLifetime = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan VerificationTokenLifetime = TimeSpan.FromMinutes(10);
 
-    public async Task<string?> CreateResetTokenAsync(string email, CancellationToken cancellationToken = default)
+    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    private readonly byte[] _signingKey = Encoding.UTF8.GetBytes(jwtOptions.Value.Key);
+
+    public async Task CreateResetCodeAsync(string email, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
-            return null;
+            return;
         }
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
@@ -31,28 +45,30 @@ public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordRese
 
         if (user is null)
         {
-            return null;
+            return;
         }
 
         var now = DateTime.UtcNow;
         var activeTokens = await dbContext.PasswordResetTokens
-            .Where(token => token.UserId == user.Id && token.UsedAt == null && token.ExpiresAt > now)
+            .Where(token => token.UserId == user.Id && !token.IsUsed)
             .ToListAsync(cancellationToken);
 
         foreach (var activeToken in activeTokens)
         {
-            activeToken.UsedAt = now;
+            activeToken.IsUsed = true;
         }
 
-        var plainToken = GenerateOpaqueToken(48);
-        var tokenHash = HashToken(plainToken);
+        var plainCode = GenerateSixDigitCode();
+        var expiresAt = now.Add(ResetCodeLifetime);
+        var tokenHash = HashToken(plainCode);
 
         dbContext.PasswordResetTokens.Add(new PasswordResetToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             TokenHash = tokenHash,
-            ExpiresAt = now.Add(ResetTokenLifetime),
+            ExpiresAt = expiresAt,
+            IsUsed = false,
             CreatedAt = now
         });
 
@@ -66,24 +82,79 @@ public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordRese
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return plainToken;
+
+        try
+        {
+            await emailService.SendPasswordResetCodeAsync(user.Email, plainCode, expiresAt, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to send password reset code email for user {UserId}.", user.Id);
+        }
     }
 
-    public async Task<Guid?> ResetPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default)
+    public async Task<string?> VerifyResetCodeAsync(string email, string code, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(newPassword))
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var normalizedCode = code.Trim();
+        if (normalizedCode.Length != 6 || normalizedCode.Any(character => !char.IsDigit(character)))
+        {
+            return null;
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                current => current.Status == UserStatus.Active &&
+                           EF.Functions.Collate(current.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
+                cancellationToken);
+
+        if (user is null)
         {
             return null;
         }
 
         var now = DateTime.UtcNow;
-        var tokenHash = HashToken(token.Trim());
+
+        var resetToken = await dbContext.PasswordResetTokens
+            .Where(current => current.UserId == user.Id && !current.IsUsed && current.ExpiresAt > now)
+            .OrderByDescending(current => current.CreatedAt)
+            .FirstOrDefaultAsync(
+                cancellationToken);
+
+        if (resetToken is null || !HashMatches(normalizedCode, resetToken.TokenHash))
+        {
+            return null;
+        }
+
+        return GenerateVerificationToken(resetToken.Id, user.Id, now);
+    }
+
+    public async Task<Guid?> ResetPasswordAsync(string verificationToken, string newPassword, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(verificationToken) || string.IsNullOrWhiteSpace(newPassword))
+        {
+            return null;
+        }
+
+        if (!TryReadVerificationTokenClaims(verificationToken.Trim(), out var userId, out var resetTokenId))
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
 
         var resetToken = await dbContext.PasswordResetTokens
             .Include(current => current.User)
             .FirstOrDefaultAsync(
-                current => current.TokenHash == tokenHash &&
-                           current.UsedAt == null &&
+                current => current.Id == resetTokenId &&
+                           current.UserId == userId &&
+                           !current.IsUsed &&
                            current.ExpiresAt > now,
                 cancellationToken);
 
@@ -99,15 +170,15 @@ public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordRese
         }
 
         resetToken.User.PasswordHash = PasswordHasher.HashPassword(normalizedPassword);
-        resetToken.UsedAt = now;
+        resetToken.IsUsed = true;
 
         var siblingTokens = await dbContext.PasswordResetTokens
-            .Where(current => current.UserId == resetToken.UserId && current.Id != resetToken.Id && current.UsedAt == null)
+            .Where(current => current.UserId == resetToken.UserId && current.Id != resetToken.Id && !current.IsUsed)
             .ToListAsync(cancellationToken);
 
         foreach (var siblingToken in siblingTokens)
         {
-            siblingToken.UsedAt = now;
+            siblingToken.IsUsed = true;
         }
 
         dbContext.AuditLogs.Add(new AuditLog
@@ -123,18 +194,93 @@ public sealed class PasswordResetService(AppDbContext dbContext) : IPasswordRese
         return resetToken.UserId;
     }
 
-    private static string GenerateOpaqueToken(int byteLength)
+    private string GenerateVerificationToken(Guid resetTokenId, Guid userId, DateTime now)
     {
-        var randomBytes = RandomNumberGenerator.GetBytes(byteLength);
-        return Convert.ToBase64String(randomBytes)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+        var tokenDescriptor = new JwtSecurityToken(
+            issuer: _jwtOptions.Issuer,
+            audience: _jwtOptions.Audience,
+            claims:
+            [
+                new Claim("purpose", "password_reset"),
+                new Claim("userId", userId.ToString()),
+                new Claim("resetTokenId", resetTokenId.ToString())
+            ],
+            notBefore: now,
+            expires: now.Add(VerificationTokenLifetime),
+            signingCredentials: new SigningCredentials(
+                new SymmetricSecurityKey(_signingKey),
+                SecurityAlgorithms.HmacSha256));
+
+        return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+    }
+
+    private bool TryReadVerificationTokenClaims(string verificationToken, out Guid userId, out Guid resetTokenId)
+    {
+        userId = Guid.Empty;
+        resetTokenId = Guid.Empty;
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+
+        try
+        {
+            var principal = tokenHandler.ValidateToken(
+                verificationToken,
+                new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(_signingKey),
+                    ValidateIssuer = true,
+                    ValidIssuer = _jwtOptions.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = _jwtOptions.Audience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                },
+                out _);
+
+            var purpose = principal.FindFirstValue("purpose");
+            var userIdClaim = principal.FindFirstValue("userId");
+            var resetTokenIdClaim = principal.FindFirstValue("resetTokenId");
+
+            if (!string.Equals(purpose, "password_reset", StringComparison.Ordinal) ||
+                !Guid.TryParse(userIdClaim, out userId) ||
+                !Guid.TryParse(resetTokenIdClaim, out resetTokenId))
+            {
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static string GenerateSixDigitCode()
+    {
+        return RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
     }
 
     private static string HashToken(string token)
     {
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(hashBytes);
+    }
+
+    private static bool HashMatches(string plainValue, string storedHash)
+    {
+        var incomingHash = HashToken(plainValue);
+
+        try
+        {
+            var incomingBytes = Convert.FromHexString(incomingHash);
+            var storedBytes = Convert.FromHexString(storedHash);
+            return CryptographicOperations.FixedTimeEquals(incomingBytes, storedBytes);
+        }
+        catch (FormatException)
+        {
+            return string.Equals(incomingHash, storedHash, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

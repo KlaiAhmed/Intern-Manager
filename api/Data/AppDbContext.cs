@@ -710,6 +710,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .IsRequired()
                 .HasMaxLength(128);
 
+            entity.Property(token => token.IsUsed)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             entity.Property(token => token.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");

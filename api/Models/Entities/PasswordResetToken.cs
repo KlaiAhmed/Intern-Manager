@@ -13,7 +13,7 @@ public sealed class PasswordResetToken
 
     public DateTime ExpiresAt { get; set; }
 
-    public DateTime? UsedAt { get; set; }
+    public bool IsUsed { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
