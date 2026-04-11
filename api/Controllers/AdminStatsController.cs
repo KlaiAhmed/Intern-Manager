@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Controllers/AdminStatsController.cs
-/// 🎯 Rôle : Expose les statistiques globales pour les dashboards administratifs.
-/// 📦 Contient : [AdminStatsController]
-/// </summary>
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

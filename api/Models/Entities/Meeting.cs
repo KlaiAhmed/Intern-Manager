@@ -1,7 +1,4 @@
-/// <summary>
-/// Represents a scheduled supervisor-intern meeting.
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 public sealed class Meeting
 {

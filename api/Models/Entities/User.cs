@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Models/Entities/User.cs
-/// 🎯 Rôle       : Définit l entité utilisateur persistée en base de données.
-/// 📦 Contient   : [User]
-/// </summary>
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 
 namespace InternManager.Api.Models.Entities;
 

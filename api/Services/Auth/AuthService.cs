@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Services/Auth/AuthService.cs
-/// 🎯 Rôle       : Implémente la logique complète de session d authentification (login, refresh, logout).
-/// 📦 Contient   : [AuthService, RefreshTokenEntry]
-/// </summary>
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -20,6 +15,7 @@ namespace InternManager.Api.Services.Auth;
 /// Service métier qui crée les jetons, valide les sessions et applique la rotation des refresh tokens.
 /// </summary>
 /// <param name="userStore">Source de lecture des utilisateurs utilisée pour valider les identifiants.</param>
+/// <param name="dbContext">Contexte EF Core pour la persistance des refresh tokens.</param>
 /// <param name="jwtOptions">Options JWT de signature, d émetteur et de durée.</param>
 public sealed class AuthService(
     IAuthUserStore userStore,

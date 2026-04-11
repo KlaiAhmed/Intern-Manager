@@ -1,7 +1,4 @@
-/// <summary>
-/// Represents a mission deliverable lifecycle for supervisor review.
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 public sealed class Deliverable
 {

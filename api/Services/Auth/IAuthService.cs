@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Services/Auth/IAuthService.cs
-/// 🎯 Rôle       : Définit le contrat du service d authentification (connexion, rafraîchissement, déconnexion).
-/// 📦 Contient   : [IAuthService, AuthSessionTokens]
-/// </summary>
-namespace InternManager.Api.Services.Auth;
+﻿namespace InternManager.Api.Services.Auth;
 
 /// <summary>
 /// Définit les opérations de session d authentification utilisées par les contrôleurs HTTP.

@@ -1,8 +1,3 @@
-/// <summary>
-/// 📁 Emplacement : api/Common/Enums/UserRole.cs
-/// 🎯 Rôle       : Définit la liste des rôles possibles pour un utilisateur de l application.
-/// 📦 Contient   : [UserRole]
-/// </summary>
 namespace InternManager.Api.Common.Enums;
 
 /// <summary>

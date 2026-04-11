@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Models/Entities/AuditLog.cs
-/// 🎯 Rôle       : Définit un evenement d audit persistant pour tracer les actions sensibles.
-/// 📦 Contient   : [AuditLog]
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 /// <summary>
 /// Représente une entrée d audit lisible par les dashboards administratifs.

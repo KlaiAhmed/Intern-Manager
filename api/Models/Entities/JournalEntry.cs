@@ -1,7 +1,4 @@
-/// <summary>
-/// Represents a journal note written by an intern.
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 public sealed class JournalEntry
 {

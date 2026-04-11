@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Controllers/SupervisorInternsController.cs
-/// 🎯 Rôle : Expose les stagiaires assignés au superviseur connecté.
-/// 📦 Contient : [SupervisorInternsController]
-/// </summary>
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;

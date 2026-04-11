@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Data/DbSeeder.cs
-/// 🎯 Rôle       : Initialise les données minimales nécessaires au démarrage, notamment le compte SuperAdmin.
-/// 📦 Contient   : [DbSeeder]
-/// </summary>
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data.Initialization;
 using InternManager.Api.Models.Entities;

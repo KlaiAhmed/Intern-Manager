@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Middleware/CsrfValidationFilter.cs
-/// 🎯 Rôle       : Valide le jeton CSRF sur les requêtes HTTP qui modifient l état de l application.
-/// 📦 Contient   : [CsrfValidationFilter]
-/// </summary>
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;

@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Controllers/SupervisorStatsController.cs
-/// 🎯 Rôle : Expose les statistiques personnelles du superviseur connecté.
-/// 📦 Contient : [SupervisorStatsController]
-/// </summary>
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;

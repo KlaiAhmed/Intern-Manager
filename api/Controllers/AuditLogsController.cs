@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Controllers/AuditLogsController.cs
-/// 🎯 Rôle : Expose les logs d audit consommés par les dashboards administratifs.
-/// 📦 Contient : [AuditLogsController]
-/// </summary>
-using InternManager.Api.Data;
+﻿using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

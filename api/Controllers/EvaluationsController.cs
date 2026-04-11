@@ -1,4 +1,4 @@
-using InternManager.Api.Common.Constants;
+﻿using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -400,7 +400,9 @@ public sealed class EvaluationsController(
             return BadRequest(new { message = "type must be 'mid-term' or 'end'." });
         }
 
+        #pragma warning disable CS0618 // Type or member is obsolete
         if (!TryResolveCriteria(request.Criteria, request.Scores, out var criteria, out var criteriaError))
+#pragma warning restore CS0618 // Type or member is obsolete
         {
             return BadRequest(new { message = criteriaError });
         }

@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Controllers/UsersController.cs
-/// 🎯 Rôle : Expose les opérations de gestion des utilisateurs pour les dashboards admin.
-/// 📦 Contient : [UsersController]
-/// </summary>
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.DTOs.User;

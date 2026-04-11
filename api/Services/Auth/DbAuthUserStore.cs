@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Services/Auth/DbAuthUserStore.cs
-/// 🎯 Rôle       : Implémente la lecture des utilisateurs d authentification depuis la base SQL.
-/// 📦 Contient   : [DbAuthUserStore]
-/// </summary>
-using InternManager.Api.Data;
+﻿using InternManager.Api.Data;
 using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 

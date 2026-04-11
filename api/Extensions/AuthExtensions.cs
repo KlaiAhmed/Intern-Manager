@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Extensions/AuthExtensions.cs
-/// 🎯 Rôle       : Centralise l enregistrement de l authentification JWT, de l autorisation et du filtre CSRF.
-/// 📦 Contient   : [AuthExtensions]
-/// </summary>
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
 using InternManager.Api.Common.Options;
 using InternManager.Api.Middleware;

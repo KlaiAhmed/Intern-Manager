@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// 📁 Emplacement : api/Program.cs
 /// 🎯 Rôle       : Point d entrée de l API : configure les services, initialise la base et démarre le serveur HTTP.
 /// 📦 Contient   : [BuildSqlServerConnectionString, BuildServerUrl]

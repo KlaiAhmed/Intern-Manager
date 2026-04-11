@@ -1,7 +1,4 @@
-/// <summary>
-/// Represente une entite de referentiel avec identifiant technique et libelle.
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 public abstract class ReferentialEntityBase
 {

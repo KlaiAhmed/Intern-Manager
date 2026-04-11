@@ -1,8 +1,3 @@
-/// <summary>
-/// 📁 Emplacement : api/Common/Enums/UserStatus.cs
-/// 🎯 Rôle       : Définit les états de cycle de vie d un utilisateur dans le système.
-/// 📦 Contient   : [UserStatus]
-/// </summary>
 namespace InternManager.Api.Common.Enums;
 
 /// <summary>

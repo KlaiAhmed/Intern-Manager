@@ -1,4 +1,4 @@
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -17,6 +17,7 @@ namespace InternManager.Api.Controllers;
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
 /// <param name="notificationService">Service de notifications in-app.</param>
+/// <param name="internSkillsService">Service de gestion des compétences du stagiaire.</param>
 [ApiController]
 [Route("api/intern/me/profile")]
 // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.

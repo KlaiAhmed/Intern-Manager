@@ -1,6 +1,3 @@
-/// <summary>
-/// Expose les endpoints admin de parametrage et de gestion des referentiels.
-/// </summary>
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -772,8 +769,8 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
                 .AsNoTracking()
                 .AnyAsync(
                     mission => mission.InternshipTypeId == id ||
-                               (mission.InternshipTypeId == null &&
-                                EF.Functions.Collate(mission.Level, "SQL_Latin1_General_CP1_CI_AS") == typeName),
+                    (mission.InternshipTypeId == null &&
+                    EF.Functions.Collate(mission.Level, "SQL_Latin1_General_CP1_CI_AS") == typeName),
                     cancellationToken);
         }
 

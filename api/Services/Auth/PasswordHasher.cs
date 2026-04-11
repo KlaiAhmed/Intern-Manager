@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Services/Auth/PasswordHasher.cs
-/// 🎯 Rôle       : Fournit les fonctions de hachage et de vérification des mots de passe.
-/// 📦 Contient   : [PasswordHasher]
-/// </summary>
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 namespace InternManager.Api.Services.Auth;

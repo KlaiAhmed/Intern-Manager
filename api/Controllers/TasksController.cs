@@ -1,4 +1,4 @@
-using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -15,6 +15,7 @@ namespace InternManager.Api.Controllers;
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
+/// <param name="taskWorkflowService">Service métier pour la gestion du workflow des tâches.</param>
 [ApiController]
 [Route("api/tasks")]
 [Authorize]

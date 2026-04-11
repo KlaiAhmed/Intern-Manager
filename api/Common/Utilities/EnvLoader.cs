@@ -1,8 +1,3 @@
-/// <summary>
-/// 📁 Emplacement : api/Common/Utilities/EnvLoader.cs
-/// 🎯 Rôle       : Charge les variables d environnement depuis un fichier .env trouvé dans la racine projet.
-/// 📦 Contient   : [EnvLoader]
-/// </summary>
 namespace InternManager.Api.Common.Utilities;
 
 /// <summary>

@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Services/Auth/IAuthUserStore.cs
-/// 🎯 Rôle       : Définit le contrat de lecture des utilisateurs pour l authentification.
-/// 📦 Contient   : [IAuthUserStore, AuthUserRecord]
-/// </summary>
-namespace InternManager.Api.Services.Auth;
+﻿namespace InternManager.Api.Services.Auth;
 
 /// <summary>
 /// Définit les opérations minimales pour retrouver un utilisateur utilisé par le flux d authentification.

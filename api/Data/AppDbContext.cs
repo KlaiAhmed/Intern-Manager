@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Data/AppDbContext.cs
-/// 🎯 Rôle       : Configure l accès à la base de données et la persistance des entités métier.
-/// 📦 Contient   : [AppDbContext]
-/// </summary>
-using InternManager.Api.Models.Entities;
+﻿using InternManager.Api.Models.Entities;
 using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 

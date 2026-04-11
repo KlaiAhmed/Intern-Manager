@@ -1,8 +1,3 @@
-/// <summary>
-/// 📁 Emplacement : api/Controllers/AuthController.cs
-/// 🎯 Rôle       : Expose les endpoints HTTP d authentification (connexion, rafraîchissement, déconnexion, profil courant).
-/// 📦 Contient   : [AuthController]
-/// </summary>
 using System.Security.Claims;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
@@ -400,6 +395,7 @@ public sealed class AuthController(
     /// </summary>
     /// <param name="rawRole">Valeur brute reçue du client.</param>
     /// <param name="role">Rôle converti si valide.</param>
+    /// <param name="forbiddenRoleRequested">Indique si un rôle non autorisé pour auto-inscription a été demandé.</param>
     /// <returns><see langword="true"/> si le rôle est autorisé pour auto-inscription, sinon <see langword="false"/>.</returns>
     private static bool TryResolveSignupRole(string rawRole, out UserRole role, out bool forbiddenRoleRequested)
     {

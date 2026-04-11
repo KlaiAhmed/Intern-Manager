@@ -1,7 +1,4 @@
-/// <summary>
-/// Represents an intern evaluation request and submitted result.
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 public sealed class Evaluation
 {

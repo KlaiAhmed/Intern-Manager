@@ -1,7 +1,4 @@
-/// <summary>
-/// Represents a task item assigned to an intern.
-/// </summary>
-namespace InternManager.Api.Models.Entities;
+﻿namespace InternManager.Api.Models.Entities;
 
 public sealed class InternTask
 {

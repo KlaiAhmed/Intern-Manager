@@ -1,9 +1,4 @@
-/// <summary>
-/// 📁 Emplacement : api/Models/DTOs/User/UserSummary.cs
-/// 🎯 Rôle : Contient les champs essentiels du profil utilisateur pour affichage dans l interface.
-/// 📦 Contient : [UserSummary]
-/// </summary>
-namespace InternManager.Api.Models.DTOs.User;
+﻿namespace InternManager.Api.Models.DTOs.User;
 
 /// <summary>
 /// Résumé du profil utilisateur retourné par l endpoint /me/summary.

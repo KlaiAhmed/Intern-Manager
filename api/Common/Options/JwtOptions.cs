@@ -1,8 +1,3 @@
-/// <summary>
-/// 📁 Emplacement : api/Common/Options/JwtOptions.cs
-/// 🎯 Rôle       : Centralise les paramètres JWT lus depuis la configuration de l application.
-/// 📦 Contient   : [JwtOptions]
-/// </summary>
 namespace InternManager.Api.Common.Options;
 
 /// <summary>
