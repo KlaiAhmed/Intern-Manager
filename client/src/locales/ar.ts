@@ -116,7 +116,7 @@ export const commonAr = {
   'auth.hero.title': 'ادارة دورة التدريب مصممة للتميز التشغيلي.',
   'auth.kpi.activeInterns': 'المتدربون النشطون',
   'auth.kpi.mentorsOnboarded': 'المشرفون المنضمون',
-  'auth.kpi.completionRate': 'نسبة الاكمال',
+  'auth.kpi.totalMissions': 'إجمالي المهام',
   'error.meta.notFoundTitle': 'الصفحة غير موجودة | Axia Intern Manager',
   'error.meta.errorTitle': 'خطأ في التطبيق | Axia Intern Manager',
   'error.meta.description': 'صفحة حالة توضح خطأ في التنقل او خطأ غير متوقع في التطبيق.',

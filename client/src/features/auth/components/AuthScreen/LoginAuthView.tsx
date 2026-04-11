@@ -1,9 +1,12 @@
+import { useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { classNames } from '../../../../utils/classNames'
 import { LanguageSwitcher } from '../../../../components/ui/LanguageSwitcher'
 import { ThemeSwitcher } from '../../../../components/ui/ThemeSwitcher'
+import { useI18n } from '../../../../locales/I18nContext'
 import type { AuthScreenLogic } from './types'
 import { PasswordVisibilityIcon } from './PasswordVisibilityIcon'
+import { useHomeStats } from '../../../home/hooks/useHomeStats'
 import styles from '../../styles/LoginAuthView.module.css'
 
 interface LoginAuthViewProps {
@@ -12,6 +15,16 @@ interface LoginAuthViewProps {
 
 export function LoginAuthView({ logic }: LoginAuthViewProps) {
   const location = useLocation()
+  const { locale } = useI18n()
+  const homeStats = useHomeStats()
+  const numberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }),
+    [locale]
+  )
 
   const {
     t,
@@ -32,6 +45,11 @@ export function LoginAuthView({ logic }: LoginAuthViewProps) {
   } = logic
 
   const shouldShowResetSuccess = new URLSearchParams(location.search).get('reset') === 'success'
+  const loginKpis = [
+    { labelKey: 'auth.kpi.activeInterns', value: homeStats?.interns ?? null },
+    { labelKey: 'auth.kpi.mentorsOnboarded', value: homeStats?.supervisors ?? null },
+    { labelKey: 'auth.kpi.totalMissions', value: homeStats?.missions ?? null },
+  ] as const
 
   return (
     <main className={styles.authPage}>
@@ -52,18 +70,14 @@ export function LoginAuthView({ logic }: LoginAuthViewProps) {
             </div>
 
             <dl className={styles.authKpis}>
-              <div className={styles.authKpi}>
-                <dt className={styles.kpiLabel}>{t('auth.kpi.activeInterns')}</dt>
-                <dd className={styles.kpiValue}>240+</dd>
-              </div>
-              <div className={styles.authKpi}>
-                <dt className={styles.kpiLabel}>{t('auth.kpi.mentorsOnboarded')}</dt>
-                <dd className={styles.kpiValue}>62</dd>
-              </div>
-              <div className={styles.authKpi}>
-                <dt className={styles.kpiLabel}>{t('auth.kpi.completionRate')}</dt>
-                <dd className={styles.kpiValue}>95%</dd>
-              </div>
+              {loginKpis.map((kpi) => (
+                <div className={styles.authKpi} key={kpi.labelKey}>
+                  <dt className={styles.kpiLabel}>{t(kpi.labelKey)}</dt>
+                  <dd className={styles.kpiValue} aria-live="polite">
+                    {kpi.value === null ? '—' : numberFormatter.format(kpi.value)}
+                  </dd>
+                </div>
+              ))}
             </dl>
           </div>
         </aside>

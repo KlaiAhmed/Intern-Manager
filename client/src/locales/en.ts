@@ -116,7 +116,7 @@ export const commonEn = {
   'auth.hero.title': 'Internship lifecycle management, built for operational excellence.',
   'auth.kpi.activeInterns': 'Active interns',
   'auth.kpi.mentorsOnboarded': 'Mentors onboarded',
-  'auth.kpi.completionRate': 'Completion rate',
+  'auth.kpi.totalMissions': 'Total missions',
   'error.meta.notFoundTitle': 'Page Not Found | Axia Intern Manager',
   'error.meta.errorTitle': 'Application Error | Axia Intern Manager',
   'error.meta.description': 'A helpful status page explaining the current navigation or application error.',

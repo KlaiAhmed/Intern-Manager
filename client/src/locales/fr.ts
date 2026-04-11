@@ -116,7 +116,7 @@ export const commonFr = {
   'auth.hero.title': 'Gestion du cycle de stage, concue pour l excellence operationnelle.',
   'auth.kpi.activeInterns': 'Stagiaires actifs',
   'auth.kpi.mentorsOnboarded': 'Encadrants onboardes',
-  'auth.kpi.completionRate': 'Taux de completion',
+  'auth.kpi.totalMissions': 'Total des missions',
   'error.meta.notFoundTitle': 'Page introuvable | Axia Intern Manager',
   'error.meta.errorTitle': 'Erreur application | Axia Intern Manager',
   'error.meta.description': 'Page de statut expliquant une erreur de navigation ou une erreur applicative.',

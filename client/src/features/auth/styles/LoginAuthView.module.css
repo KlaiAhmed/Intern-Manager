@@ -139,6 +139,7 @@
   margin-top: 0.25rem;
   font-size: 1.5rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .authFormWrap {
