@@ -1,5 +1,6 @@
 ﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Data;
+using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -140,6 +141,31 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
             .CountAsync(cancellationToken);
 
         return Ok(new { count });
+    }
+
+    /// <summary>
+    /// Récupère les indicateurs publics de la page d accueil.
+    /// </summary>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les compteurs publics utilisés par le héros de la page d accueil.</returns>
+    [HttpGet("home", Name = "GetHomeStats")]
+    [AllowAnonymous]
+    [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+    [ProducesResponseType(typeof(HomeStatsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHomeStats(CancellationToken cancellationToken)
+    {
+        var supervisorsCount = await CountActiveUsersByRoleAsync(UserRole.Supervisor, cancellationToken);
+        var internsCount = await CountActiveUsersByRoleAsync(UserRole.Intern, cancellationToken);
+        var missionsCount = await dbContext.Missions
+            .AsNoTracking()
+            .CountAsync(cancellationToken);
+
+        return Ok(new HomeStatsResponse
+        {
+            Supervisors = supervisorsCount,
+            Interns = internsCount,
+            Missions = missionsCount,
+        });
     }
 
     /// <summary>
