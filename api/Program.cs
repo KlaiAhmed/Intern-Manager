@@ -273,7 +273,7 @@ static string BuildSqlServerConnectionString(string? databasePath, string? sqlSe
         databaseName = "app";
     }
 
-    return $"Server={effectiveSqlServerInstance};Database=SmartAxiaInternManager_{databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+    return $"Server={effectiveSqlServerInstance};Database=AxiaInternManager_{databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 }
 
 // Construit l URL locale du serveur HTTP à partir du port configuré.
