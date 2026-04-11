@@ -155,6 +155,7 @@ export function InternDashboard() {
           internship={internship}
           meetingsCount={meetingsCount}
           loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
+          t={t}
         />
 
         <TasksCard
@@ -163,6 +164,7 @@ export function InternDashboard() {
           error={tasksError}
           onRetry={loadTasks}
           onComplete={handleCompleteTask}
+          t={t}
         />
 
         <DeliverablesCard
@@ -172,6 +174,7 @@ export function InternDashboard() {
           onRetry={loadDeliverables}
           onUploadClick={handleUploadClick}
           onViewComment={setCommentModalDeliverable}
+          t={t}
         />
 
         <EvaluationCard
@@ -188,6 +191,7 @@ export function InternDashboard() {
           error={journalError}
           onRetry={loadJournal}
           onAddClick={() => setIsJournalModalOpen(true)}
+          t={t}
         />
 
         <MeetingCard
@@ -195,6 +199,7 @@ export function InternDashboard() {
           loading={loadingMeeting}
           error={meetingError}
           onRetry={loadNextMeeting}
+          t={t}
         />
       </div>
 
