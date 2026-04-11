@@ -1,3 +1,4 @@
+import { useI18n } from '../../../../locales/I18nContext'
 import { ErrorState } from '../../components/ErrorState'
 import { Panel } from '../../components/Panel'
 import { Skeleton } from '../../components/Skeleton'
@@ -16,9 +17,10 @@ export function DepartmentsTab({
   departments,
   loadDepartments,
 }: DepartmentsTabProps) {
+  const { t } = useI18n()
   return (
     <div className="dash-section" role="tabpanel" id="tabpanel-departments" aria-labelledby="tab-departments">
-      <Panel title="Departments">
+      <Panel title={t('dashboard.manager.departments.title')}>
         {loadingDepartments ? (
           <div className="dash-grid dash-grid-3">
             <Skeleton height="160px" />
@@ -30,8 +32,8 @@ export function DepartmentsTab({
         ) : departments.length === 0 ? (
           <div className="dash-empty">
             <div className="dash-empty-icon">∅</div>
-            <h3 className="dash-empty-title">No departments</h3>
-            <p className="dash-empty-description">Configure departments in settings.</p>
+            <h3 className="dash-empty-title">{t('dashboard.manager.departments.empty')}</h3>
+            <p className="dash-empty-description">{t('dashboard.manager.departments.emptyDesc')}</p>
           </div>
         ) : (
           <div className="dash-grid dash-grid-3">
@@ -57,11 +59,11 @@ export function DepartmentsTab({
                 <div className="dept-card-stats">
                   <div className="dept-stat">
                     <span className="dept-stat-value">{department.internCount}</span>
-                    <span className="dept-stat-label">Interns</span>
+                    <span className="dept-stat-label">{t('dashboard.manager.departments.interns')}</span>
                   </div>
                   <div className="dept-stat">
                     <span className="dept-stat-value">{department.supervisorCount}</span>
-                    <span className="dept-stat-label">Supervisors</span>
+                    <span className="dept-stat-label">{t('dashboard.manager.departments.supervisors')}</span>
                   </div>
                 </div>
               </div>

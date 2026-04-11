@@ -1,3 +1,4 @@
+import { useI18n } from '../../../../locales/I18nContext'
 import { ErrorState } from '../../components/ErrorState'
 import { Panel } from '../../components/Panel'
 import { Skeleton } from '../../components/Skeleton'
@@ -18,9 +19,10 @@ export function SupervisorsTab({
   getInitials,
   loadSupervisors,
 }: SupervisorsTabProps) {
+  const { t } = useI18n()
   return (
     <div className="dash-section" role="tabpanel" id="tabpanel-supervisors" aria-labelledby="tab-supervisors">
-      <Panel title="Supervisors">
+      <Panel title={t('dashboard.manager.supervisors.title')}>
         {loadingSupervisors ? (
           <div className="dash-grid dash-grid-auto">
             <Skeleton height="120px" />
@@ -32,8 +34,8 @@ export function SupervisorsTab({
         ) : supervisors.length === 0 ? (
           <div className="dash-empty">
             <div className="dash-empty-icon">∅</div>
-            <h3 className="dash-empty-title">No supervisors</h3>
-            <p className="dash-empty-description">No supervisors have been assigned yet.</p>
+            <h3 className="dash-empty-title">{t('dashboard.manager.supervisors.empty')}</h3>
+            <p className="dash-empty-description">{t('dashboard.manager.supervisors.emptyDesc')}</p>
           </div>
         ) : (
           <div className="dash-grid dash-grid-3">
@@ -43,13 +45,13 @@ export function SupervisorsTab({
                   <span className="supervisor-avatar" aria-hidden="true">{getInitials(supervisor.name)}</span>
                   <div className="supervisor-meta">
                     <span className="supervisor-name">{supervisor.name}</span>
-                    <span className="supervisor-department">{supervisor.department || 'No department'}</span>
+                    <span className="supervisor-department">{supervisor.department || t('dashboard.manager.supervisors.noDepartment')}</span>
                   </div>
                 </div>
                 <div className="supervisor-stats">
                   <div className="supervisor-stat">
                     <span className="supervisor-stat-value">{supervisor.activeInternsCount}</span>
-                    <span className="supervisor-stat-label">Active interns</span>
+                    <span className="supervisor-stat-label">{t('dashboard.manager.supervisors.activeInterns')}</span>
                   </div>
                 </div>
               </div>

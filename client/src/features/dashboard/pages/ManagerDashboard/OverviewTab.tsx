@@ -1,3 +1,4 @@
+import { useI18n } from '../../../../locales/I18nContext'
 import { ErrorState } from '../../components/ErrorState'
 import { Panel } from '../../components/Panel'
 import { Skeleton } from '../../components/Skeleton'
@@ -43,6 +44,7 @@ export function OverviewTab({
   getActivityIcon,
   formatActivityDate,
 }: OverviewTabProps) {
+  const { t } = useI18n()
   return (
     <div className="dash-section" role="tabpanel" id="tabpanel-overview" aria-labelledby="tab-overview">
       <div className="dash-stats-row">
@@ -57,16 +59,16 @@ export function OverviewTab({
           <ErrorState message={kpisError} onRetry={loadKPIs} />
         ) : (
           <>
-            <StatCard label="Total interns" value={internsCount.toLocaleString()} />
-            <StatCard label="Active missions" value={activeMissionsCount.toLocaleString()} />
-            <StatCard label="Avg completion" value={`${avgCompletion}%`} />
-            <StatCard label="Pending reviews" value={pendingReviews.toLocaleString()} />
+            <StatCard label={t('dashboard.manager.overview.totalInterns')} value={internsCount.toLocaleString()} />
+            <StatCard label={t('dashboard.manager.overview.activeMissions')} value={activeMissionsCount.toLocaleString()} />
+            <StatCard label={t('dashboard.manager.overview.avgCompletion')} value={`${avgCompletion}%`} />
+            <StatCard label={t('dashboard.manager.overview.pendingReviews')} value={pendingReviews.toLocaleString()} />
           </>
         )}
       </div>
 
       <div className="dash-two-cols">
-        <Panel title="Department progress">
+        <Panel title={t('dashboard.manager.overview.departmentProgress')}>
           {loadingDepartments ? (
             <Skeleton height="200px" />
           ) : departmentsError ? (
@@ -74,8 +76,8 @@ export function OverviewTab({
           ) : departments.length === 0 ? (
             <div className="dash-empty">
               <div className="dash-empty-icon">∅</div>
-              <h3 className="dash-empty-title">No departments</h3>
-              <p className="dash-empty-description">No departments configured yet.</p>
+              <h3 className="dash-empty-title">{t('dashboard.manager.overview.noDepartments')}</h3>
+              <p className="dash-empty-description">{t('dashboard.manager.overview.noDepartmentsDesc')}</p>
             </div>
           ) : (
             <div className="dept-list">
@@ -83,7 +85,7 @@ export function OverviewTab({
                 <div key={department.id} className="dept-item">
                   <div className="dept-info">
                     <span className="dept-name">{department.name}</span>
-                    <span className="dept-meta">{department.internCount} interns, {department.supervisorCount} supervisors</span>
+                    <span className="dept-meta">{t('dashboard.manager.overview.internsSupervisors').replace('{{interns}}', String(department.internCount)).replace('{{supervisors}}', String(department.supervisorCount))}</span>
                   </div>
                   <div className="dept-progress">
                     <div className="dash-progress">
@@ -97,7 +99,7 @@ export function OverviewTab({
           )}
         </Panel>
 
-        <Panel title="Recent activity">
+        <Panel title={t('dashboard.manager.overview.recentActivity')}>
           {loadingActivity ? (
             <Skeleton height="200px" />
           ) : activityError ? (
@@ -105,8 +107,8 @@ export function OverviewTab({
           ) : activities.length === 0 ? (
             <div className="dash-empty">
               <div className="dash-empty-icon">⟳</div>
-              <h3 className="dash-empty-title">No recent activity</h3>
-              <p className="dash-empty-description">Activity logs will appear here.</p>
+              <h3 className="dash-empty-title">{t('dashboard.manager.overview.noActivity')}</h3>
+              <p className="dash-empty-description">{t('dashboard.manager.overview.noActivityDesc')}</p>
             </div>
           ) : (
             <div className="activity-list">

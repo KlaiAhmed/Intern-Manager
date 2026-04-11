@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useI18n } from '../../../../locales/I18nContext'
 import { getCsrfCookieToken } from '../../../../lib/auth'
 import { apiFetch } from '../../../../lib/apiClient'
 import { DashboardButton } from '../../components/DashboardButton'
@@ -204,6 +205,7 @@ export function InternDetailsModal({
   departmentsError,
   onAssignmentSuccess,
 }: InternDetailsModalProps) {
+  const { t } = useI18n()
   const api = useDashboardApi()
 
   const [detailsLoading, setDetailsLoading] = useState(false)
@@ -548,7 +550,7 @@ export function InternDetailsModal({
   const verificationStatusValue = asNonEmptyString(internDetails?.verificationStatus) || asNonEmptyString(intern?.verificationStatus) || 'Unknown'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={internDisplayName || 'Intern details'}>
+    <Modal isOpen={isOpen} onClose={onClose} title={internDisplayName || t('dashboard.manager.internDetails.title')}>
       {!intern ? null : detailsLoading ? (
         <Skeleton height="320px" />
       ) : detailsError ? (
@@ -571,68 +573,68 @@ export function InternDetailsModal({
           </div>
 
           <div className="intern-modal-block">
-            <h4 className="intern-modal-section-title">Personal Info</h4>
+            <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.personalInfo')}</h4>
             <div className="admin-modal-details-grid">
               <div>
-                <h3>Name</h3>
+                <h3>{t('dashboard.manager.internDetails.label.name')}</h3>
                 <p>{internDisplayName || '—'}</p>
               </div>
               <div>
-                <h3>Email</h3>
+                <h3>{t('dashboard.manager.internDetails.label.email')}</h3>
                 <p>{asNonEmptyString(internDetails?.email) || intern.email || '—'}</p>
               </div>
               <div>
-                <h3>Phone</h3>
+                <h3>{t('dashboard.manager.internDetails.label.phone')}</h3>
                 <p>{asNonEmptyString(internDetails?.phone) || '—'}</p>
               </div>
               <div>
-                <h3>School</h3>
+                <h3>{t('dashboard.manager.internDetails.label.school')}</h3>
                 <p>{asNonEmptyString(internDetails?.school) || '—'}</p>
               </div>
               <div>
-                <h3>Specialty</h3>
+                <h3>{t('dashboard.manager.internDetails.label.specialty')}</h3>
                 <p>{asNonEmptyString(internDetails?.specialty) || '—'}</p>
               </div>
               <div>
-                <h3>Level</h3>
+                <h3>{t('dashboard.manager.internDetails.label.level')}</h3>
                 <p>{asNonEmptyString(internDetails?.level) || '—'}</p>
               </div>
               <div>
-                <h3>First name</h3>
+                <h3>{t('dashboard.manager.internDetails.label.firstName')}</h3>
                 <p>{asNonEmptyString(internDetails?.firstName) || '—'}</p>
               </div>
               <div>
-                <h3>Last name</h3>
+                <h3>{t('dashboard.manager.internDetails.label.lastName')}</h3>
                 <p>{asNonEmptyString(internDetails?.lastName) || '—'}</p>
               </div>
             </div>
           </div>
 
           <div className="intern-modal-block">
-            <h4 className="intern-modal-section-title">Internship Info</h4>
+            <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.internshipInfo')}</h4>
             <div className="admin-modal-details-grid">
               <div>
-                <h3>Type</h3>
+                <h3>{t('dashboard.manager.internDetails.label.type')}</h3>
                 <p>{asNonEmptyString(internDetails?.currentInternship?.type) || asNonEmptyString(intern?.internshipType) || '—'}</p>
               </div>
               <div>
-                <h3>Department</h3>
+                <h3>{t('dashboard.manager.internDetails.label.department')}</h3>
                 <p>{asNonEmptyString(internDetails?.currentInternship?.department) || intern.department || '—'}</p>
               </div>
               <div>
-                <h3>Start Date</h3>
+                <h3>{t('dashboard.manager.internDetails.label.startDate')}</h3>
                 <p>{toDateInputValue(asNonEmptyString(internDetails?.startDate) || asNonEmptyString(internDetails?.currentInternship?.startDate) || null) || '—'}</p>
               </div>
               <div>
-                <h3>End Date</h3>
+                <h3>{t('dashboard.manager.internDetails.label.endDate')}</h3>
                 <p>{toDateInputValue(asNonEmptyString(internDetails?.endDate) || asNonEmptyString(internDetails?.currentInternship?.endDate) || null) || '—'}</p>
               </div>
               <div>
-                <h3>Internship Status</h3>
+                <h3>{t('dashboard.manager.internDetails.label.internshipStatus')}</h3>
                 <p>{internshipStatusValue ? toDisplayLabel(internshipStatusValue) : '—'}</p>
               </div>
               <div>
-                <h3>Account Status</h3>
+                <h3>{t('dashboard.manager.internDetails.label.accountStatus')}</h3>
                 <StatusBadge
                   label={toDisplayLabel(accountStatusValue || 'Unknown')}
                   tone={toStatusTone(accountStatusValue || 'Unknown')}
@@ -640,7 +642,7 @@ export function InternDetailsModal({
                 />
               </div>
               <div>
-                <h3>Verification Status</h3>
+                <h3>{t('dashboard.manager.internDetails.label.verificationStatus')}</h3>
                 <StatusBadge
                   label={toDisplayLabel(verificationStatusValue)}
                   tone={toStatusTone(verificationStatusValue)}
@@ -648,16 +650,16 @@ export function InternDetailsModal({
                 />
               </div>
               <div>
-                <h3>CV URL</h3>
+                <h3>{t('dashboard.manager.internDetails.label.cvUrl')}</h3>
                 <p>{asNonEmptyString(internDetails?.cvFileUrl) || '—'}</p>
               </div>
             </div>
           </div>
 
           <div className="intern-modal-block">
-            <h4 className="intern-modal-section-title">Skills</h4>
+            <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.skills')}</h4>
             {internSkillItems.length > 0 ? (
-              <div className="intern-modal-chip-list" role="list" aria-label="Selected skills">
+              <div className="intern-modal-chip-list" role="list" aria-label={t('dashboard.manager.internDetails.aria.selectedSkills')}>
                 {internSkillItems.map((skill) => (
                   <span key={skill.id} role="listitem" className="dash-status-chip dash-status-chip-info dash-status-chip-sm">
                     {skill.name}
@@ -665,33 +667,33 @@ export function InternDetailsModal({
                 ))}
               </div>
             ) : (
-              <p className="intern-modal-muted">No skills added</p>
+              <p className="intern-modal-muted">{t('dashboard.manager.internDetails.noSkills')}</p>
             )}
           </div>
 
           <div className="intern-modal-block">
-            <h4 className="intern-modal-section-title">Supervisor & Mission</h4>
+            <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.supervisorMission')}</h4>
             <div className="admin-modal-details-grid">
               <div>
-                <h3>Mission</h3>
-                <p>{asNonEmptyString(internDetails?.currentInternship?.mission?.title) || 'Not assigned'}</p>
+                <h3>{t('dashboard.manager.internDetails.label.mission')}</h3>
+                <p>{asNonEmptyString(internDetails?.currentInternship?.mission?.title) || t('dashboard.manager.internDetails.notAssigned')}</p>
               </div>
               <div>
-                <h3>Supervisor</h3>
-                <p>{asNonEmptyString(internDetails?.currentInternship?.supervisor?.name) || 'Not assigned'}</p>
+                <h3>{t('dashboard.manager.internDetails.label.supervisor')}</h3>
+                <p>{asNonEmptyString(internDetails?.currentInternship?.supervisor?.name) || t('dashboard.manager.internDetails.notAssigned')}</p>
               </div>
             </div>
           </div>
 
           <div className="intern-modal-block">
-            <h4 className="intern-modal-section-title">Additional Fields</h4>
+            <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.additionalFields')}</h4>
             <div className="admin-modal-details-grid">
               <div>
-                <h3>Intern ID</h3>
+                <h3>{t('dashboard.manager.internDetails.label.internId')}</h3>
                 <p>{targetInternId || '-'}</p>
               </div>
               <div>
-                <h3>Progress</h3>
+                <h3>{t('dashboard.manager.internDetails.label.progress')}</h3>
                 <p>{intern.progress}%</p>
               </div>
             </div>
@@ -699,24 +701,24 @@ export function InternDetailsModal({
 
           <div className="intern-modal-actions">
             <DashboardButton variant="secondary" onClick={onClose}>
-              Close
+              {t('dashboard.manager.internDetails.close')}
             </DashboardButton>
             <DashboardButton
               variant="primary"
               size="md"
               loading={cvLoading}
               disabled={!hasCv || cvLoading}
-              title={!hasCv ? 'No CV uploaded' : undefined}
+              title={!hasCv ? t('dashboard.manager.internDetails.noCvUploaded') : undefined}
               onClick={() => void handleViewCv()}
             >
-              View CV
+              {t('dashboard.manager.internDetails.viewCv')}
             </DashboardButton>
             <DashboardButton
               variant="primary"
               size="md"
               onClick={() => setShowAssignSection((previous) => !previous)}
             >
-              {showAssignSection ? 'Hide Assignment' : 'Assign Intern'}
+              {showAssignSection ? t('dashboard.manager.internDetails.hideAssignment') : t('dashboard.manager.internDetails.assignIntern')}
             </DashboardButton>
           </div>
 
@@ -725,7 +727,7 @@ export function InternDetailsModal({
 
           {showAssignSection && (
             <section className="intern-modal-assignment">
-              <h4 className="intern-modal-section-title">Assign Intern</h4>
+              <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.assignIntern')}</h4>
 
               {assignmentOptionsLoading ? (
                 <Skeleton height="220px" />
@@ -742,7 +744,7 @@ export function InternDetailsModal({
 
                   <div className="admin-form-grid admin-form-grid-two">
                     <div className="form-field">
-                      <label htmlFor="manager-assign-mission">Mission</label>
+                      <label htmlFor="manager-assign-mission">{t('dashboard.manager.internDetails.label.mission')}</label>
                       <select
                         id="manager-assign-mission"
                         value={assignmentForm.missionId}
@@ -752,7 +754,7 @@ export function InternDetailsModal({
                         }))}
                         required
                       >
-                        <option value="">Select mission</option>
+                        <option value="">{t('dashboard.manager.internDetails.selectMission')}</option>
                         {missionOptions.map((mission) => (
                           <option key={mission.id} value={mission.id}>
                             {mission.title}
@@ -765,7 +767,7 @@ export function InternDetailsModal({
                     </div>
 
                     <div className="form-field">
-                      <label htmlFor="manager-assign-department">Department</label>
+                      <label htmlFor="manager-assign-department">{t('dashboard.manager.internDetails.label.department')}</label>
                       <select
                         id="manager-assign-department"
                         value={assignmentForm.departmentId}
@@ -775,7 +777,7 @@ export function InternDetailsModal({
                         }))}
                         disabled={loadingDepartments}
                       >
-                        <option value="">Select department</option>
+                        <option value="">{t('dashboard.manager.internDetails.selectDepartment')}</option>
                         {departments.map((department) => (
                           <option key={department.id} value={department.id}>{department.name}</option>
                         ))}
@@ -785,7 +787,7 @@ export function InternDetailsModal({
 
                   <div className="admin-form-grid admin-form-grid-two">
                     <div className="form-field">
-                      <label htmlFor="manager-assign-type">Internship Type</label>
+                      <label htmlFor="manager-assign-type">{t('dashboard.manager.internDetails.label.internshipType')}</label>
                       <select
                         id="manager-assign-type"
                         value={assignmentForm.internshipTypeId}
@@ -794,7 +796,7 @@ export function InternDetailsModal({
                           internshipTypeId: event.target.value,
                         }))}
                       >
-                        <option value="">Select internship type</option>
+                        <option value="">{t('dashboard.manager.internDetails.selectInternshipType')}</option>
                         {typeOptions.map((typeOption) => (
                           <option key={typeOption.id} value={typeOption.id}>{typeOption.name}</option>
                         ))}
@@ -802,7 +804,7 @@ export function InternDetailsModal({
                     </div>
 
                     <div className="form-field">
-                      <label htmlFor="manager-assign-start-date">Start Date</label>
+                      <label htmlFor="manager-assign-start-date">{t('dashboard.manager.internDetails.label.startDate')}</label>
                       <input
                         id="manager-assign-start-date"
                         type="date"
@@ -819,7 +821,7 @@ export function InternDetailsModal({
 
                   <div className="admin-form-grid admin-form-grid-two">
                     <div className="form-field">
-                      <label htmlFor="manager-assign-end-date">End Date</label>
+                      <label htmlFor="manager-assign-end-date">{t('dashboard.manager.internDetails.label.endDate')}</label>
                       <input
                         id="manager-assign-end-date"
                         type="date"
@@ -835,11 +837,11 @@ export function InternDetailsModal({
                   </div>
 
                   <div className="form-field">
-                    <label>Skills</label>
+                    <label>{t('dashboard.manager.internDetails.label.skills')}</label>
                     {skillOptions.length === 0 ? (
-                      <p className="intern-modal-muted">No skill options available.</p>
+                      <p className="intern-modal-muted">{t('dashboard.manager.internDetails.noSkillOptions')}</p>
                     ) : (
-                      <div className="intern-modal-chip-list" role="list" aria-label="Available skills">
+                      <div className="intern-modal-chip-list" role="list" aria-label={t('dashboard.manager.internDetails.aria.availableSkills')}>
                         {skillOptions.map((skillOption) => {
                           const isSelected = assignmentForm.skillIds.includes(skillOption.id)
                           return (
@@ -866,12 +868,8 @@ export function InternDetailsModal({
                       variant="secondary"
                       size="md"
                       onClick={() => setShowAssignSection(false)}
-                    >
-                      Cancel
-                    </DashboardButton>
-                    <DashboardButton type="submit" variant="primary" size="md" loading={assignmentSubmitting}>
-                      Save Assignment
-                    </DashboardButton>
+                    > {t('dashboard.manager.internDetails.cancel')} </DashboardButton>
+                    <DashboardButton type="submit" variant="primary" size="md" loading={assignmentSubmitting}> {t('dashboard.manager.internDetails.saveAssignment')} </DashboardButton>
                   </div>
                 </form>
               )}

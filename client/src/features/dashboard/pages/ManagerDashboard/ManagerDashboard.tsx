@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback } from 'react'
+import { useI18n } from '../../../../locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
 import { ManagerSidebar, getManagerNavItems } from '../../components/ManagerSidebar'
 import type { ManagerTabId } from './types'
@@ -32,6 +33,7 @@ function TabLoadingFallback() {
 }
 
 export function ManagerDashboard() {
+  const { t } = useI18n()
   const state = useManagerDashboardState()
 
   const {
@@ -205,12 +207,12 @@ export function ManagerDashboard() {
         <header className="manager-header">
           <div className="manager-header-content">
             <div className="manager-header-text">
-              <h1 className="manager-header-title">Manager Dashboard</h1>
-              <p className="manager-header-subtitle">Overview of internship program across departments</p>
+              <h1 className="manager-header-title">{t('dashboard.manager.title')}</h1>
+              <p className="manager-header-subtitle">{t('dashboard.manager.subtitle')}</p>
             </div>
             <div className="manager-header-actions">
               <DashboardButton variant="secondary" size="sm" onClick={refreshAll}>
-                Refresh
+                {t('dashboard.manager.refresh')}
               </DashboardButton>
             </div>
           </div>

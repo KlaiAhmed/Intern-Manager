@@ -1,3 +1,4 @@
+import { useI18n } from '../../../../locales/I18nContext'
 import { ErrorState } from '../../components/ErrorState'
 import { Panel } from '../../components/Panel'
 import { Skeleton } from '../../components/Skeleton'
@@ -65,15 +66,16 @@ export function InternsTab({
   openInternModal,
   loadInterns,
 }: InternsTabProps) {
+  const { t } = useI18n()
   return (
     <div className="dash-section" role="tabpanel" id="tabpanel-interns" aria-labelledby="tab-interns">
       <Panel
-        title="Interns"
+        title={t('dashboard.manager.interns.title')}
         actions={
           <div className="dash-filter-row">
             <input
               type="text"
-              placeholder="Search by name or email"
+              placeholder={t('dashboard.manager.interns.searchPlaceholder')}
               value={internsSearch}
               onChange={(event) => setInternsSearch(event.target.value)}
               className="dash-input dash-input-search-wide"
@@ -85,8 +87,8 @@ export function InternsTab({
               disabled={loadingDepartments}
             >
               {loadingDepartments
-                ? <option value="all">Loading departments...</option>
-                : <option value="all">All departments</option>}
+                ? <option value="all">{t('dashboard.manager.interns.loadingDepartments')}</option>
+                : <option value="all">{t('dashboard.manager.interns.allDepartments')}</option>}
               {!loadingDepartments && departmentOptions.filter((option) => option !== 'all').map((department) => (
                 <option key={department} value={department}>{department}</option>
               ))}
@@ -96,7 +98,7 @@ export function InternsTab({
               onChange={(event) => setSelectedVerificationStatus(event.target.value)}
               className="dash-input dash-select"
             >
-              <option value="all">All verification statuses</option>
+              <option value="all">{t('dashboard.manager.interns.allVerificationStatuses')}</option>
               {verificationStatusOptions.filter((option) => option !== 'all').map((status) => (
                 <option key={status} value={status}>{toDisplayLabel(status)}</option>
               ))}
@@ -116,28 +118,28 @@ export function InternsTab({
         ) : filteredInterns.length === 0 ? (
           <div className="dash-empty">
             <div className="dash-empty-icon">∅</div>
-            <h3 className="dash-empty-title">No interns found</h3>
-            <p className="dash-empty-description">Try adjusting your filters.</p>
+            <h3 className="dash-empty-title">{t('dashboard.manager.interns.empty')}</h3>
+            <p className="dash-empty-description">{t('dashboard.manager.interns.emptyDesc')}</p>
           </div>
         ) : (
           <div className="dash-table-wrapper">
             <table className="dash-table dash-table-to-cards">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Department</th>
-                  <th>Mission</th>
-                  <th>Supervisor</th>
-                  <th>Progress</th>
-                  <th>Status</th>
-                  <th>Verification Status</th>
-                  <th>Actions</th>
+                  <th>{t('dashboard.manager.interns.table.name')}</th>
+                  <th>{t('dashboard.manager.interns.table.department')}</th>
+                  <th>{t('dashboard.manager.interns.table.mission')}</th>
+                  <th>{t('dashboard.manager.interns.table.supervisor')}</th>
+                  <th>{t('dashboard.manager.interns.table.progress')}</th>
+                  <th>{t('dashboard.manager.interns.table.status')}</th>
+                  <th>{t('dashboard.manager.interns.table.verificationStatus')}</th>
+                  <th>{t('dashboard.manager.interns.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredInterns.map((intern) => (
                   <tr key={intern.id}>
-                    <td data-label="Name">
+                    <td data-label={t('dashboard.manager.interns.table.name')}>
                       <div className="intern-cell">
                         <span className="intern-avatar" aria-hidden="true">{getInitials(intern.name)}</span>
                         <div className="intern-info">
@@ -146,10 +148,10 @@ export function InternsTab({
                         </div>
                       </div>
                     </td>
-                    <td data-label="Department">{intern.department || '-'}</td>
-                    <td data-label="Mission">{intern.missionTitle || '-'}</td>
-                    <td data-label="Supervisor">{intern.supervisorName || '-'}</td>
-                    <td data-label="Progress">
+                    <td data-label={t('dashboard.manager.interns.table.department')}>{intern.department || '-'}</td>
+                    <td data-label={t('dashboard.manager.interns.table.mission')}>{intern.missionTitle || '-'}</td>
+                    <td data-label={t('dashboard.manager.interns.table.supervisor')}>{intern.supervisorName || '-'}</td>
+                    <td data-label={t('dashboard.manager.interns.table.progress')}>
                       <div className="table-progress">
                         <div className="dash-progress">
                           <div
@@ -160,22 +162,22 @@ export function InternsTab({
                         <span>{intern.progress}%</span>
                       </div>
                     </td>
-                    <td data-label="Status">
+                    <td data-label={t('dashboard.manager.interns.table.status')}>
                       <span className={`dash-status-badge dash-status-badge-${intern.status}`}>{intern.status}</span>
                     </td>
-                    <td data-label="Verification Status">
+                    <td data-label={t('dashboard.manager.interns.table.verificationStatus')}>
                       <StatusBadge
                         label={toDisplayLabel(intern.verificationStatus || 'Unknown')}
                         tone={toVerificationTone(intern.verificationStatus || 'Unknown')}
                         size="sm"
                       />
                     </td>
-                    <td data-label="Actions">
+                    <td data-label={t('dashboard.manager.interns.table.actions')}>
                       <button
                         type="button"
                         className="intern-action-btn"
                         onClick={() => openInternModal(intern)}
-                        aria-label={`View details for ${intern.name}`}
+                        aria-label={t('dashboard.manager.interns.viewDetails').replace('{{name}}', intern.name)}
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
