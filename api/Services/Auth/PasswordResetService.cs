@@ -90,6 +90,7 @@ public sealed class PasswordResetService(
         catch (Exception exception)
         {
             logger.LogError(exception, "Failed to send password reset code email for user {UserId}.", user.Id);
+            throw;
         }
     }
 

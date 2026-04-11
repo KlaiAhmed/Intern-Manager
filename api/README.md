@@ -123,13 +123,13 @@ DATABASE_PATH=app.db
 SQLSERVER_INSTANCE=.\SQLEXPRESS
 
 # Email (SMTP)
-EMAIL__HOST=localhost
-EMAIL__PORT=25
-EMAIL__USERNAME=
-EMAIL__PASSWORD=
-EMAIL__FROMADDRESS=no-reply@axia.local
-EMAIL__FROMNAME=Axia Intern Manager
-EMAIL__USESSL=false
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_ENABLE_SSL=true
+EMAIL_USERNAME=yourname@gmail.com
+EMAIL_FROM_ADDRESS=yourname@gmail.com
+EMAIL_FROM_NAME=YourAppName
+EMAIL_PASSWORD=your-gmail-app-password-here
 
 # SuperAdmin Seed
 SUPERADMIN_EMAIL=admin@axia.com
@@ -149,7 +149,7 @@ SUPERADMIN_LASTNAME=Admin
 | `JWT__AUDIENCE` | Yes | — | JWT audience claim |
 | `DATABASE_PATH` | Yes | — | Used to name the SQL Server database |
 | `SQLSERVER_INSTANCE` | No | `.\SQLEXPRESS` | SQL Server instance name |
-| `EMAIL__*` | No | See `.env.example` | SMTP settings for password reset code emails |
+| `EMAIL_*` | No | See `.env.example` | SMTP settings for password reset code emails |
 | `SUPERADMIN_*` | Yes | — | Credentials for initial admin account |
 
 > **Note:** `DATABASE_PATH=app.db` creates a database named `AXIAInternManager_app`.

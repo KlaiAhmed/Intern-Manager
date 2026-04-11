@@ -29,9 +29,9 @@ public static class AuthExtensions
             .Get<JwtOptions>() ?? new JwtOptions();
 
         ValidateJwtOptions(jwtOptions);
+        ValidateEmailConfiguration(configuration);
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
-        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         services.AddSingleton<IAuthUserStore, DbAuthUserStore>();
         services.AddScoped<IAuthService, AuthService>();
@@ -119,6 +119,45 @@ public static class AuthExtensions
         if (jwtOptions.RefreshTokenDays <= 0)
         {
             throw new InvalidOperationException("JWT:RefreshTokenDays doit etre superieur a 0.");
+        }
+    }
+
+    /// <summary>
+    /// Vérifie que la configuration SMTP requise est présente avant le démarrage.
+    /// </summary>
+    /// <param name="configuration">Configuration applicative à contrôler.</param>
+    /// <exception cref="InvalidOperationException">Levée quand une variable SMTP requise manque ou est invalide.</exception>
+    private static void ValidateEmailConfiguration(IConfiguration configuration)
+    {
+        var requiredKeys = new[]
+        {
+            "EMAIL_HOST",
+            "EMAIL_PORT",
+            "EMAIL_ENABLE_SSL",
+            "EMAIL_USERNAME",
+            "EMAIL_FROM_ADDRESS",
+            "EMAIL_FROM_NAME",
+            "EMAIL_PASSWORD"
+        };
+
+        var missingKeys = requiredKeys
+            .Where(key => string.IsNullOrWhiteSpace(configuration[key]))
+            .ToArray();
+
+        if (missingKeys.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Missing required email configuration values: {string.Join(", ", missingKeys)}. Add them to .env.");
+        }
+
+        if (!int.TryParse(configuration["EMAIL_PORT"], out var emailPort) || emailPort <= 0)
+        {
+            throw new InvalidOperationException("EMAIL_PORT must be a positive integer.");
+        }
+
+        if (!bool.TryParse(configuration["EMAIL_ENABLE_SSL"], out _))
+        {
+            throw new InvalidOperationException("EMAIL_ENABLE_SSL must be a boolean value.");
         }
     }
 }

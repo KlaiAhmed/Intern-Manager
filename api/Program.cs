@@ -1,20 +1,4 @@
-using InternManager.Api.Data;
-using InternManager.Api.Data.Initialization;
-using InternManager.Api.Common.OpenApi;
-using InternManager.Api.Common.Utilities;
-using InternManager.Api.Extensions;
-using InternManager.Api.Middleware;
-using FluentValidation;
-using FluentValidation.AspNetCore;
-using InternManager.Api.Services;
-using InternManager.Api.Services.Interfaces;
-using InternManager.Api.Services.Internships;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.RateLimiting;
-
-EnvLoader.LoadFromProjectRoot();
+DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 const string clientCorsPolicyName = "ClientCorsPolicy";

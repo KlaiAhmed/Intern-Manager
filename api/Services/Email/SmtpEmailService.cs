@@ -1,17 +1,12 @@
-using InternManager.Api.Common.Options;
 using MailKit.Net.Smtp;
 using MailKit.Security;
-using Microsoft.Extensions.Options;
 using MimeKit;
 
 namespace InternManager.Api.Services.Email;
 
 public sealed class SmtpEmailService(
-    IOptions<EmailOptions> emailOptions,
-    ILogger<SmtpEmailService> logger) : IEmailService
+    IConfiguration configuration) : IEmailService
 {
-    private readonly EmailOptions _emailOptions = emailOptions.Value;
-
     public async Task SendPasswordResetCodeAsync(
         string toEmail,
         string resetCode,
@@ -23,14 +18,16 @@ public sealed class SmtpEmailService(
             return;
         }
 
-        if (!IsSmtpConfigured())
-        {
-            logger.LogWarning("SMTP configuration is incomplete. Password reset code email was not sent.");
-            return;
-        }
+        var host = GetRequiredValue("EMAIL_HOST");
+        var port = GetRequiredPort("EMAIL_PORT");
+        var username = GetRequiredValue("EMAIL_USERNAME");
+        var password = NormalizePassword(GetRequiredValue("EMAIL_PASSWORD"));
+        var fromAddress = GetRequiredValue("EMAIL_FROM_ADDRESS");
+        var fromName = GetRequiredValue("EMAIL_FROM_NAME");
+        _ = GetRequiredBooleanValue("EMAIL_ENABLE_SSL");
 
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_emailOptions.FromName, _emailOptions.FromAddress));
+        message.From.Add(new MailboxAddress(fromName, fromAddress));
         message.To.Add(MailboxAddress.Parse(toEmail.Trim()));
         message.Subject = "Your Axia password reset code";
 
@@ -41,25 +38,47 @@ public sealed class SmtpEmailService(
         };
 
         using var smtpClient = new SmtpClient();
-        var socketOptions = _emailOptions.UseSsl
-            ? SecureSocketOptions.SslOnConnect
-            : SecureSocketOptions.StartTlsWhenAvailable;
-
-        await smtpClient.ConnectAsync(_emailOptions.Host, _emailOptions.Port, socketOptions, cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(_emailOptions.Username))
-        {
-            await smtpClient.AuthenticateAsync(_emailOptions.Username, _emailOptions.Password, cancellationToken);
-        }
-
+        await smtpClient.ConnectAsync(host, port, SecureSocketOptions.StartTls, cancellationToken);
+        await smtpClient.AuthenticateAsync(username, password, cancellationToken);
         await smtpClient.SendAsync(message, cancellationToken);
         await smtpClient.DisconnectAsync(true, cancellationToken);
     }
 
-    private bool IsSmtpConfigured()
+    private string GetRequiredValue(string key)
     {
-        return !string.IsNullOrWhiteSpace(_emailOptions.Host)
-               && _emailOptions.Port > 0
-               && !string.IsNullOrWhiteSpace(_emailOptions.FromAddress);
+        var value = configuration[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"Missing required email configuration value '{key}'.");
+        }
+
+        return value.Trim();
+    }
+
+    private int GetRequiredPort(string key)
+    {
+        var value = GetRequiredValue(key);
+        if (!int.TryParse(value, out var parsedPort) || parsedPort <= 0)
+        {
+            throw new InvalidOperationException($"Email configuration value '{key}' must be a positive integer.");
+        }
+
+        return parsedPort;
+    }
+
+    private bool GetRequiredBooleanValue(string key)
+    {
+        var value = GetRequiredValue(key);
+        if (!bool.TryParse(value, out var parsedValue))
+        {
+            throw new InvalidOperationException($"Email configuration value '{key}' must be a boolean value.");
+        }
+
+        return parsedValue;
+    }
+
+    private static string NormalizePassword(string password)
+    {
+        return new string(password.Where(character => !char.IsWhiteSpace(character)).ToArray());
     }
 }
