@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useI18n } from '../../../../locales/I18nContext'
 import { Input } from '../../../../components/ui/Input'
 import { DashboardButton } from '../../components/DashboardButton'
 import { Edit, Plus, Search, Trash2 } from '../../components/IconComponents'
@@ -32,6 +33,7 @@ import {
 import styles from './OperationalInternshipsSection.module.css'
 
 export function OperationalInternshipsSection() {
+  const { t } = useI18n()
   const api = useDashboardApi()
   const pageSize = 10
   const [loading, setLoading] = useState(true)
@@ -305,26 +307,26 @@ export function OperationalInternshipsSection() {
     <section className={`${styles.root} super-admin-section admin-view-section`} id="section-internships">
       <header className="section-header-row">
         <div className="section-header-text">
-          <h2 className="section-title">Internships</h2>
+          <h2 className="section-title">{t('dashboard.operational.internships.title')}</h2>
           <p className="section-subtitle">Create, update, and track internship assignments with full history visibility.</p>
         </div>
         <DashboardButton variant="primary" size="md" onClick={openCreateModal}>
           <Plus />
-          <span>Create Internship</span>
+          <span>{t('dashboard.operational.internships.create')}</span>
         </DashboardButton>
       </header>
 
       <div className="admin-toolbar admin-toolbar-grid">
         <Input
           leftIcon={<Search />}
-          placeholder="Search by internship, intern, or supervisor"
+          placeholder={t('dashboard.operational.internships.searchPlaceholder')}
           value={searchFilter}
           onChange={(event) => setSearchFilter(event.target.value)}
           className="search-input-component"
         />
 
         <select className="dash-input dash-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="">All Statuses</option>
+          <option value="">{t('dashboard.operational.internships.allStatuses')}</option>
           <option value="template">template</option>
           <option value="active">active</option>
           <option value="paused">paused</option>
@@ -333,14 +335,14 @@ export function OperationalInternshipsSection() {
         </select>
 
         <select className="dash-input dash-select" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-          <option value="">All Departments</option>
+          <option value="">{t('dashboard.operational.internships.allDepartments')}</option>
           {departments.map((department) => (
             <option key={department.id} value={department.id}>{department.name}</option>
           ))}
         </select>
 
         <select className="dash-input dash-select" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-          <option value="">All Types</option>
+          <option value="">{t('dashboard.operational.internships.allTypes')}</option>
           {types.map((type) => (
             <option key={type.id} value={type.name}>{type.name}</option>
           ))}
@@ -351,14 +353,14 @@ export function OperationalInternshipsSection() {
           type="date"
           value={startDateFilter}
           onChange={(event) => setStartDateFilter(event.target.value)}
-          aria-label="Start date"
+          aria-label={t('dashboard.operational.internships.aria.startDate')}
         />
         <input
           className="dash-input"
           type="date"
           value={endDateFilter}
           onChange={(event) => setEndDateFilter(event.target.value)}
-          aria-label="End date"
+          aria-label={t('dashboard.operational.internships.aria.endDate')}
         />
       </div>
 
@@ -373,8 +375,8 @@ export function OperationalInternshipsSection() {
         <ErrorState message={error} onRetry={() => void loadInternships()} />
       ) : filteredInternships.length === 0 ? (
         <div className="dash-empty">
-          <h3 className="dash-empty-title">No internships found</h3>
-          <p className="dash-empty-description">No internship records match the active filters.</p>
+          <h3 className="dash-empty-title">{t('dashboard.operational.internships.empty')}</h3>
+          <p className="dash-empty-description">{t('dashboard.operational.internships.emptyDesc')}</p>
         </div>
       ) : (
         <>
@@ -382,13 +384,13 @@ export function OperationalInternshipsSection() {
             <table className="dash-table super-admin-table">
               <thead>
                 <tr>
-                  <th>Mission</th>
-                  <th>Intern</th>
-                  <th>Supervisor</th>
-                  <th>Department</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th>{t('dashboard.operational.internships.table.mission')}</th>
+                  <th>{t('dashboard.operational.internships.table.intern')}</th>
+                  <th>{t('dashboard.operational.internships.table.supervisor')}</th>
+                  <th>{t('dashboard.operational.internships.table.department')}</th>
+                  <th>{t('dashboard.operational.internships.table.type')}</th>
+                  <th>{t('dashboard.operational.internships.table.status')}</th>
+                  <th>{t('dashboard.operational.internships.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -412,16 +414,16 @@ export function OperationalInternshipsSection() {
                         <button
                           className="action-btn action-btn-edit"
                           onClick={() => openEditModal(internship)}
-                          aria-label="Edit internship"
-                          title="Edit internship"
+                          aria-label={t('dashboard.operational.internships.edit')}
+                          title={t('dashboard.operational.internships.edit')}
                         >
                           <Edit />
                         </button>
                         <button
                           className="action-btn action-btn-delete"
                           onClick={() => void deleteInternship(internship.id)}
-                          aria-label="Delete internship"
-                          title="Delete internship"
+                          aria-label={t('dashboard.operational.internships.delete')}
+                          title={t('dashboard.operational.internships.delete')}
                         >
                           <Trash2 />
                         </button>
@@ -438,7 +440,7 @@ export function OperationalInternshipsSection() {
               <DashboardButton variant="secondary" size="sm" onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
                 Previous
               </DashboardButton>
-              <span className="pagination-info">Page {page} of {totalPages}</span>
+              <span className="pagination-info">{t('dashboard.table.page')} {page} {t('dashboard.table.of')} {totalPages}</span>
               <DashboardButton
                 variant="secondary"
                 size="sm"
@@ -454,7 +456,7 @@ export function OperationalInternshipsSection() {
       <Modal
         isOpen={formModalOpen}
         onClose={() => setFormModalOpen(false)}
-        title={editingInternshipId ? 'Edit Internship' : 'Create Internship'}
+        title={editingInternshipId ? t('dashboard.operational.internships.modal.editTitle') : t('dashboard.operational.internships.modal.createTitle')}
       >
         <form
           className="modal-form"
@@ -463,17 +465,17 @@ export function OperationalInternshipsSection() {
             void saveInternship()
           }}
         >
-          <p className="section-subtitle">Mission title is generated automatically by the backend.</p>
+          <p className="section-subtitle">{t('dashboard.operational.internships.form.missionAutoGenerated')}</p>
 
           <div className="admin-form-grid admin-form-grid-two">
             <div className="form-field">
-              <label htmlFor="internship-supervisor">Supervisor</label>
+              <label htmlFor="internship-supervisor">{t('dashboard.operational.internships.form.supervisor')}</label>
               <select
                 id="internship-supervisor"
                 value={formState.supervisorId}
                 onChange={(event) => setFormState((prev) => ({ ...prev, supervisorId: event.target.value }))}
               >
-                <option value="">Select supervisor</option>
+                <option value="">{t('dashboard.operational.internships.form.selectSupervisor')}</option>
                 {supervisors.map((supervisor) => (
                   <option key={supervisor.id} value={supervisor.id}>{supervisor.fullName}</option>
                 ))}
@@ -487,7 +489,7 @@ export function OperationalInternshipsSection() {
                 value={formState.coSupervisorId}
                 onChange={(event) => setFormState((prev) => ({ ...prev, coSupervisorId: event.target.value }))}
               >
-                <option value="">None</option>
+                <option value="">{t('dashboard.operational.internships.form.none')}</option>
                 {supervisors.map((supervisor) => (
                   <option key={supervisor.id} value={supervisor.id}>{supervisor.fullName}</option>
                 ))}
@@ -497,13 +499,13 @@ export function OperationalInternshipsSection() {
 
           <div className="admin-form-grid admin-form-grid-three">
             <div className="form-field">
-              <label htmlFor="internship-department">Department</label>
+              <label htmlFor="internship-department">{t('dashboard.operational.internships.form.department')}</label>
               <select
                 id="internship-department"
                 value={formState.department}
                 onChange={(event) => setFormState((prev) => ({ ...prev, department: event.target.value }))}
               >
-                <option value="">Not assigned</option>
+                <option value="">{t('dashboard.operational.internships.form.selectDepartment')}</option>
                 {departments.map((department) => (
                   <option key={department.id} value={department.name}>{department.name}</option>
                 ))}
@@ -511,13 +513,13 @@ export function OperationalInternshipsSection() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="internship-type">Type</label>
+              <label htmlFor="internship-type">{t('dashboard.operational.internships.form.type')}</label>
               <select
                 id="internship-type"
                 value={formState.type}
                 onChange={(event) => setFormState((prev) => ({ ...prev, type: event.target.value }))}
               >
-                <option value="">Not assigned</option>
+                <option value="">{t('dashboard.operational.internships.form.selectDepartment')}</option>
                 {types.map((type) => (
                   <option key={type.id} value={type.name}>{type.name}</option>
                 ))}
@@ -525,7 +527,7 @@ export function OperationalInternshipsSection() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="internship-status">Status</label>
+              <label htmlFor="internship-status">{t('dashboard.operational.internships.form.status')}</label>
               <select
                 id="internship-status"
                 value={formState.status}
@@ -548,7 +550,7 @@ export function OperationalInternshipsSection() {
 
           <div className="admin-form-grid admin-form-grid-two">
             <div className="form-field">
-              <label htmlFor="internship-start-date">Start Date</label>
+              <label htmlFor="internship-start-date">{t('dashboard.operational.internships.form.startDate')}</label>
               <input
                 id="internship-start-date"
                 type="date"
@@ -558,7 +560,7 @@ export function OperationalInternshipsSection() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="internship-end-date">End Date</label>
+              <label htmlFor="internship-end-date">{t('dashboard.operational.internships.form.endDate')}</label>
               <input
                 id="internship-end-date"
                 type="date"
@@ -569,7 +571,7 @@ export function OperationalInternshipsSection() {
           </div>
 
           <div className="form-field">
-            <label htmlFor="internship-objectives">Objectives</label>
+            <label htmlFor="internship-objectives">{t('dashboard.operational.internships.form.objectives')}</label>
             <textarea
               id="internship-objectives"
               className="admin-textarea"
@@ -585,7 +587,7 @@ export function OperationalInternshipsSection() {
               Cancel
             </DashboardButton>
             <DashboardButton variant="primary" size="md" loading={formSubmitting} type="submit">
-              {editingInternshipId ? 'Save Changes' : 'Create Internship'}
+              {editingInternshipId ? t('dashboard.operational.internships.form.saveChanges') : t('dashboard.operational.internships.form.create')}
             </DashboardButton>
           </div>
         </form>
@@ -598,7 +600,7 @@ export function OperationalInternshipsSection() {
       >
         {!selectedInternship ? (
           <div className="dash-empty">
-            <h3 className="dash-empty-title">No details available</h3>
+            <h3 className="dash-empty-title">{t('dashboard.operational.internships.detail.noDetails')}</h3>
           </div>
         ) : (
           <div>
@@ -622,39 +624,39 @@ export function OperationalInternshipsSection() {
             {detailsTab === 'details' ? (
               <div className="admin-modal-details-grid">
                 <div>
-                  <h3>Mission</h3>
+                  <h3>{t('dashboard.operational.internships.detail.mission')}</h3>
                   <p>{selectedInternship.missionTitle}</p>
                 </div>
                 <div>
-                  <h3>Status</h3>
+                  <h3>{t('dashboard.operational.internships.detail.status')}</h3>
                   <p>{selectedInternship.status}</p>
                 </div>
                 <div>
-                  <h3>Intern</h3>
+                  <h3>{t('dashboard.operational.internships.detail.intern')}</h3>
                   <p>{selectedInternship.internName ?? '-'}</p>
                 </div>
                 <div>
-                  <h3>Supervisor</h3>
+                  <h3>{t('dashboard.operational.internships.detail.supervisor')}</h3>
                   <p>{selectedInternship.supervisorName ?? '-'}</p>
                 </div>
                 <div>
-                  <h3>Department</h3>
+                  <h3>{t('dashboard.operational.internships.detail.department')}</h3>
                   <p>{selectedInternship.department ?? '-'}</p>
                 </div>
                 <div>
-                  <h3>Type</h3>
+                  <h3>{t('dashboard.operational.internships.detail.type')}</h3>
                   <p>{selectedInternship.type ?? '-'}</p>
                 </div>
                 <div>
-                  <h3>Start Date</h3>
+                  <h3>{t('dashboard.operational.internships.detail.startDate')}</h3>
                   <p>{selectedInternship.startDate ? new Date(selectedInternship.startDate).toLocaleDateString() : '-'}</p>
                 </div>
                 <div>
-                  <h3>End Date</h3>
+                  <h3>{t('dashboard.operational.internships.detail.endDate')}</h3>
                   <p>{selectedInternship.endDate ? new Date(selectedInternship.endDate).toLocaleDateString() : '-'}</p>
                 </div>
                 <div className="admin-modal-span-all">
-                  <h3>Objectives</h3>
+                  <h3>{t('dashboard.operational.internships.detail.objectives')}</h3>
                   <p>{selectedInternship.objectives || '-'}</p>
                 </div>
               </div>
@@ -664,19 +666,19 @@ export function OperationalInternshipsSection() {
               <ErrorState message={historyError} onRetry={() => void loadHistory(selectedInternship.id)} />
             ) : historyItems.length === 0 ? (
               <div className="dash-empty">
-                <h3 className="dash-empty-title">No history records</h3>
-                <p className="dash-empty-description">No change log entries are available for this internship.</p>
+                <h3 className="dash-empty-title">{t('dashboard.operational.internships.history.noRecords')}</h3>
+                <p className="dash-empty-description">{t('dashboard.operational.internships.history.noRecordsDesc')}</p>
               </div>
             ) : (
               <div className="table-wrapper">
                 <table className="dash-table super-admin-table">
                   <thead>
                     <tr>
-                      <th>Field</th>
-                      <th>Old Value</th>
-                      <th>New Value</th>
-                      <th>Changed By</th>
-                      <th>Changed At</th>
+                      <th>{t('dashboard.operational.internships.history.field')}</th>
+                      <th>{t('dashboard.operational.internships.history.oldValue')}</th>
+                      <th>{t('dashboard.operational.internships.history.newValue')}</th>
+                      <th>{t('dashboard.operational.internships.history.changedBy')}</th>
+                      <th>{t('dashboard.operational.internships.history.changedAt')}</th>
                     </tr>
                   </thead>
                   <tbody>

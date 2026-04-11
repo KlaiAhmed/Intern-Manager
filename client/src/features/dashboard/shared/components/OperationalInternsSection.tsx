@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useI18n } from '../../../../locales/I18nContext'
 import { Input } from '../../../../components/ui/Input'
 import { Search } from '../../components/IconComponents'
 import { ErrorState } from '../../components/ErrorState'
@@ -13,6 +14,7 @@ import { mapInternApi } from '../utils/operations'
 import styles from './OperationalInternsSection.module.css'
 
 export function OperationalInternsSection() {
+  const { t } = useI18n()
   const api = useDashboardApi()
   const pageSize = 10
   const [loading, setLoading] = useState(true)
@@ -103,14 +105,14 @@ export function OperationalInternsSection() {
     <section className={`${styles.root} super-admin-section admin-view-section`} id="section-interns">
       <header className="section-header-row">
         <div className="section-header-text">
-          <h2 className="section-title">Interns</h2>
-          <p className="section-subtitle">Browse and inspect intern profiles across the platform.</p>
+          <h2 className="section-title">{t('dashboard.operational.interns.title')}</h2>
+          <p className="section-subtitle">{t('dashboard.operational.interns.subtitle')}</p>
         </div>
       </header>
 
       <Input
         leftIcon={<Search />}
-        placeholder="Search interns"
+        placeholder={t('dashboard.operational.interns.searchPlaceholder')}
         value={searchFilter}
         onChange={(event) => setSearchFilter(event.target.value)}
         className="search-input-component"
@@ -127,8 +129,8 @@ export function OperationalInternsSection() {
         <ErrorState message={error} onRetry={() => void loadInterns()} />
       ) : filteredInterns.length === 0 ? (
         <div className="dash-empty">
-          <h3 className="dash-empty-title">No interns found</h3>
-          <p className="dash-empty-description">No intern records match your search.</p>
+          <h3 className="dash-empty-title">{t('dashboard.operational.interns.empty')}</h3>
+          <p className="dash-empty-description">{t('dashboard.operational.interns.emptyDesc')}</p>
         </div>
       ) : (
         <>
@@ -136,11 +138,11 @@ export function OperationalInternsSection() {
             <table className="dash-table super-admin-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Account Status</th>
-                  <th>Verification Status</th>
-                  <th>Actions</th>
+                  <th>{t('dashboard.operational.interns.table.name')}</th>
+                  <th>{t('dashboard.operational.interns.table.email')}</th>
+                  <th>{t('dashboard.operational.interns.table.accountStatus')}</th>
+                  <th>{t('dashboard.operational.interns.table.verificationStatus')}</th>
+                  <th>{t('dashboard.operational.interns.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,7 +171,7 @@ export function OperationalInternsSection() {
               <DashboardButton variant="secondary" size="sm" onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
                 Previous
               </DashboardButton>
-              <span className="pagination-info">Page {page} of {totalPages}</span>
+              <span className="pagination-info">{t('dashboard.table.page')} {page} {t('dashboard.table.of')} {totalPages}</span>
               <DashboardButton
                 variant="secondary"
                 size="sm"
@@ -188,7 +190,7 @@ export function OperationalInternsSection() {
           setDetailsModalOpen(false)
           setDetailsInternId(null)
         }}
-        title="Intern Details"
+        title={t('dashboard.operational.interns.modalTitle')}
       >
         {detailsLoading ? (
           <Skeleton height="240px" />
@@ -204,31 +206,31 @@ export function OperationalInternsSection() {
         ) : selectedIntern ? (
           <div className="admin-modal-details-grid">
             <div>
-              <h3>Name</h3>
+              <h3>{t('dashboard.operational.interns.detail.name')}</h3>
               <p>{selectedIntern.fullName}</p>
             </div>
             <div>
-              <h3>Email</h3>
+              <h3>{t('dashboard.operational.interns.detail.email')}</h3>
               <p>{selectedIntern.email}</p>
             </div>
             <div>
-              <h3>Account Status</h3>
+              <h3>{t('dashboard.operational.interns.detail.accountStatus')}</h3>
               <p>{selectedIntern.accountStatus}</p>
             </div>
             <div>
-              <h3>Verification Status</h3>
+              <h3>{t('dashboard.operational.interns.detail.verificationStatus')}</h3>
               <p>{selectedIntern.verificationStatus}</p>
             </div>
             <div>
-              <h3>Start Date</h3>
+              <h3>{t('dashboard.operational.interns.detail.startDate')}</h3>
               <p>{selectedIntern.startDate ? new Date(selectedIntern.startDate).toLocaleDateString() : '-'}</p>
             </div>
             <div>
-              <h3>End Date</h3>
+              <h3>{t('dashboard.operational.interns.detail.endDate')}</h3>
               <p>{selectedIntern.endDate ? new Date(selectedIntern.endDate).toLocaleDateString() : '-'}</p>
             </div>
             <div className="admin-modal-span-all">
-              <h3>CV</h3>
+              <h3>{t('dashboard.operational.interns.detail.cv')}</h3>
               {selectedIntern.cvFileUrl ? (
                 <button
                   type="button"
@@ -241,13 +243,13 @@ export function OperationalInternsSection() {
                   Open CV file
                 </button>
               ) : (
-                <p>No CV uploaded.</p>
+                <p>{t('dashboard.operational.interns.noCv')}</p>
               )}
             </div>
           </div>
         ) : (
           <div className="dash-empty">
-            <h3 className="dash-empty-title">No details available</h3>
+            <h3 className="dash-empty-title">{t('dashboard.operational.interns.noDetails')}</h3>
           </div>
         )}
       </Modal>

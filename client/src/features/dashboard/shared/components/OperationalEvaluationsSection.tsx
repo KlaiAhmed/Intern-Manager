@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useI18n } from '../../../../locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
 import { ErrorState } from '../../components/ErrorState'
 import { Modal } from '../../components/Modal'
@@ -10,6 +11,7 @@ import { mapEvaluationApi, mapUserApi } from '../utils/operations'
 import styles from './OperationalEvaluationsSection.module.css'
 
 export function OperationalEvaluationsSection() {
+  const { t } = useI18n()
   const api = useDashboardApi()
 
   const [loading, setLoading] = useState(true)
@@ -98,14 +100,14 @@ export function OperationalEvaluationsSection() {
     <section className={`${styles.root} super-admin-section admin-view-section`} id="section-evaluations">
       <header className="section-header-row">
         <div className="section-header-text">
-          <h2 className="section-title">Evaluations</h2>
+          <h2 className="section-title">{t('dashboard.operational.evaluations.title')}</h2>
           <p className="section-subtitle">Read-only list of platform evaluations with drill-down details.</p>
         </div>
       </header>
 
       <div className="admin-toolbar admin-toolbar-grid-three">
         <select className="dash-input dash-select" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-          <option value="">All Types</option>
+          <option value="">{t('dashboard.operational.evaluations.allTypes')}</option>
           <option value="mid-term">mid-term</option>
           <option value="end">end</option>
         </select>
@@ -115,14 +117,14 @@ export function OperationalEvaluationsSection() {
           value={supervisorFilter}
           onChange={(event) => setSupervisorFilter(event.target.value)}
         >
-          <option value="">All Supervisors</option>
+          <option value="">{t('dashboard.operational.evaluations.allSupervisors')}</option>
           {supervisorOptions.map((user) => (
             <option key={user.id} value={user.id}>{user.fullName}</option>
           ))}
         </select>
 
         <select className="dash-input dash-select" value={internFilter} onChange={(event) => setInternFilter(event.target.value)}>
-          <option value="">All Interns</option>
+          <option value="">{t('dashboard.operational.evaluations.allInterns')}</option>
           {internOptions.map((user) => (
             <option key={user.id} value={user.id}>{user.fullName}</option>
           ))}
@@ -140,8 +142,8 @@ export function OperationalEvaluationsSection() {
         <ErrorState message={error} onRetry={() => void loadEvaluations()} />
       ) : evaluations.length === 0 ? (
         <div className="dash-empty">
-          <h3 className="dash-empty-title">No evaluations found</h3>
-          <p className="dash-empty-description">No evaluations match the selected filters.</p>
+          <h3 className="dash-empty-title">{t('dashboard.operational.evaluations.empty')}</h3>
+          <p className="dash-empty-description">{t('dashboard.operational.evaluations.emptyDesc')}</p>
         </div>
       ) : (
         <>
@@ -149,12 +151,12 @@ export function OperationalEvaluationsSection() {
             <table className="dash-table super-admin-table">
               <thead>
                 <tr>
-                  <th>Intern</th>
-                  <th>Supervisor</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th>Actions</th>
+                  <th>{t('dashboard.operational.evaluations.table.intern')}</th>
+                  <th>{t('dashboard.operational.evaluations.table.supervisor')}</th>
+                  <th>{t('dashboard.operational.evaluations.table.type')}</th>
+                  <th>{t('dashboard.operational.evaluations.table.status')}</th>
+                  <th>{t('dashboard.operational.evaluations.table.submitted')}</th>
+                  <th>{t('dashboard.operational.evaluations.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,7 +191,7 @@ export function OperationalEvaluationsSection() {
               >
                 Previous
               </DashboardButton>
-              <span className="pagination-info">Page {page} of {totalPages}</span>
+              <span className="pagination-info">{t('dashboard.table.page')} {page} {t('dashboard.table.of')} {totalPages}</span>
               <DashboardButton
                 variant="secondary"
                 size="sm"
@@ -211,43 +213,43 @@ export function OperationalEvaluationsSection() {
         {selectedEvaluation ? (
           <div className="admin-modal-details-grid">
             <div>
-              <h3>Intern</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.intern')}</h3>
               <p>{selectedEvaluation.internName}</p>
             </div>
             <div>
-              <h3>Supervisor</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.supervisor')}</h3>
               <p>{selectedEvaluation.supervisorName}</p>
             </div>
             <div>
-              <h3>Type</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.type')}</h3>
               <p>{selectedEvaluation.type}</p>
             </div>
             <div>
-              <h3>Status</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.status')}</h3>
               <p>{selectedEvaluation.status}</p>
             </div>
             <div>
-              <h3>Technical</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.technical')}</h3>
               <p>{selectedEvaluation.technical}</p>
             </div>
             <div>
-              <h3>Autonomy</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.autonomy')}</h3>
               <p>{selectedEvaluation.autonomy}</p>
             </div>
             <div>
-              <h3>Communication</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.communication')}</h3>
               <p>{selectedEvaluation.communication}</p>
             </div>
             <div>
-              <h3>Deadline Respect</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.deadlineRespect')}</h3>
               <p>{selectedEvaluation.deadlineRespect}</p>
             </div>
             <div>
-              <h3>Deliverable Quality</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.deliverableQuality')}</h3>
               <p>{selectedEvaluation.deliverableQuality}</p>
             </div>
             <div className="admin-modal-span-all">
-              <h3>Comments</h3>
+              <h3>{t('dashboard.operational.evaluations.detail.comments')}</h3>
               <p>{selectedEvaluation.comments || '-'}</p>
             </div>
           </div>
