@@ -34,6 +34,19 @@ export interface Deliverable {
 export interface JournalEntry {
   id: string
   content: string
+  isReviewed?: boolean
+  comments?: Array<{
+    id: number
+    content: string
+    createdAt: string
+    authorId: string
+  }>
+  evaluationLinks?: Array<{
+    id: number
+    criteria: string
+    linkedByUserId: string
+    createdAt: string
+  }>
   createdAt: string
 }
 
@@ -49,6 +62,8 @@ export interface Evaluation {
   }
   comments: string
   date: string
+  isReleasedToIntern?: boolean
+  releasedAt?: string | null
 }
 
 export interface Meeting {

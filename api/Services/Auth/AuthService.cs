@@ -157,6 +157,7 @@ public sealed class AuthService(
     /// <param name="user">Utilisateur authentifié pour lequel créer la session.</param>
     /// <param name="now">Date UTC de référence utilisée pour calculer les expirations.</param>
     /// <param name="rememberMe">Indique si la session doit être persistante (7 jours) ou éphémère (1 jour).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
     /// <returns>Un objet <see cref="AuthSessionTokens"/> contenant les nouvelles valeurs de session.</returns>
     private async Task<AuthSessionTokens> IssueNewSessionAsync(
         AuthUserRecord user,

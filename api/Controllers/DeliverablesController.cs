@@ -1,4 +1,6 @@
 using InternManager.Api.Common.Constants;
+using InternManager.Api.Common.Attributes;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -139,6 +141,7 @@ public sealed class DeliverablesController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/deliverables", Name = "ListMyDeliverables")]
+    [FeatureCard(DashboardCard.Deliverables)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -301,6 +304,7 @@ public sealed class DeliverablesController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
     [HttpPost("{id:guid}/submit", Name = "SubmitDeliverable")]
+    [FeatureCard(DashboardCard.Deliverables)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [EnableRateLimiting("upload")]
@@ -455,6 +459,7 @@ public sealed class DeliverablesController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
     [HttpPatch("/api/intern/me/deliverables/{id:guid}/progress", Name = "UpdateDeliverableProgress")]
+    [FeatureCard(DashboardCard.Deliverables)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]

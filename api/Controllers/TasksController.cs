@@ -1,4 +1,5 @@
 ﻿using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Attributes;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -41,6 +42,7 @@ public sealed class TasksController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/tasks", Name = "ListMyTasks")]
+    [FeatureCard(DashboardCard.Tasks)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -113,6 +115,7 @@ public sealed class TasksController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost("/api/intern/me/tasks/sync", Name = "SyncMyTasks")]
+    [FeatureCard(DashboardCard.Tasks)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
@@ -168,6 +171,7 @@ public sealed class TasksController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Tâche non trouvée.</response>
     [HttpPatch("{id:guid}/complete", Name = "CompleteTask")]
+    [FeatureCard(DashboardCard.Tasks)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]

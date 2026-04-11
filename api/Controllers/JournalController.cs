@@ -1,3 +1,5 @@
+using InternManager.Api.Common.Attributes;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -34,6 +36,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListJournalEntries")]
+    [FeatureCard(DashboardCard.Journal)]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -56,6 +59,26 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
             {
                 id = entry.Id,
                 content = entry.Content,
+                isReviewed = entry.IsReviewed,
+                comments = entry.Comments
+                    .OrderByDescending(comment => comment.CreatedAt)
+                    .Select(comment => new
+                    {
+                        id = comment.JournalCommentId,
+                        content = comment.Content,
+                        createdAt = comment.CreatedAt,
+                        authorId = comment.AuthorId
+                    })
+                    .ToList(),
+                evaluationLinks = entry.EvaluationLinks
+                    .Select(link => new
+                    {
+                        id = link.JournalEvaluationLinkId,
+                        criteria = link.EvaluationCriteria,
+                        linkedByUserId = link.LinkedByUserId,
+                        createdAt = link.CreatedAt
+                    })
+                    .ToList(),
                 createdAt = entry.CreatedAt
             })
             .ToListAsync(cancellationToken);
@@ -79,6 +102,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "CreateJournalEntry")]
+    [FeatureCard(DashboardCard.Journal)]
     [EnableRateLimiting("write-heavy")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -151,6 +175,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Entrée non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetJournalEntryById")]
+    [FeatureCard(DashboardCard.Journal)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -164,90 +189,61 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
 
         var entry = await dbContext.JournalEntries
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id && item.InternId == internId.Value, cancellationToken);
+            .Where(item => item.Id == id && item.InternId == internId.Value)
+            .Select(entry => new
+            {
+                id = entry.Id,
+                content = entry.Content,
+                isReviewed = entry.IsReviewed,
+                comments = entry.Comments
+                    .OrderByDescending(comment => comment.CreatedAt)
+                    .Select(comment => new
+                    {
+                        id = comment.JournalCommentId,
+                        content = comment.Content,
+                        createdAt = comment.CreatedAt,
+                        authorId = comment.AuthorId
+                    })
+                    .ToList(),
+                evaluationLinks = entry.EvaluationLinks
+                    .Select(link => new
+                    {
+                        id = link.JournalEvaluationLinkId,
+                        criteria = link.EvaluationCriteria,
+                        linkedByUserId = link.LinkedByUserId,
+                        createdAt = link.CreatedAt
+                    })
+                    .ToList(),
+                createdAt = entry.CreatedAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (entry is null)
         {
             return NotFound();
         }
 
-        return Ok(new
-        {
-            id = entry.Id,
-            content = entry.Content,
-            createdAt = entry.CreatedAt
-        });
+        return Ok(entry);
     }
 
     /// <summary>
     /// Met à jour le contenu d une entrée du journal.
     /// </summary>
     /// <remarks>
-    /// Cette route permet au stagiaire de modifier le contenu d une entrée existante.
-    /// Seul le contenu peut être modifié, la date de création reste inchangée.
+    /// Les entrées de journal sont immuables et ne peuvent pas être modifiées après création.
     /// </remarks>
-    /// <param name="id">Identifiant unique de l entrée à modifier.</param>
-    /// <param name="request">Objet contenant le nouveau contenu.</param>
-    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
-    /// <returns>L entrée mise à jour.</returns>
-    /// <response code="200">Entrée mise à jour avec succès.</response>
-    /// <response code="400">Contenu manquant.</response>
-    /// <response code="401">Utilisateur non connecté.</response>
-    /// <response code="404">Entrée non trouvée.</response>
+    /// <returns>Une erreur 403 indiquant que l opération n est pas autorisée.</returns>
+    /// <response code="403">Les entrées de journal ne peuvent pas être modifiées.</response>
     [HttpPatch("{id:guid}", Name = "UpdateJournalEntry")]
+    [FeatureCard(DashboardCard.Journal)]
     [EnableRateLimiting("write-heavy")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateJournalEntry(Guid id, [FromBody] JournalEntryRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public IActionResult UpdateJournalEntry()
     {
-        var internId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!internId.HasValue)
+        return StatusCode(StatusCodes.Status403Forbidden, new
         {
-            return Unauthorized();
-        }
-
-        var normalizedContent = request.Content?.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedContent))
-        {
-            return BadRequest(new { message = "Content is required." });
-        }
-
-        if (normalizedContent.Length > 4000)
-        {
-            return BadRequest(new Dictionary<string, string>
-            {
-                ["content"] = "Journal entry cannot exceed 4000 characters."
-            });
-        }
-
-        var entry = await dbContext.JournalEntries
-            .FirstOrDefaultAsync(item => item.Id == id && item.InternId == internId.Value, cancellationToken);
-
-        if (entry is null)
-        {
-            return NotFound(new { message = "Journal entry not found." });
-        }
-
-        entry.Content = normalizedContent;
-
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = internId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "journal.update",
-            Entity = $"journal:{entry.Id}",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Ok(new
-        {
-            id = entry.Id,
-            content = entry.Content,
-            createdAt = entry.CreatedAt
+            code = "JOURNAL_IMMUTABLE",
+            message = "Journal entries cannot be edited after creation."
         });
     }
 
@@ -255,48 +251,20 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     /// Supprime une entrée du journal.
     /// </summary>
     /// <remarks>
-    /// Cette route permet au stagiaire de supprimer définitivement une entrée de son journal.
-    /// Cette action est irréversible.
+    /// Les entrées de journal sont immuables et ne peuvent pas être supprimées après création.
     /// </remarks>
-    /// <param name="id">Identifiant unique de l entrée à supprimer.</param>
-    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
-    /// <returns>Rien (contenu vide).</returns>
-    /// <response code="204">Entrée supprimée avec succès.</response>
-    /// <response code="401">Utilisateur non connecté.</response>
-    /// <response code="404">Entrée non trouvée.</response>
+    /// <returns>Une erreur 403 indiquant que l opération n est pas autorisée.</returns>
+    /// <response code="403">Les entrées de journal ne peuvent pas être supprimées.</response>
     [HttpDelete("{id:guid}", Name = "DeleteJournalEntry")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteJournalEntry(Guid id, CancellationToken cancellationToken)
+    [FeatureCard(DashboardCard.Journal)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public IActionResult DeleteJournalEntry()
     {
-        var internId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!internId.HasValue)
+        return StatusCode(StatusCodes.Status403Forbidden, new
         {
-            return Unauthorized();
-        }
-
-        var entry = await dbContext.JournalEntries
-            .FirstOrDefaultAsync(item => item.Id == id && item.InternId == internId.Value, cancellationToken);
-
-        if (entry is null)
-        {
-            return NotFound(new { message = "Journal entry not found." });
-        }
-
-        dbContext.JournalEntries.Remove(entry);
-
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = internId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "journal.delete",
-            Entity = $"journal:{entry.Id}",
-            Timestamp = DateTime.UtcNow
+            code = "JOURNAL_IMMUTABLE",
+            message = "Journal entries cannot be deleted after creation."
         });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return NoContent();
     }
 }
 

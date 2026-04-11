@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuditLogSection } from '../components/AuditLogSection'
+import { ErrorState } from '../components/ErrorState'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import type { SuperAdminSection } from '../components/SuperAdminSidebar'
 import {
@@ -10,6 +11,7 @@ import {
   OperationalInternsSection,
 } from '../shared/components'
 import { AdminOverviewSection } from './AdminDashboard/AdminOverviewSection'
+import { MissionFeatureFlagsSection } from './AdminDashboard/MissionFeatureFlagsSection'
 import { AdminUserManagementSection } from './AdminDashboard/AdminUserManagementSection'
 import { resolveAdminView, sectionByView, sectionPathMap } from '../shared/types/adminViews'
 import '../styles/pages/SuperAdminDashboard.css'
@@ -18,6 +20,7 @@ import '../styles/pages/AdminDashboard.css'
 export function AdminDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { missionId } = useParams<{ missionId?: string }>()
   const [activeSettingsSubSection, setActiveSettingsSubSection] = useState<SettingsSubSection>('departments')
 
   useEffect(() => {
@@ -40,6 +43,8 @@ export function AdminDashboard() {
         return 'Interns'
       case 'internships':
         return 'Internships'
+      case 'missionFeatureFlags':
+        return 'Mission Feature Controls'
       case 'evaluations':
         return 'Evaluations'
       case 'settings':
@@ -75,6 +80,26 @@ export function AdminDashboard() {
         return <OperationalInternsSection />
       case 'internships':
         return <OperationalInternshipsSection />
+      case 'missionFeatureFlags':
+        if (!missionId) {
+          return (
+            <ErrorState
+              message="Mission id is missing in the current route."
+              onRetry={() => {
+                navigate('/dashboard/admin/internships')
+              }}
+            />
+          )
+        }
+
+        return (
+          <MissionFeatureFlagsSection
+            missionId={missionId}
+            onBack={() => {
+              navigate('/dashboard/admin/internships')
+            }}
+          />
+        )
       case 'evaluations':
         return <OperationalEvaluationsSection />
       case 'settings':

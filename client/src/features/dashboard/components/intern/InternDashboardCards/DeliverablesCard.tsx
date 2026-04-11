@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { Deliverable, TranslateFn } from '../../../types/internDashboard'
 import { Icons } from './Icons'
 
@@ -8,6 +9,7 @@ interface DeliverablesCardProps {
   onRetry: () => void
   onUploadClick: (id: string) => void
   onViewComment: (deliverableItem: Deliverable) => void
+  isReadOnly?: boolean
   t: TranslateFn
 }
 
@@ -18,8 +20,17 @@ export function DeliverablesCard({
   onRetry,
   onUploadClick,
   onViewComment,
+  isReadOnly = false,
   t,
 }: DeliverablesCardProps) {
+  const { displayDeliverables, acceptedCount, totalCount } = useMemo(() => {
+    let accepted = 0
+    for (const d of deliverables) {
+      if (d.status === 'accepted') accepted++
+    }
+    return { displayDeliverables: deliverables.slice(0, 3), acceptedCount: accepted, totalCount: deliverables.length }
+  }, [deliverables])
+
   const getStatusClass = (status: Deliverable['status']) => {
     switch (status) {
       case 'submitted': return 'deliverable-status-submitted'
@@ -88,10 +99,11 @@ export function DeliverablesCard({
     <div className="intern-card deliverables-card">
       <div className="card-header">
         <h2 className="card-title"><span className="card-title-icon">📁</span> {t('dashboard.intern.card.deliverables.title')}</h2>
-        <span className="card-action">{deliverables.filter((deliverableItem) => deliverableItem.status === 'accepted').length}/{deliverables.length}</span>
+        <span className="card-action">{acceptedCount}/{totalCount}</span>
       </div>
+      {isReadOnly && <p className="card-readonly-hint">Deliverable submissions are currently read-only.</p>}
       <div className="deliverable-list">
-        {deliverables.slice(0, 3).map((deliverableItem) => (
+        {displayDeliverables.map((deliverableItem) => (
           <div key={deliverableItem.id} className="deliverable-item">
             <div className="deliverable-header-row">
               <div className="deliverable-title-row">
@@ -110,7 +122,11 @@ export function DeliverablesCard({
               <span className="deliverable-progress-value">{deliverableItem.progress}%</span>
             </div>
             <div className="deliverable-actions-row">
-              <button className="deliverable-btn deliverable-btn-primary" onClick={() => onUploadClick(deliverableItem.id)}>
+              <button
+                className="deliverable-btn deliverable-btn-primary"
+                onClick={() => !isReadOnly && onUploadClick(deliverableItem.id)}
+                disabled={isReadOnly}
+              >
                 <Icons.upload /> {t('dashboard.intern.card.deliverables.upload')}
               </button>
               {deliverableItem.status === 'rejected' && deliverableItem.supervisorComment && (

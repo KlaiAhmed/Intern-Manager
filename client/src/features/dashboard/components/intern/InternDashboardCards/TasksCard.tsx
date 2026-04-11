@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { Task, TranslateFn } from '../../../types/internDashboard'
 
 interface TasksCardProps {
@@ -6,6 +7,7 @@ interface TasksCardProps {
   error: string | null
   onRetry: () => void
   onComplete: (id: string) => void
+  isReadOnly?: boolean
   t: TranslateFn
 }
 
@@ -15,9 +17,23 @@ export function TasksCard({
   error,
   onRetry,
   onComplete,
+  isReadOnly = false,
   t,
 }: TasksCardProps) {
-  const incompleteTasks = tasks.filter((taskItem) => !taskItem.completed).slice(0, 4)
+  const { incompleteTasks, completedCount, totalCount } = useMemo(() => {
+    let completed = 0
+    const incomplete: Task[] = []
+
+    for (const task of tasks) {
+      if (task.completed) {
+        completed++
+      } else if (incomplete.length < 4) {
+        incomplete.push(task)
+      }
+    }
+
+    return { incompleteTasks: incomplete, completedCount: completed, totalCount: tasks.length }
+  }, [tasks])
 
   if (loading) {
     return (
@@ -60,16 +76,17 @@ export function TasksCard({
     <div className="intern-card tasks-card">
       <div className="card-header">
         <h2 className="card-title"><span className="card-title-icon">📋</span> {t('dashboard.intern.card.tasks.title')}</h2>
-        <span className="card-action">{tasks.filter((taskItem) => taskItem.completed).length}/{tasks.length}</span>
+        <span className="card-action">{completedCount}/{totalCount}</span>
       </div>
+      {isReadOnly && <p className="card-readonly-hint">Task updates are currently read-only.</p>}
       <div className="task-list-modern">
         {incompleteTasks.map((taskItem) => (
           <div key={taskItem.id} className={`task-item-modern ${taskItem.completed ? 'completed' : ''}`}>
             <input
               type="checkbox"
               checked={taskItem.completed}
-              onChange={() => !taskItem.completed && onComplete(taskItem.id)}
-              disabled={taskItem.completed}
+              onChange={() => !taskItem.completed && !isReadOnly && onComplete(taskItem.id)}
+              disabled={taskItem.completed || isReadOnly}
               className="task-checkbox-modern"
             />
             <div className="task-content-modern">

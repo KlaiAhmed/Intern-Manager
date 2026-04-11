@@ -1,19 +1,16 @@
-﻿/// <summary>
-/// 📁 Emplacement : api/Program.cs
-/// 🎯 Rôle       : Point d entrée de l API : configure les services, initialise la base et démarre le serveur HTTP.
-/// 📦 Contient   : [BuildSqlServerConnectionString, BuildServerUrl]
-/// </summary>
 using InternManager.Api.Data;
 using InternManager.Api.Data.Initialization;
 using InternManager.Api.Common.OpenApi;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Extensions;
 using InternManager.Api.Middleware;
-using InternManager.Api.Models.Responses;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using InternManager.Api.Services;
 using InternManager.Api.Services.Interfaces;
 using InternManager.Api.Services.Internships;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 
@@ -53,20 +50,57 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers(options =>
+    {
+        options.Filters.AddService<FeatureFlagGateFilter>();
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var validationProblemDetails = new ValidationProblemDetails(context.ModelState)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+                Type = ProblemDetailsHelper.GetProblemTypeUri(StatusCodes.Status400BadRequest),
+                Detail = "Validation failed for one or more fields.",
+                Instance = context.HttpContext.Request.Path
+            };
+
+            validationProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+
+            return new BadRequestObjectResult(validationProblemDetails)
+            {
+                ContentTypes = { "application/problem+json" }
+            };
+        };
+    });
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddScoped<IInternshipsService, InternshipsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICvStorageService, CvStorageService>();
 builder.Services.AddScoped<ISupervisorScopeService, SupervisorScopeService>();
 builder.Services.AddScoped<ISupervisorStatsService, SupervisorStatsService>();
 builder.Services.AddScoped<ISupervisorInternsService, SupervisorInternsService>();
+builder.Services.AddScoped<ISupervisorJournalRepository, SupervisorJournalRepository>();
+builder.Services.AddScoped<ISupervisorJournalService, SupervisorJournalService>();
 builder.Services.AddScoped<IDeliverablesService, DeliverablesService>();
 builder.Services.AddScoped<IEvaluationStatusService, EvaluationStatusService>();
+builder.Services.AddScoped<IEvaluationReleaseRepository, EvaluationReleaseRepository>();
+builder.Services.AddScoped<IEvaluationReleaseService, EvaluationReleaseService>();
+builder.Services.AddScoped<IMissionFeatureFlagsRepository, MissionFeatureFlagsRepository>();
+builder.Services.AddScoped<IMissionFeatureFlagsService, MissionFeatureFlagsService>();
+builder.Services.AddScoped<IInternNotificationRepository, InternNotificationRepository>();
+builder.Services.AddScoped<IInternNotificationService, InternNotificationService>();
 builder.Services.AddScoped<IInternSkillsService, InternSkillsService>();
 builder.Services.AddScoped<ITaskWorkflowService, TaskWorkflowService>();
 builder.Services.AddScoped<InternOnboardingValidationFilter>();
+builder.Services.AddScoped<FeatureFlagGateFilter>();
 builder.Services.AddProblemDetails();
 builder.Services.AddRateLimiter(options =>
 {
@@ -167,7 +201,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseExceptionHandler();
+app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
 {
     var httpContext = statusCodeContext.HttpContext;
@@ -192,10 +226,19 @@ app.UseStatusCodePages(async statusCodeContext =>
         return;
     }
 
-    await httpContext.Response.WriteAsJsonAsync(new ErrorResponse
+    var problemDetails = new ProblemDetails
     {
-        Message = GetDefaultErrorMessage(httpContext.Response.StatusCode)
-    });
+        Status = httpContext.Response.StatusCode,
+        Title = ProblemDetailsHelper.GetErrorTitle(httpContext.Response.StatusCode),
+        Type = ProblemDetailsHelper.GetProblemTypeUri(httpContext.Response.StatusCode),
+        Detail = ProblemDetailsHelper.GetErrorMessage(httpContext.Response.StatusCode),
+        Instance = httpContext.Request.Path
+    };
+
+    problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
+
+    httpContext.Response.ContentType = "application/problem+json";
+    await httpContext.Response.WriteAsJsonAsync(problemDetails);
 });
 app.UseCors(clientCorsPolicyName);
 app.UseHttpsRedirection();
@@ -213,12 +256,7 @@ app.MapControllers();
 
 app.Run();
 
-/// <summary>
-/// Construit la chaîne de connexion SQL Server à partir des valeurs de configuration.
-/// </summary>
-/// <param name="databasePath">Nom logique de base fourni par la configuration.</param>
-/// <param name="sqlServerInstance">Nom de l instance SQL Server à utiliser.</param>
-/// <returns>Une chaîne de connexion SQL Server complète.</returns>
+// Construit la chaîne de connexion SQL Server à partir des valeurs de configuration.
 static string BuildSqlServerConnectionString(string? databasePath, string? sqlServerInstance)
 {
     var effectivePath = string.IsNullOrWhiteSpace(databasePath)
@@ -238,11 +276,7 @@ static string BuildSqlServerConnectionString(string? databasePath, string? sqlSe
     return $"Server={effectiveSqlServerInstance};Database=SmartAxiaInternManager_{databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 }
 
-/// <summary>
-/// Construit l URL locale du serveur HTTP à partir du port configuré.
-/// </summary>
-/// <param name="serverPort">Valeur de port brute lue depuis la configuration.</param>
-/// <returns>URL locale au format `http://localhost:{port}`.</returns>
+// Construit l URL locale du serveur HTTP à partir du port configuré.
 static string BuildServerUrl(string? serverPort)
 {
     const int defaultPort = 5184;
@@ -255,11 +289,7 @@ static string BuildServerUrl(string? serverPort)
     return $"http://localhost:{port}";
 }
 
-/// <summary>
-/// Construit la liste des origines autorisées pour CORS à partir de la configuration.
-/// </summary>
-/// <param name="configuredOrigin">Origines autorisées séparées par virgule (optionnel).</param>
-/// <returns>Tableau des origines autorisées pour la policy CORS.</returns>
+// Construit la liste des origines autorisées pour CORS à partir de la configuration.
 static string[] BuildCorsOrigins(string? configuredOrigin)
 {
     const string defaultOrigin = "http://localhost:5173";
@@ -279,20 +309,6 @@ static string[] BuildCorsOrigins(string? configuredOrigin)
     return origins.Length > 0
         ? origins
         : [defaultOrigin];
-}
-
-static string GetDefaultErrorMessage(int statusCode)
-{
-    return statusCode switch
-    {
-        StatusCodes.Status400BadRequest => "Bad request.",
-        StatusCodes.Status401Unauthorized => "Authentication is required.",
-        StatusCodes.Status403Forbidden => "You do not have permission to perform this action.",
-        StatusCodes.Status404NotFound => "Resource not found.",
-        StatusCodes.Status409Conflict => "The request could not be completed because of a conflict.",
-        StatusCodes.Status429TooManyRequests => "Too many requests. Please try again later.",
-        _ => "An unexpected error occurred."
-    };
 }
 
 public partial class Program

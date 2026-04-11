@@ -240,6 +240,17 @@ namespace InternManager.Api.Data.Migrations
                     b.Property<Guid>("InternId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsReleasedToIntern")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReleasedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -265,14 +276,61 @@ namespace InternManager.Api.Data.Migrations
 
                     b.HasIndex("InternId");
 
+                    b.HasIndex("ReleasedByUserId");
+
                     b.HasIndex("Status");
 
                     b.HasIndex("SupervisorId");
+
+                    b.HasIndex("InternId", "IsReleasedToIntern");
 
                     b.HasIndex("SupervisorId", "InternId", "Type")
                         .IsUnique();
 
                     b.ToTable("Evaluations", (string)null);
+                });
+
+            modelBuilder.Entity("InternManager.Api.Models.Entities.InternNotification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<Guid>("InternId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsRead")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("RelatedEntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("InternId");
+
+                    b.HasIndex("InternId", "IsRead", "CreatedAt");
+
+                    b.ToTable("InternNotifications", (string)null);
                 });
 
             modelBuilder.Entity("InternManager.Api.Models.Entities.InternProfile", b =>
@@ -433,6 +491,41 @@ namespace InternManager.Api.Data.Migrations
                     b.ToTable("InternshipTypes", (string)null);
                 });
 
+            modelBuilder.Entity("InternManager.Api.Models.Entities.JournalComment", b =>
+                {
+                    b.Property<int>("JournalCommentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JournalCommentId"));
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("JournalCommentId");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.ToTable("JournalComments", (string)null);
+                });
+
             modelBuilder.Entity("InternManager.Api.Models.Entities.JournalEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -453,6 +546,11 @@ namespace InternManager.Api.Data.Migrations
                     b.Property<Guid>("InternId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsReviewed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
@@ -460,6 +558,42 @@ namespace InternManager.Api.Data.Migrations
                     b.HasIndex("InternId");
 
                     b.ToTable("JournalEntries", (string)null);
+                });
+
+            modelBuilder.Entity("InternManager.Api.Models.Entities.JournalEvaluationLink", b =>
+                {
+                    b.Property<int>("JournalEvaluationLinkId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JournalEvaluationLinkId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("EvaluationCriteria")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("JournalEvaluationLinkId");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("LinkedByUserId");
+
+                    b.HasIndex("JournalEntryId", "EvaluationCriteria")
+                        .IsUnique();
+
+                    b.ToTable("JournalEvaluationLinks", (string)null);
                 });
 
             modelBuilder.Entity("InternManager.Api.Models.Entities.Meeting", b =>
@@ -568,6 +702,47 @@ namespace InternManager.Api.Data.Migrations
                     b.HasIndex("SupervisorId");
 
                     b.ToTable("Missions", (string)null);
+                });
+
+            modelBuilder.Entity("InternManager.Api.Models.Entities.MissionFeatureFlags", b =>
+                {
+                    b.Property<int>("MissionFeatureFlagsId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MissionFeatureFlagsId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("MissionCardConfig")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("MissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("MissionFeatureFlagsId");
+
+                    b.HasIndex("MissionId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("MissionFeatureFlags", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MissionFeatureFlags_MissionCardConfig_IsJson", "ISJSON([MissionCardConfig]) = 1");
+                        });
                 });
 
             modelBuilder.Entity("InternManager.Api.Models.Entities.MissionHistoryEntry", b =>
@@ -988,6 +1163,11 @@ namespace InternManager.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("InternManager.Api.Models.Entities.User", "ReleasedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReleasedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("InternManager.Api.Models.Entities.User", "Supervisor")
                         .WithMany()
                         .HasForeignKey("SupervisorId")
@@ -996,7 +1176,20 @@ namespace InternManager.Api.Data.Migrations
 
                     b.Navigation("Intern");
 
+                    b.Navigation("ReleasedByUser");
+
                     b.Navigation("Supervisor");
+                });
+
+            modelBuilder.Entity("InternManager.Api.Models.Entities.InternNotification", b =>
+                {
+                    b.HasOne("InternManager.Api.Models.Entities.User", "Intern")
+                        .WithMany()
+                        .HasForeignKey("InternId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Intern");
                 });
 
             modelBuilder.Entity("InternManager.Api.Models.Entities.InternProfile", b =>
@@ -1052,6 +1245,25 @@ namespace InternManager.Api.Data.Migrations
                     b.Navigation("Intern");
                 });
 
+            modelBuilder.Entity("InternManager.Api.Models.Entities.JournalComment", b =>
+                {
+                    b.HasOne("InternManager.Api.Models.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InternManager.Api.Models.Entities.JournalEntry", "JournalEntry")
+                        .WithMany("Comments")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("JournalEntry");
+                });
+
             modelBuilder.Entity("InternManager.Api.Models.Entities.JournalEntry", b =>
                 {
                     b.HasOne("InternManager.Api.Models.Entities.User", "Intern")
@@ -1061,6 +1273,25 @@ namespace InternManager.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Intern");
+                });
+
+            modelBuilder.Entity("InternManager.Api.Models.Entities.JournalEvaluationLink", b =>
+                {
+                    b.HasOne("InternManager.Api.Models.Entities.JournalEntry", "JournalEntry")
+                        .WithMany("EvaluationLinks")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("InternManager.Api.Models.Entities.User", "LinkedByUser")
+                        .WithMany()
+                        .HasForeignKey("LinkedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("JournalEntry");
+
+                    b.Navigation("LinkedByUser");
                 });
 
             modelBuilder.Entity("InternManager.Api.Models.Entities.Meeting", b =>
@@ -1105,6 +1336,24 @@ namespace InternManager.Api.Data.Migrations
                     b.Navigation("InternshipType");
 
                     b.Navigation("Supervisor");
+                });
+
+            modelBuilder.Entity("InternManager.Api.Models.Entities.MissionFeatureFlags", b =>
+                {
+                    b.HasOne("InternManager.Api.Models.Entities.Mission", "Mission")
+                        .WithOne("FeatureFlags")
+                        .HasForeignKey("InternManager.Api.Models.Entities.MissionFeatureFlags", "MissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("InternManager.Api.Models.Entities.User", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("UpdatedByUser");
                 });
 
             modelBuilder.Entity("InternManager.Api.Models.Entities.MissionHistoryEntry", b =>
@@ -1178,9 +1427,18 @@ namespace InternManager.Api.Data.Migrations
                     b.Navigation("Skills");
                 });
 
+            modelBuilder.Entity("InternManager.Api.Models.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("EvaluationLinks");
+                });
+
             modelBuilder.Entity("InternManager.Api.Models.Entities.Mission", b =>
                 {
                     b.Navigation("Deliverables");
+
+                    b.Navigation("FeatureFlags");
 
                     b.Navigation("HistoryEntries");
                 });

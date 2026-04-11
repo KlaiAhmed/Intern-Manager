@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchNotificationsByRole,
+  markAllNotificationsRead,
   markNotificationRead,
 } from '../api/notificationsApi'
 import {
@@ -18,11 +19,19 @@ interface UseNotificationsResult {
   isLoading: boolean
 }
 
+function shallowEqualNotifications(a: Notification[], b: Notification[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].isRead !== b[i].isRead) return false
+  }
+  return true
+}
 
 export function useNotifications(role: string | null | undefined): UseNotificationsResult {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const isMountedRef = useRef(true)
+  const lastNotificationsRef = useRef<Notification[]>([])
 
   const normalizedRole = useMemo(() => normalizeDashboardNotificationRole(role), [role])
 
@@ -39,7 +48,11 @@ export function useNotifications(role: string | null | undefined): UseNotificati
       const parsed = await fetchNotificationsByRole(normalizedRole)
 
       if (isMountedRef.current) {
-        setNotifications(parsed.data ?? [])
+        const newNotifications = parsed.data ?? []
+        if (!shallowEqualNotifications(lastNotificationsRef.current, newNotifications)) {
+          lastNotificationsRef.current = newNotifications
+          setNotifications(newNotifications)
+        }
       }
     } catch {
       if (isMountedRef.current) {
@@ -97,7 +110,7 @@ export function useNotifications(role: string | null | undefined): UseNotificati
     }))
 
     try {
-      await markNotificationRead(notificationId)
+      await markNotificationRead(normalizedRole, notificationId)
     } catch {
       // Swallow errors: navbar notifications should never crash the UI.
     }
@@ -128,9 +141,19 @@ export function useNotifications(role: string | null | undefined): UseNotificati
       }
     }))
 
+    if (normalizedRole === 'intern') {
+      try {
+        await markAllNotificationsRead(normalizedRole)
+      } catch {
+        // Swallow API errors to keep navbar responsive.
+      }
+
+      return
+    }
+
     await Promise.all(unreadIds.map(async (id) => {
       try {
-        await markNotificationRead(id)
+        await markNotificationRead(normalizedRole, id)
       } catch {
         // Swallow per-item errors silently.
       }

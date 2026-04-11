@@ -203,7 +203,7 @@ export function useSupervisorDashboardState() {
 
   const openInternProfile = useCallback(
     (internId: string) => {
-      navigate(`/interns/${internId}`)
+      navigate(`/dashboard/supervisor/interns/${internId}/journal`)
     },
     [navigate]
   )

@@ -24,6 +24,12 @@ public sealed class Evaluation
 
     public string Status { get; set; } = "pending";
 
+    public bool IsReleasedToIntern { get; set; }
+
+    public DateTime? ReleasedAt { get; set; }
+
+    public Guid? ReleasedByUserId { get; set; }
+
     public DateTime? SubmittedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
@@ -31,4 +37,6 @@ public sealed class Evaluation
     public User? Supervisor { get; set; }
 
     public User? Intern { get; set; }
+
+    public User? ReleasedByUser { get; set; }
 }

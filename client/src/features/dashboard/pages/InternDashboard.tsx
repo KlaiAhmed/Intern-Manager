@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Modal } from '../components/Modal'
+import { FeatureGate } from '../components/intern/FeatureGate'
 import {
   DeliverablesCard,
   EvaluationCard,
@@ -14,6 +16,8 @@ import {
 } from '../components/intern/InternStatusViews'
 import { MultiStepApplicationForm } from '../components/intern/MultiStepApplicationForm'
 import { useInternDashboard } from '../hooks/intern/useInternDashboard'
+import { useMissionFeatureFlags } from '../hooks/intern/useMissionFeatureFlags'
+import type { DashboardCard } from '../types/missionFeatureFlags'
 import '../styles/pages/InternDashboard.css'
 
 export function InternDashboard() {
@@ -75,6 +79,27 @@ export function InternDashboard() {
     getUserInitials,
     getFirstName,
   } = useInternDashboard()
+
+  const missionIdForFlags = internLifecycleStatus === 'ACTIVE' ? internship?.id ?? null : null
+  const { flags: missionFlags } = useMissionFeatureFlags(missionIdForFlags)
+
+  const isCardReadOnly = (card: DashboardCard) => Boolean(missionFlags?.[card] && !missionFlags[card].isInteractive)
+  const isJournalVisible = missionFlags?.journal?.isVisible ?? true
+  const isJournalReadOnly = isCardReadOnly('journal')
+
+  const openJournalModal = () => {
+    if (!isJournalVisible || isJournalReadOnly) {
+      return
+    }
+
+    setIsJournalModalOpen(true)
+  }
+
+  useEffect(() => {
+    if (isJournalModalOpen && (!isJournalVisible || isJournalReadOnly)) {
+      setIsJournalModalOpen(false)
+    }
+  }, [isJournalModalOpen, isJournalReadOnly, isJournalVisible, setIsJournalModalOpen])
 
   if (statusLoading) {
     return <StatusGateLoading />
@@ -141,93 +166,126 @@ export function InternDashboard() {
       </header>
 
       <div className="intern-grid">
-        <MissionCard
-          internship={internship}
-          loading={loadingInternship}
-          error={internshipError}
-          onRetry={loadInternship}
-          t={t}
-        />
+        <FeatureGate card="missionOverview" flags={missionFlags}>
+          <MissionCard
+            internship={internship}
+            loading={loadingInternship}
+            error={internshipError}
+            onRetry={loadInternship}
+            t={t}
+          />
+        </FeatureGate>
 
-        <QuickStatsCard
-          tasks={tasks}
-          deliverables={deliverables}
-          internship={internship}
-          meetingsCount={meetingsCount}
-          loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
-          t={t}
-        />
+        <FeatureGate card="quickStats" flags={missionFlags}>
+          <QuickStatsCard
+            tasks={tasks}
+            deliverables={deliverables}
+            internship={internship}
+            meetingsCount={meetingsCount}
+            loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
+            t={t}
+          />
+        </FeatureGate>
 
-        <TasksCard
-          tasks={tasks}
-          loading={loadingTasks}
-          error={tasksError}
-          onRetry={loadTasks}
-          onComplete={handleCompleteTask}
-          t={t}
-        />
+        <FeatureGate card="tasks" flags={missionFlags}>
+          <TasksCard
+            tasks={tasks}
+            loading={loadingTasks}
+            error={tasksError}
+            onRetry={loadTasks}
+            onComplete={handleCompleteTask}
+            isReadOnly={isCardReadOnly('tasks')}
+            t={t}
+          />
+        </FeatureGate>
 
-        <DeliverablesCard
-          deliverables={deliverables}
-          loading={loadingDeliverables}
-          error={deliverablesError}
-          onRetry={loadDeliverables}
-          onUploadClick={handleUploadClick}
-          onViewComment={setCommentModalDeliverable}
-          t={t}
-        />
+        <FeatureGate card="deliverables" flags={missionFlags}>
+          <DeliverablesCard
+            deliverables={deliverables}
+            loading={loadingDeliverables}
+            error={deliverablesError}
+            onRetry={loadDeliverables}
+            onUploadClick={handleUploadClick}
+            onViewComment={setCommentModalDeliverable}
+            isReadOnly={isCardReadOnly('deliverables')}
+            t={t}
+          />
+        </FeatureGate>
 
-        <EvaluationCard
-          evaluations={evaluations}
-          loading={loadingEvaluations}
-          error={evaluationsError}
-          onRetry={loadEvaluations}
-          t={t}
-        />
+        <FeatureGate card="evaluation" flags={missionFlags}>
+          <EvaluationCard
+            evaluations={evaluations}
+            loading={loadingEvaluations}
+            error={evaluationsError}
+            onRetry={loadEvaluations}
+            t={t}
+          />
+        </FeatureGate>
 
-        <JournalCard
-          entries={journalEntries}
-          loading={loadingJournal}
-          error={journalError}
-          onRetry={loadJournal}
-          onAddClick={() => setIsJournalModalOpen(true)}
-          t={t}
-        />
+        <FeatureGate card="journal" flags={missionFlags}>
+          <JournalCard
+            entries={journalEntries}
+            loading={loadingJournal}
+            error={journalError}
+            onRetry={loadJournal}
+            onAddClick={openJournalModal}
+            isReadOnly={isJournalReadOnly}
+            t={t}
+          />
+        </FeatureGate>
 
-        <MeetingCard
-          meeting={nextMeeting}
-          loading={loadingMeeting}
-          error={meetingError}
-          onRetry={loadNextMeeting}
-          t={t}
-        />
+        <FeatureGate card="meeting" flags={missionFlags}>
+          <MeetingCard
+            meeting={nextMeeting}
+            loading={loadingMeeting}
+            error={meetingError}
+            onRetry={loadNextMeeting}
+            t={t}
+          />
+        </FeatureGate>
       </div>
 
-      <button
-        className="fab-button"
-        onClick={() => setIsJournalModalOpen(true)}
-        aria-label="Add journal entry"
-      >
-        +
-      </button>
+      {isJournalVisible && (
+        <button
+          className="fab-button"
+          onClick={openJournalModal}
+          disabled={isJournalReadOnly}
+          aria-label="Add journal entry"
+        >
+          +
+        </button>
+      )}
 
       <Modal isOpen={isJournalModalOpen} onClose={() => setIsJournalModalOpen(false)} title={t('dashboard.intern.addEntry')}>
-        <form className="modal-form" onSubmit={(event) => { event.preventDefault(); void handleAddJournalEntry() }}>
+        <form
+          className="modal-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (isJournalReadOnly || !isJournalVisible) {
+              return
+            }
+            void handleAddJournalEntry()
+          }}
+        >
           <div className="form-field">
             <textarea
               value={journalContent}
               onChange={(event) => setJournalContent(event.target.value)}
               rows={6}
               placeholder={t('dashboard.form.description')}
+              disabled={isJournalReadOnly || !isJournalVisible}
               className={formError ? 'input-error' : ''}
             />
+            {isJournalReadOnly && (
+              <span className="card-readonly-hint">New journal entries are currently disabled for this mission.</span>
+            )}
             {formError && <span className="field-error">{formError}</span>}
           </div>
           <div className="modal-actions">
             <button type="button" className="button button-secondary button-sm" onClick={() => setIsJournalModalOpen(false)}>
               {t('dashboard.form.cancel')}
             </button>
-            <button type="submit" className="button button-primary button-sm">
+            <button type="submit" className="button button-primary button-sm" disabled={isJournalReadOnly || !isJournalVisible}>
               {t('dashboard.form.save')}
             </button>
           </div>

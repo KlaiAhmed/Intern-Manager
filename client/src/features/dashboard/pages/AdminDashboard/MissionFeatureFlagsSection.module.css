@@ -1,0 +1,205 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--dash-text);
+}
+
+.subtitle {
+  margin: 0.375rem 0 0;
+  font-size: 0.875rem;
+  color: var(--dash-text-muted);
+}
+
+.dirtyBadge {
+  margin: 0.5rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dash-warning) 12%, var(--dash-bg-primary));
+  color: var(--dash-warning);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.headerActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--dash-error);
+  font-size: 0.875rem;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.875rem;
+}
+
+.cardEditor {
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-md);
+  background: var(--dash-bg-primary);
+  padding: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cardEditorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cardEditorHeader h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--dash-text);
+}
+
+.cardToken {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--dash-bg-secondary) 70%, transparent);
+  color: var(--dash-text-muted);
+}
+
+.toggleRow {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.toggleItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  color: var(--dash-text);
+}
+
+.toggleItem input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.requirementField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.requirementField label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--dash-text-muted);
+}
+
+.requirementField textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 7rem;
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-sm);
+  padding: 0.6rem;
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.requirementField textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--dash-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--dash-primary) 50%, var(--dash-border));
+}
+
+.validationText {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--dash-error);
+}
+
+.historySection {
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-md);
+  background: var(--dash-bg-primary);
+  padding: 0.875rem;
+}
+
+.historyHeader {
+  margin-bottom: 0.625rem;
+}
+
+.historyHeader h3 {
+  margin: 0;
+  color: var(--dash-text);
+  font-size: 1rem;
+}
+
+.emptyText {
+  margin: 0;
+  color: var(--dash-text-muted);
+  font-size: 0.875rem;
+}
+
+.historyTableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.historyTable th,
+.historyTable td {
+  border-bottom: 1px solid var(--dash-border);
+  padding: 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.8125rem;
+  color: var(--dash-text);
+}
+
+.historyTable th {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--dash-text-muted);
+}
+
+.historyValue {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--dash-text-muted);
+}

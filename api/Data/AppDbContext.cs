@@ -1,6 +1,8 @@
 ﻿using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.FeatureFlags;
 using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace InternManager.Api.Data;
 
@@ -27,6 +29,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Mission> Missions => Set<Mission>();
 
     /// <summary>
+    /// Table des drapeaux de fonctionnalites du dashboard par mission.
+    /// </summary>
+    public DbSet<MissionFeatureFlags> MissionFeatureFlags => Set<MissionFeatureFlags>();
+
+    /// <summary>
     /// Table des livrables rattaches aux missions.
     /// </summary>
     public DbSet<Deliverable> Deliverables => Set<Deliverable>();
@@ -45,6 +52,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     /// Table des entrees de journal des stagiaires.
     /// </summary>
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+
+    /// <summary>
+    /// Table des commentaires superviseur sur les entrees de journal.
+    /// </summary>
+    public DbSet<JournalComment> JournalComments => Set<JournalComment>();
+
+    /// <summary>
+    /// Table des liens entre journal et criteres d evaluation.
+    /// </summary>
+    public DbSet<JournalEvaluationLink> JournalEvaluationLinks => Set<JournalEvaluationLink>();
 
     /// <summary>
     /// Table des taches individuelles des stagiaires.
@@ -70,6 +87,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     /// Table des notifications in-app.
     /// </summary>
     public DbSet<Notification> Notifications => Set<Notification>();
+
+    /// <summary>
+    /// Table des notifications dediees au flux stagiaire.
+    /// </summary>
+    public DbSet<InternNotification> InternNotifications => Set<InternNotification>();
 
     /// <summary>
     /// Table des entrees de changelog des missions/stages.
@@ -123,6 +145,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        var missionCardConfigConverter = new ValueConverter<MissionCardConfig, string>(
+            value => MissionCardConfigJson.Serialize(value),
+            value => MissionCardConfigJson.Deserialize(value));
 
         modelBuilder.Entity<User>(entity =>
         {
@@ -287,6 +313,46 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<MissionFeatureFlags>(entity =>
+        {
+            entity.ToTable("MissionFeatureFlags", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_MissionFeatureFlags_MissionCardConfig_IsJson",
+                    "ISJSON([MissionCardConfig]) = 1");
+            });
+
+            entity.HasKey(flags => flags.MissionFeatureFlagsId);
+
+            entity.Property(flags => flags.MissionCardConfig)
+                .IsRequired()
+                .HasConversion(missionCardConfigConverter)
+                .HasColumnType("nvarchar(max)");
+
+            entity.Property(flags => flags.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(flags => flags.UpdatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(flags => flags.MissionId)
+                .IsUnique();
+
+            entity.HasIndex(flags => flags.UpdatedByUserId);
+
+            entity.HasOne(flags => flags.Mission)
+                .WithOne(mission => mission.FeatureFlags)
+                .HasForeignKey<MissionFeatureFlags>(flags => flags.MissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(flags => flags.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(flags => flags.UpdatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<Deliverable>(entity =>
         {
             entity.ToTable("Deliverables");
@@ -406,6 +472,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasMaxLength(32)
                 .HasDefaultValue("pending");
 
+            entity.Property(evaluation => evaluation.IsReleasedToIntern)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(evaluation => evaluation.ReleasedAt);
+
+            entity.Property(evaluation => evaluation.ReleasedByUserId);
+
             entity.Property(evaluation => evaluation.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
@@ -413,6 +487,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasIndex(evaluation => evaluation.SupervisorId);
             entity.HasIndex(evaluation => evaluation.InternId);
             entity.HasIndex(evaluation => evaluation.Status);
+            entity.HasIndex(evaluation => new { evaluation.InternId, evaluation.IsReleasedToIntern });
 
             entity.HasIndex(evaluation => new { evaluation.SupervisorId, evaluation.InternId, evaluation.Type })
                 .IsUnique();
@@ -426,6 +501,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(evaluation => evaluation.InternId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(evaluation => evaluation.ReleasedByUser)
+                .WithMany()
+                .HasForeignKey(evaluation => evaluation.ReleasedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Meeting>(entity =>
@@ -474,6 +554,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .IsRequired()
                 .HasMaxLength(4000);
 
+            entity.Property(entry => entry.IsReviewed)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             entity.Property(entry => entry.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
@@ -485,6 +569,66 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(entry => entry.InternId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(entry => entry.Comments)
+                .WithOne(comment => comment.JournalEntry)
+                .HasForeignKey(comment => comment.JournalEntryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(entry => entry.EvaluationLinks)
+                .WithOne(link => link.JournalEntry)
+                .HasForeignKey(link => link.JournalEntryId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<JournalComment>(entity =>
+        {
+            entity.ToTable("JournalComments");
+
+            entity.HasKey(comment => comment.JournalCommentId);
+
+            entity.Property(comment => comment.Content)
+                .IsRequired()
+                .HasMaxLength(2000);
+
+            entity.Property(comment => comment.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(comment => comment.JournalEntryId);
+            entity.HasIndex(comment => comment.AuthorId);
+            entity.HasIndex(comment => comment.CreatedAt);
+
+            entity.HasOne(comment => comment.Author)
+                .WithMany()
+                .HasForeignKey(comment => comment.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<JournalEvaluationLink>(entity =>
+        {
+            entity.ToTable("JournalEvaluationLinks");
+
+            entity.HasKey(link => link.JournalEvaluationLinkId);
+
+            entity.Property(link => link.EvaluationCriteria)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(64);
+
+            entity.Property(link => link.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(link => link.JournalEntryId);
+            entity.HasIndex(link => link.LinkedByUserId);
+            entity.HasIndex(link => new { link.JournalEntryId, link.EvaluationCriteria })
+                .IsUnique();
+
+            entity.HasOne(link => link.LinkedByUser)
+                .WithMany()
+                .HasForeignKey(link => link.LinkedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<InternTask>(entity =>
@@ -647,6 +791,38 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(notification => notification.User)
                 .WithMany()
                 .HasForeignKey(notification => notification.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InternNotification>(entity =>
+        {
+            entity.ToTable("InternNotifications");
+
+            entity.HasKey(notification => notification.NotificationId);
+
+            entity.Property(notification => notification.Type)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(64);
+
+            entity.Property(notification => notification.Message)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(notification => notification.IsRead)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(notification => notification.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(notification => notification.InternId);
+            entity.HasIndex(notification => new { notification.InternId, notification.IsRead, notification.CreatedAt });
+
+            entity.HasOne(notification => notification.Intern)
+                .WithMany()
+                .HasForeignKey(notification => notification.InternId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

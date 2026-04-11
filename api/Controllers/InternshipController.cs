@@ -1,4 +1,5 @@
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Attributes;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -32,6 +33,7 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Stagiaire non trouvé.</response>
     [HttpGet("internship", Name = "GetMyInternship")]
+    [FeatureCard(DashboardCard.MissionOverview)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -3,6 +3,8 @@ import { useI18n } from '../../../../locales/I18nContext'
 import { useAuth } from '../../../../stores/AuthContext'
 import { useDashboardApi } from '../useDashboardApi'
 import type { School } from '../../api/schoolsApi'
+import { toErrorMessage } from '../../shared/utils/errorMessage'
+import { getInitials, getFirstName } from '../../shared/utils/userUtils'
 import type {
   Deliverable,
   Evaluation,
@@ -56,13 +58,6 @@ export function useInternDashboard() {
   const [meetingError, setMeetingError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message
-    }
-    return t('dashboard.error.load')
-  }
-
   const emptyEvaluationScores: Evaluation['scores'] = {
     technical: 0,
     autonomy: 0,
@@ -85,7 +80,7 @@ export function useInternDashboard() {
       const result = await api.get<InternStatusResponse>(`/api/interns/${user.id}`)
       setInternLifecycleStatus(result.status)
     } catch (error) {
-      setStatusError(getErrorMessage(error))
+      setStatusError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setStatusLoading(false)
     }
@@ -132,7 +127,7 @@ export function useInternDashboard() {
       const result = await api.get<Internship>('/api/intern/me/internship')
       setInternship(result)
     } catch (error) {
-      setInternshipError(getErrorMessage(error))
+      setInternshipError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setLoadingInternship(false)
     }
@@ -145,7 +140,7 @@ export function useInternDashboard() {
       const result = await api.get<{ data: Task[] }>('/api/intern/me/tasks')
       setTasks(result.data ?? [])
     } catch (error) {
-      setTasksError(getErrorMessage(error))
+      setTasksError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setLoadingTasks(false)
     }
@@ -158,7 +153,7 @@ export function useInternDashboard() {
       const result = await api.get<{ data: Deliverable[] }>('/api/intern/me/deliverables')
       setDeliverables(result.data ?? [])
     } catch (error) {
-      setDeliverablesError(getErrorMessage(error))
+      setDeliverablesError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setLoadingDeliverables(false)
     }
@@ -171,7 +166,7 @@ export function useInternDashboard() {
       const result = await api.get<{ data: JournalEntry[] }>('/api/intern/me/journal?limit=5')
       setJournalEntries(result.data ?? [])
     } catch (error) {
-      setJournalError(getErrorMessage(error))
+      setJournalError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setLoadingJournal(false)
     }
@@ -190,6 +185,8 @@ export function useInternDashboard() {
           comments: string
           date?: string
           submittedAt?: string
+          isReleasedToIntern?: boolean
+          releasedAt?: string | null
         }>
       }>('/api/intern/me/evaluations')
 
@@ -199,11 +196,13 @@ export function useInternDashboard() {
         scores: evaluation.scores ?? evaluation.criteria ?? emptyEvaluationScores,
         comments: evaluation.comments,
         date: evaluation.date ?? evaluation.submittedAt ?? '',
+        isReleasedToIntern: evaluation.isReleasedToIntern,
+        releasedAt: evaluation.releasedAt ?? null,
       }))
 
       setEvaluations(normalizedEvaluations)
     } catch (error) {
-      setEvaluationsError(getErrorMessage(error))
+      setEvaluationsError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setLoadingEvaluations(false)
     }
@@ -228,7 +227,7 @@ export function useInternDashboard() {
       const result = await api.get<{ data?: Meeting[] }>('/api/meetings?internId=me&upcoming=true&limit=1')
       setNextMeeting(result.data?.[0] ?? null)
     } catch (error) {
-      setMeetingError(getErrorMessage(error))
+      setMeetingError(toErrorMessage(error, t('dashboard.error.load')))
     } finally {
       setLoadingMeeting(false)
     }
@@ -260,7 +259,7 @@ export function useInternDashboard() {
       await api.patch(`/api/tasks/${taskId}/complete`, {})
       void loadTasks()
     } catch (error) {
-      setTasksError(getErrorMessage(error))
+      setTasksError(toErrorMessage(error, t('dashboard.error.load')))
     }
   }
 
@@ -276,7 +275,7 @@ export function useInternDashboard() {
       setFormError(null)
       void loadJournal()
     } catch (error) {
-      setFormError(getErrorMessage(error))
+      setFormError(toErrorMessage(error, t('dashboard.error.load')))
     }
   }
 
@@ -288,7 +287,7 @@ export function useInternDashboard() {
       setSelectedDeliverableForUpload(null)
       void loadDeliverables()
     } catch (error) {
-      setDeliverablesError(getErrorMessage(error))
+      setDeliverablesError(toErrorMessage(error, t('dashboard.error.load')))
     }
   }
 
@@ -305,16 +304,9 @@ export function useInternDashboard() {
     event.target.value = ''
   }
 
-  const getUserInitials = () => {
-    if (!user?.name) return 'IN'
-    const names = user.name.split(' ')
-    return names.map((namePart) => namePart[0]).join('').toUpperCase().slice(0, 2)
-  }
+  const getUserInitials = () => getInitials(user?.name ?? '', 'IN')
 
-  const getFirstName = () => {
-    if (!user?.name) return ''
-    return user.name.split(' ')[0]
-  }
+  const getFirstNameFromUser = () => getFirstName(user?.name ?? '')
 
   return {
     t,
@@ -373,7 +365,7 @@ export function useInternDashboard() {
     handleHiddenFileChange,
 
     getUserInitials,
-    getFirstName,
+    getFirstName: getFirstNameFromUser,
   }
 }
 

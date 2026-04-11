@@ -6,6 +6,7 @@ interface JournalCardProps {
   error: string | null
   onRetry: () => void
   onAddClick: () => void
+  isReadOnly?: boolean
   t: TranslateFn
 }
 
@@ -15,6 +16,7 @@ export function JournalCard({
   error,
   onRetry,
   onAddClick,
+  isReadOnly = false,
   t,
 }: JournalCardProps) {
   if (loading) {
@@ -46,11 +48,16 @@ export function JournalCard({
         <h2 className="card-title"><span className="card-title-icon">📝</span> {t('dashboard.intern.card.journal.title')}</h2>
         <span className="card-action">{t('dashboard.intern.card.journal.entries').replace('{{count}}', String(entries.length))}</span>
       </div>
+      {isReadOnly && <p className="card-readonly-hint">New journal entries are currently disabled.</p>}
       {entries.length === 0 ? (
         <div className="empty-state-modern">
           <div className="empty-state-icon">📝</div>
           <p className="empty-state-text">{t('dashboard.intern.card.journal.empty')}</p>
-          <button className="deliverable-btn deliverable-btn-primary journal-add-entry-btn" onClick={onAddClick}>
+          <button
+            className="deliverable-btn deliverable-btn-primary journal-add-entry-btn"
+            onClick={() => !isReadOnly && onAddClick()}
+            disabled={isReadOnly}
+          >
             {t('dashboard.intern.card.journal.addEntry')}
           </button>
         </div>
@@ -59,6 +66,11 @@ export function JournalCard({
           {entries.slice(0, 2).map((entry) => (
             <div key={entry.id} className="journal-entry-modern">
               <p className="journal-entry-content">{entry.content}</p>
+              {Array.isArray(entry.comments) && entry.comments.length > 0 && (
+                <p className="journal-entry-comment-hint">
+                  {entry.comments.length} supervisor comment{entry.comments.length > 1 ? 's' : ''}
+                </p>
+              )}
               <span className="journal-entry-date">{entry.createdAt}</span>
             </div>
           ))}

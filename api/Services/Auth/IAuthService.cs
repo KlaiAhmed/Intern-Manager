@@ -10,6 +10,7 @@ public interface IAuthService
     /// </summary>
     /// <param name="email">Adresse email saisie par l utilisateur.</param>
     /// <param name="password">Mot de passe en clair saisi par l utilisateur.</param>
+    /// <param name="rememberMe">Indique si la session doit être persistante (7 jours) ou éphémère (1 jour).</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
     /// <returns>
     /// Un <see cref="AuthSessionTokens"/> contenant les jetons de session, ou <see langword="null"/> si l authentification échoue.

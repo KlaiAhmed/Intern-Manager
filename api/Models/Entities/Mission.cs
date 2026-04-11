@@ -34,6 +34,8 @@ public sealed class Mission
 
     public InternshipType? InternshipType { get; set; }
 
+    public MissionFeatureFlags? FeatureFlags { get; set; }
+
     public ICollection<Deliverable> Deliverables { get; set; } = new List<Deliverable>();
 
     public ICollection<MissionHistoryEntry> HistoryEntries { get; set; } = new List<MissionHistoryEntry>();

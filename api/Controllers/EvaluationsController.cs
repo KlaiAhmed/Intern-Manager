@@ -1,4 +1,5 @@
 ﻿using InternManager.Api.Common.Constants;
+using InternManager.Api.Common.Attributes;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -681,12 +682,15 @@ public sealed class EvaluationsController(
     /// Les évaluations en attente ne sont pas visibles par le stagiaire.
     /// Les résultats sont triés par date de soumission.
     /// </remarks>
+    /// <param name="page">Numéro de page (défaut: 1).</param>
+    /// <param name="pageSize">Nombre d éléments par page (défaut: 20, max: 100).</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Une liste d évaluations avec les notes et commentaires.</returns>
     /// <response code="200">Liste récupérée avec succès.</response>
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("/api/intern/me/evaluations", Name = "ListMyEvaluations")]
+    [FeatureCard(DashboardCard.Evaluation)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
@@ -710,7 +714,8 @@ public sealed class EvaluationsController(
             .AsNoTracking()
             .Where(evaluation =>
                 evaluation.InternId == internId.Value &&
-                evaluation.Status == DomainStatuses.Evaluation.Submitted)
+                evaluation.Status == DomainStatuses.Evaluation.Submitted &&
+                evaluation.IsReleasedToIntern)
             .Include(evaluation => evaluation.Supervisor)
             .OrderByDescending(evaluation => evaluation.SubmittedAt)
             .ThenByDescending(evaluation => evaluation.CreatedAt);
@@ -740,6 +745,8 @@ public sealed class EvaluationsController(
                     deadlineRespect = evaluation.DeadlineRespect,
                     deliverableQuality = evaluation.DeliverableQuality
                 },
+                isReleasedToIntern = evaluation.IsReleasedToIntern,
+                releasedAt = evaluation.ReleasedAt,
                 date = evaluation.SubmittedAt ?? evaluation.CreatedAt,
                 comments = evaluation.Comments,
                 supervisorName = evaluation.Supervisor != null

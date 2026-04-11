@@ -1,4 +1,5 @@
-﻿using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Attributes;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -48,6 +49,7 @@ public sealed class MeetingsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMeetings")]
+    [FeatureCard(DashboardCard.Meeting)]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

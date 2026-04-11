@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
+import { toErrorMessage } from '../../shared/utils/errorMessage'
 import type {
   Activity,
   AuditLogRecord,
@@ -66,14 +67,6 @@ export function useManagerDashboardState() {
   const [selectedIntern, setSelectedIntern] = useState<Intern | null>(null)
   const [isInternModalOpen, setIsInternModalOpen] = useState(false)
 
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message
-    }
-
-    return t('dashboard.error.load') || 'Failed to load'
-  }
-
   const loadKPIs = async () => {
     setLoadingKPIs(true)
     setKpisError(null)
@@ -94,7 +87,7 @@ export function useManagerDashboardState() {
       setAvgCompletion(completionPercent)
       setPendingReviews(readNumericValue(pendingPayload))
     } catch (error) {
-      setKpisError(getErrorMessage(error))
+      setKpisError(toErrorMessage(error, t('dashboard.error.load') || 'Failed to load'))
     } finally {
       setLoadingKPIs(false)
     }
@@ -162,7 +155,7 @@ export function useManagerDashboardState() {
 
       setInterns(mappedInterns)
     } catch (error) {
-      setInternsError(getErrorMessage(error))
+      setInternsError(toErrorMessage(error, t('dashboard.error.load') || 'Failed to load'))
     } finally {
       setLoadingInterns(false)
     }
@@ -203,7 +196,7 @@ export function useManagerDashboardState() {
 
       setSupervisors(mappedSupervisors)
     } catch (error) {
-      setSupervisorsError(getErrorMessage(error))
+      setSupervisorsError(toErrorMessage(error, t('dashboard.error.load') || 'Failed to load'))
     } finally {
       setLoadingSupervisors(false)
     }
@@ -251,7 +244,7 @@ export function useManagerDashboardState() {
 
       setDepartments(mappedDepartments)
     } catch (error) {
-      setDepartmentsError(getErrorMessage(error))
+      setDepartmentsError(toErrorMessage(error, t('dashboard.error.load') || 'Failed to load'))
     } finally {
       setLoadingDepartments(false)
     }
@@ -283,7 +276,7 @@ export function useManagerDashboardState() {
 
       setActivities(mappedActivities)
     } catch (error) {
-      setActivityError(getErrorMessage(error))
+      setActivityError(toErrorMessage(error, t('dashboard.error.load') || 'Failed to load'))
     } finally {
       setLoadingActivity(false)
     }

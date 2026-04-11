@@ -53,9 +53,10 @@ export function EvaluationCard({
         <div className="card-header">
           <h2 className="card-title"><span className="card-title-icon">📊</span> Evaluations</h2>
         </div>
-        <div className="empty-state-modern">
-          <div className="empty-state-icon">📋</div>
-          <p className="empty-state-text">No evaluations yet</p>
+        <div className="evaluation-pending-state">
+          <div className="evaluation-pending-icon">⏳</div>
+          <p className="evaluation-pending-title">Evaluation pending review.</p>
+          <p className="evaluation-pending-subtitle">Your evaluation is being prepared.</p>
         </div>
       </div>
     )
@@ -73,6 +74,11 @@ export function EvaluationCard({
               <h3 className="evaluation-type">{evaluation.type === 'mid_term' ? 'Midterm' : 'Final'}</h3>
               <span className="evaluation-date">{evaluation.date}</span>
             </div>
+            {evaluation.releasedAt && (
+              <div className="evaluation-release-badge">
+                Released on {new Date(evaluation.releasedAt).toLocaleDateString()}
+              </div>
+            )}
             <div className="evaluation-scores-grid">
               <div className={`score-pill ${getScoreClass(evaluation.scores.technical)}`}>
                 <span className="score-pill-value">{evaluation.scores.technical}</span>

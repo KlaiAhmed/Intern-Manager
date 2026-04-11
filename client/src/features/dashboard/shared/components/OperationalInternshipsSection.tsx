@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../../locales/I18nContext'
 import { Input } from '../../../../components/ui/Input'
 import { DashboardButton } from '../../components/DashboardButton'
-import { Edit, Plus, Search, Trash2 } from '../../components/IconComponents'
+import { Edit, Plus, Search, Settings, Trash2 } from '../../components/IconComponents'
 import { ErrorState } from '../../components/ErrorState'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
@@ -34,6 +35,7 @@ import styles from './OperationalInternshipsSection.module.css'
 
 export function OperationalInternshipsSection() {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const api = useDashboardApi()
   const pageSize = 10
   const [loading, setLoading] = useState(true)
@@ -411,6 +413,14 @@ export function OperationalInternshipsSection() {
                     <td>{internship.status}</td>
                     <td>
                       <div className="table-row-actions">
+                        <button
+                          className="action-btn"
+                          onClick={() => navigate(`/dashboard/admin/missions/${internship.id}/feature-flags`)}
+                          aria-label="Configure mission feature flags"
+                          title="Configure mission feature flags"
+                        >
+                          <Settings />
+                        </button>
                         <button
                           className="action-btn action-btn-edit"
                           onClick={() => openEditModal(internship)}

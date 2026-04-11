@@ -13,7 +13,7 @@ const notificationEndpointByRole: Record<DashboardNotificationRole, string> = {
   admin: '/api/notifications',
   manager: '/api/notifications',
   supervisor: '/api/notifications',
-  intern: '/api/notifications',
+  intern: '/api/intern/me/notifications',
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -21,7 +21,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function asString(value: unknown): string {
-  return typeof value === 'string' ? value : ''
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+
+  return ''
 }
 
 function asNullableString(value: unknown): string | null {
@@ -32,24 +40,48 @@ function asBoolean(value: unknown): boolean {
   return typeof value === 'boolean' ? value : false
 }
 
+function resolveNotificationTitle(type: string): string {
+  const normalizedType = type.trim().toLowerCase().replace(/[_\s]+/g, '')
+
+  if (normalizedType.includes('evaluation')) {
+    return 'Evaluation update'
+  }
+
+  if (normalizedType.includes('journal')) {
+    return 'Journal update'
+  }
+
+  if (normalizedType.includes('featureflag')) {
+    return 'Dashboard access updated'
+  }
+
+  return 'Notification'
+}
+
 function toNotification(value: unknown): Notification | null {
   if (!isRecord(value)) {
     return null
   }
 
-  const id = asString(value.id)
+  const id = asString(value.id ?? value.notificationId)
   if (!id) {
     return null
   }
 
+  const type = asString(value.type)
+  const title = asString(value.title) || resolveNotificationTitle(type)
+  const relatedEntity = asNullableString(value.relatedEntity ?? value.relatedEntityId)
+  const message = asString(value.message)
+  const createdAt = asString(value.createdAt)
+
   return {
     id,
-    type: asString(value.type),
-    title: asString(value.title),
-    message: asString(value.message),
-    relatedEntity: asNullableString(value.relatedEntity),
+    type,
+    title,
+    message,
+    relatedEntity,
     isRead: asBoolean(value.isRead),
-    createdAt: asString(value.createdAt),
+    createdAt,
     readAt: asNullableString(value.readAt),
   }
 }
@@ -72,7 +104,11 @@ export function parseNotificationListResponse(payload: unknown): NotificationLis
 
   const total = typeof payload.total === 'number' ? payload.total : data.length
   const page = typeof payload.page === 'number' ? payload.page : 1
-  const limit = typeof payload.limit === 'number' ? payload.limit : defaultLimit
+  const limit = typeof payload.limit === 'number'
+    ? payload.limit
+    : typeof payload.pageSize === 'number'
+      ? payload.pageSize
+      : defaultLimit
 
   return {
     data,
@@ -117,7 +153,11 @@ export async function fetchNotificationsByRole(
     }
   }
 
-  const response = await apiFetch(`${endpoint}?page=1&limit=${limit}`, {
+  const query = role === 'intern'
+    ? `?page=1&pageSize=${limit}`
+    : `?page=1&limit=${limit}`
+
+  const response = await apiFetch(`${endpoint}${query}`, {
     method: 'GET',
     headers: buildHeaders(),
   })
@@ -130,8 +170,23 @@ export async function fetchNotificationsByRole(
   return parseNotificationListResponse(payload)
 }
 
-export async function markNotificationRead(notificationId: string): Promise<void> {
-  await apiFetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
+export async function markNotificationRead(role: DashboardNotificationRole, notificationId: string): Promise<void> {
+  const endpoint = role === 'intern'
+    ? `/api/intern/me/notifications/${encodeURIComponent(notificationId)}/read`
+    : `/api/notifications/${encodeURIComponent(notificationId)}/read`
+
+  await apiFetch(endpoint, {
+    method: 'PATCH',
+    headers: buildHeaders(),
+  })
+}
+
+export async function markAllNotificationsRead(role: DashboardNotificationRole): Promise<void> {
+  if (role !== 'intern') {
+    return
+  }
+
+  await apiFetch('/api/intern/me/notifications/read-all', {
     method: 'PATCH',
     headers: buildHeaders(),
   })
