@@ -37,7 +37,11 @@
 }
 
 .admin-toolbar-grid {
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  grid-template-columns: minmax(140px, 1.5fr) repeat(5, minmax(100px, 1fr));
+}
+
+.admin-toolbar-grid .search-input-component {
+  max-width: 280px;
 }
 
 .admin-toolbar-grid-three {
@@ -198,7 +202,11 @@
   }
 
   .admin-toolbar-grid {
-    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    grid-template-columns: minmax(140px, 1.5fr) repeat(5, minmax(100px, 1fr));
+  }
+
+  .admin-toolbar-grid .search-input-component {
+    max-width: 240px;
   }
 }
 
