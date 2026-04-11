@@ -166,6 +166,7 @@ export function InternDashboard() {
       </header>
 
       <div className="intern-grid">
+        {/* Mission card alone on first row */}
         <FeatureGate card="missionOverview" flags={missionFlags}>
           <MissionCard
             internship={internship}
@@ -176,73 +177,82 @@ export function InternDashboard() {
           />
         </FeatureGate>
 
-        <FeatureGate card="quickStats" flags={missionFlags}>
-          <QuickStatsCard
-            tasks={tasks}
-            deliverables={deliverables}
-            internship={internship}
-            meetingsCount={meetingsCount}
-            loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
-            t={t}
-          />
-        </FeatureGate>
+        {/* Quick Stats + Tasks row */}
+        <div className="intern-row">
+          <FeatureGate card="quickStats" flags={missionFlags}>
+            <QuickStatsCard
+              tasks={tasks}
+              deliverables={deliverables}
+              internship={internship}
+              meetingsCount={meetingsCount}
+              loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
+              t={t}
+            />
+          </FeatureGate>
 
-        <FeatureGate card="tasks" flags={missionFlags}>
-          <TasksCard
-            tasks={tasks}
-            loading={loadingTasks}
-            error={tasksError}
-            onRetry={loadTasks}
-            onComplete={handleCompleteTask}
-            isReadOnly={isCardReadOnly('tasks')}
-            t={t}
-          />
-        </FeatureGate>
+          <FeatureGate card="tasks" flags={missionFlags}>
+            <TasksCard
+              tasks={tasks}
+              loading={loadingTasks}
+              error={tasksError}
+              onRetry={loadTasks}
+              onComplete={handleCompleteTask}
+              isReadOnly={isCardReadOnly('tasks')}
+              t={t}
+            />
+          </FeatureGate>
+        </div>
 
-        <FeatureGate card="deliverables" flags={missionFlags}>
-          <DeliverablesCard
-            deliverables={deliverables}
-            loading={loadingDeliverables}
-            error={deliverablesError}
-            onRetry={loadDeliverables}
-            onUploadClick={handleUploadClick}
-            onViewComment={setCommentModalDeliverable}
-            isReadOnly={isCardReadOnly('deliverables')}
-            t={t}
-          />
-        </FeatureGate>
+        {/* Deliverables + Evaluation row */}
+        <div className="intern-row">
+          <FeatureGate card="deliverables" flags={missionFlags}>
+            <DeliverablesCard
+              deliverables={deliverables}
+              loading={loadingDeliverables}
+              error={deliverablesError}
+              onRetry={loadDeliverables}
+              onUploadClick={handleUploadClick}
+              onViewComment={setCommentModalDeliverable}
+              isReadOnly={isCardReadOnly('deliverables')}
+              t={t}
+            />
+          </FeatureGate>
 
-        <FeatureGate card="evaluation" flags={missionFlags}>
-          <EvaluationCard
-            evaluations={evaluations}
-            loading={loadingEvaluations}
-            error={evaluationsError}
-            onRetry={loadEvaluations}
-            t={t}
-          />
-        </FeatureGate>
+          <FeatureGate card="evaluation" flags={missionFlags}>
+            <EvaluationCard
+              evaluations={evaluations}
+              loading={loadingEvaluations}
+              error={evaluationsError}
+              onRetry={loadEvaluations}
+              t={t}
+            />
+          </FeatureGate>
+        </div>
 
-        <FeatureGate card="journal" flags={missionFlags}>
-          <JournalCard
-            entries={journalEntries}
-            loading={loadingJournal}
-            error={journalError}
-            onRetry={loadJournal}
-            onAddClick={openJournalModal}
-            isReadOnly={isJournalReadOnly}
-            t={t}
-          />
-        </FeatureGate>
+        {/* Journal + Meeting row */}
+        <div className="intern-row">
+          <FeatureGate card="journal" flags={missionFlags}>
+            <JournalCard
+              entries={journalEntries}
+              loading={loadingJournal}
+              error={journalError}
+              onRetry={loadJournal}
+              onAddClick={openJournalModal}
+              isReadOnly={isJournalReadOnly}
+              t={t}
+            />
+          </FeatureGate>
 
-        <FeatureGate card="meeting" flags={missionFlags}>
-          <MeetingCard
-            meeting={nextMeeting}
-            loading={loadingMeeting}
-            error={meetingError}
-            onRetry={loadNextMeeting}
-            t={t}
-          />
-        </FeatureGate>
+          <FeatureGate card="meeting" flags={missionFlags}>
+            <MeetingCard
+              meeting={nextMeeting}
+              loading={loadingMeeting}
+              error={meetingError}
+              onRetry={loadNextMeeting}
+              t={t}
+            />
+          </FeatureGate>
+        </div>
       </div>
 
       {isJournalVisible && (

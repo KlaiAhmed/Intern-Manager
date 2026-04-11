@@ -19,6 +19,8 @@
   background: var(--color-surface-lowered);
   border-radius: var(--radius-lg);
   border: 2px dashed var(--color-border);
+  flex: 1;
+  min-height: 8rem;
 }
 
 .empty-state-icon {
@@ -419,53 +421,21 @@
   to { transform: rotate(360deg); }
 }
 
-/* Responsive */
-@media (max-width: 1200px) {
-  .intern-grid {
-    grid-template-columns: repeat(6, 1fr);
-  }
-
-  .mission-card,
-  .stats-card,
-  .tasks-card,
-  .deliverables-card,
-  .evaluation-card,
-  .journal-card,
-  .meeting-card {
-    grid-column: span 6;
-  }
-
-  .mission-progress-container {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .mission-dates {
-    justify-content: center;
-  }
-}
+/* Responsive - screens > 768px: mission card alone, other cards 2 per row */
+/* Default layout (already set in part.02.css): flex column with mission full width, pairs in grid rows */
 
 @media (max-width: 768px) {
   .intern-dashboard {
     padding: 1.5rem 1rem;
   }
 
-  .intern-grid {
+  /* Stack all cards vertically on mobile */
+  .intern-row {
     grid-template-columns: 1fr;
   }
 
-  .mission-card,
-  .stats-card,
-  .tasks-card,
-  .deliverables-card,
-  .evaluation-card,
-  .journal-card,
-  .meeting-card {
-    grid-column: span 1;
-  }
-
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .progress-ring-wrapper {
@@ -483,7 +453,7 @@
   }
 
   .evaluation-scores-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .meeting-display {

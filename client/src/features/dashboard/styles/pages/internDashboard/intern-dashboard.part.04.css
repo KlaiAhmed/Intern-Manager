@@ -169,7 +169,7 @@
 
 .evaluation-scores-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
@@ -234,7 +234,7 @@
 
 /* Journal Card */
 .journal-card {
-  grid-column: span 6;
+  
   background: var(--color-surface);
 }
 
@@ -274,7 +274,7 @@
 
 /* Meeting Card */
 .meeting-card {
-  grid-column: span 6;
+  
   background: var(--color-surface);
 }
 
