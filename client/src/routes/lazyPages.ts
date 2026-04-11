@@ -20,6 +20,11 @@ export const SignUpPage = lazy(async () => {
   return { default: module.SignUpPage }
 })
 
+export const ForgotPasswordPage = lazy(async () => {
+  const module = await import('../pages/ForgotPasswordPage')
+  return { default: module.ForgotPasswordPage }
+})
+
 export const NotFoundPage = lazy(async () => {
   const module = await import('../pages/NotFoundPage')
   return { default: module.NotFoundPage }

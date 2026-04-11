@@ -2,6 +2,7 @@ import type { ComponentType, LazyExoticComponent } from 'react'
 import {
   DashboardPage,
   ErrorPage,
+  ForgotPasswordPage,
   HomePage,
   LoginPage,
   NotFoundPage,
@@ -28,6 +29,7 @@ export const appRoutes: RouteDefinition[] = [
   { path: '/dashboard/admin/audit', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
   { path: '/login', component: LoginPage, isGuestOnly: true },
   { path: '/signup', component: SignUpPage, isGuestOnly: true },
+  { path: '/forgot-password', component: ForgotPasswordPage, isGuestOnly: true },
   { path: '/404', component: NotFoundPage },
   { path: '/error', component: ErrorPage },
 ]
