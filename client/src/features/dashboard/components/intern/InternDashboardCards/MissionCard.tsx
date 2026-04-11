@@ -38,7 +38,7 @@ export function MissionCard({
         <div className="error-state-modern">
           <div className="error-state-icon">⚠️</div>
           <p className="error-state-text">{error}</p>
-          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+          <button className="error-retry-btn" onClick={onRetry}>{t('dashboard.intern.card.retry')}</button>
         </div>
       </div>
     )
@@ -88,7 +88,7 @@ export function MissionCard({
         <span className={`mission-status-badge ${getStatusClass()}`}>{internship.status}</span>
       </div>
       <div className="mission-progress-container">
-        <CircularProgress value={internship.progress} />
+        <CircularProgress value={internship.progress} t={t} />
         <div className="mission-progress-details">
           <div className="progress-bar-wrapper">
             <div className="progress-bar-label-row">
@@ -101,11 +101,11 @@ export function MissionCard({
           </div>
           <div className="mission-dates">
             <div className="mission-date-item">
-              <span className="mission-date-label">Start Date</span>
+              <span className="mission-date-label">{t('dashboard.intern.card.mission.startDate')}</span>
               <span className="mission-date-value">{formatDate(internship.startDate)}</span>
             </div>
             <div className="mission-date-item">
-              <span className="mission-date-label">End Date</span>
+              <span className="mission-date-label">{t('dashboard.intern.card.mission.endDate')}</span>
               <span className="mission-date-value">{formatDate(internship.endDate)}</span>
             </div>
           </div>

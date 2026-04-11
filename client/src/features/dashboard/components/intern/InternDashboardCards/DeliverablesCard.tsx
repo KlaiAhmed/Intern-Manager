@@ -1,4 +1,4 @@
-import type { Deliverable } from '../../../types/internDashboard'
+import type { Deliverable, TranslateFn } from '../../../types/internDashboard'
 import { Icons } from './Icons'
 
 interface DeliverablesCardProps {
@@ -8,6 +8,7 @@ interface DeliverablesCardProps {
   onRetry: () => void
   onUploadClick: (id: string) => void
   onViewComment: (deliverableItem: Deliverable) => void
+  t: TranslateFn
 }
 
 export function DeliverablesCard({
@@ -17,6 +18,7 @@ export function DeliverablesCard({
   onRetry,
   onUploadClick,
   onViewComment,
+  t,
 }: DeliverablesCardProps) {
   const getStatusClass = (status: Deliverable['status']) => {
     switch (status) {
@@ -29,10 +31,10 @@ export function DeliverablesCard({
 
   const getStatusLabel = (status: Deliverable['status']) => {
     switch (status) {
-      case 'submitted': return 'Submitted'
-      case 'accepted': return 'Accepted'
-      case 'rejected': return 'Rejected'
-      default: return 'Pending'
+      case 'submitted': return t('dashboard.intern.submitted')
+      case 'accepted': return t('dashboard.intern.accepted')
+      case 'rejected': return t('dashboard.intern.rejected')
+      default: return t('dashboard.intern.notSubmitted')
     }
   }
 
@@ -48,7 +50,7 @@ export function DeliverablesCard({
   if (loading) {
     return (
       <div className="intern-card deliverables-card">
-        <div className="card-title">📁 Deliverables</div>
+        <div className="card-title">📁 {t('dashboard.intern.card.deliverables.title')}</div>
         <div className="deliverable-list">
           {[1, 2].map((index) => <div key={index} className="skeleton-card skeleton-card-lg" />)}
         </div>
@@ -62,7 +64,7 @@ export function DeliverablesCard({
         <div className="error-state-modern">
           <div className="error-state-icon">⚠️</div>
           <p className="error-state-text">{error}</p>
-          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+          <button className="error-retry-btn" onClick={onRetry}>{t('dashboard.intern.card.retry')}</button>
         </div>
       </div>
     )
@@ -72,11 +74,11 @@ export function DeliverablesCard({
     return (
       <div className="intern-card deliverables-card">
         <div className="card-header">
-          <h2 className="card-title"><span className="card-title-icon">📁</span> Deliverables</h2>
+          <h2 className="card-title"><span className="card-title-icon">📁</span> {t('dashboard.intern.card.deliverables.title')}</h2>
         </div>
         <div className="empty-state-modern">
           <div className="empty-state-icon">📂</div>
-          <p className="empty-state-text">No deliverables</p>
+          <p className="empty-state-text">{t('dashboard.intern.card.deliverables.empty')}</p>
         </div>
       </div>
     )
@@ -85,7 +87,7 @@ export function DeliverablesCard({
   return (
     <div className="intern-card deliverables-card">
       <div className="card-header">
-        <h2 className="card-title"><span className="card-title-icon">📁</span> Deliverables</h2>
+        <h2 className="card-title"><span className="card-title-icon">📁</span> {t('dashboard.intern.card.deliverables.title')}</h2>
         <span className="card-action">{deliverables.filter((deliverableItem) => deliverableItem.status === 'accepted').length}/{deliverables.length}</span>
       </div>
       <div className="deliverable-list">
@@ -109,11 +111,11 @@ export function DeliverablesCard({
             </div>
             <div className="deliverable-actions-row">
               <button className="deliverable-btn deliverable-btn-primary" onClick={() => onUploadClick(deliverableItem.id)}>
-                <Icons.upload /> Upload
+                <Icons.upload /> {t('dashboard.intern.card.deliverables.upload')}
               </button>
               {deliverableItem.status === 'rejected' && deliverableItem.supervisorComment && (
                 <button className="deliverable-btn" onClick={() => onViewComment(deliverableItem)}>
-                  <Icons.comment /> View
+                  <Icons.comment /> {t('dashboard.intern.card.deliverables.view')}
                 </button>
               )}
             </div>

@@ -1,4 +1,4 @@
-import type { Meeting } from '../../../types/internDashboard'
+import type { Meeting, TranslateFn } from '../../../types/internDashboard'
 import { Icons } from './Icons'
 
 interface MeetingCardProps {
@@ -6,6 +6,7 @@ interface MeetingCardProps {
   loading: boolean
   error: string | null
   onRetry: () => void
+  t: TranslateFn
 }
 
 export function MeetingCard({
@@ -13,11 +14,12 @@ export function MeetingCard({
   loading,
   error,
   onRetry,
+  t,
 }: MeetingCardProps) {
   if (loading) {
     return (
       <div className="intern-card meeting-card">
-        <div className="card-title">👥 Next Meeting</div>
+        <div className="card-title">👥 {t('dashboard.intern.card.meeting.title')}</div>
         <div className="skeleton-card skeleton-card-lg" />
       </div>
     )
@@ -29,7 +31,7 @@ export function MeetingCard({
         <div className="error-state-modern">
           <div className="error-state-icon">⚠️</div>
           <p className="error-state-text">{error}</p>
-          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+          <button className="error-retry-btn" onClick={onRetry}>{t('dashboard.intern.card.retry')}</button>
         </div>
       </div>
     )
@@ -39,11 +41,11 @@ export function MeetingCard({
     return (
       <div className="intern-card meeting-card">
         <div className="card-header">
-          <h2 className="card-title"><span className="card-title-icon">👥</span> Next Meeting</h2>
+          <h2 className="card-title"><span className="card-title-icon">👥</span> {t('dashboard.intern.card.meeting.title')}</h2>
         </div>
         <div className="empty-state-modern">
           <div className="empty-state-icon">📅</div>
-          <p className="empty-state-text">No upcoming meetings</p>
+          <p className="empty-state-text">{t('dashboard.intern.card.meetings.empty')}</p>
         </div>
       </div>
     )
@@ -57,7 +59,7 @@ export function MeetingCard({
   return (
     <div className="intern-card meeting-card">
       <div className="card-header">
-        <h2 className="card-title"><span className="card-title-icon">👥</span> Next Meeting</h2>
+        <h2 className="card-title"><span className="card-title-icon">👥</span> {t('dashboard.intern.card.meeting.title')}</h2>
       </div>
       <div className="meeting-display">
         <div className="meeting-calendar">
@@ -65,7 +67,7 @@ export function MeetingCard({
           <span className="meeting-calendar-day">{day}</span>
         </div>
         <div className="meeting-details">
-          <span className="meeting-with">Meeting with</span>
+          <span className="meeting-with">{t('dashboard.intern.card.meetings.with')}</span>
           <span className="meeting-supervisor-name">{meeting.supervisorName}</span>
           <div className="meeting-time">
             <Icons.clock />

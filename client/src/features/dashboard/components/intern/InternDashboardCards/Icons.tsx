@@ -1,3 +1,5 @@
+import type { TranslateFn } from '../../../types/internDashboard'
+
 export const Icons = {
   user: () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="intern-icon-md">
@@ -26,7 +28,13 @@ export const Icons = {
   ),
 }
 
-export function CircularProgress({ value, size = 128 }: { value: number; size?: number }) {
+interface CircularProgressProps {
+  value: number
+  size?: number
+  t: TranslateFn
+}
+
+export function CircularProgress({ value, size = 128, t }: CircularProgressProps) {
   const radius = (size - 16) / 2
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (value / 100) * circumference
@@ -51,7 +59,7 @@ export function CircularProgress({ value, size = 128 }: { value: number; size?: 
         />
       </svg>
       <div className="progress-ring-value">{value}%</div>
-      <div className="progress-ring-label">Complete</div>
+      <div className="progress-ring-label">{t('dashboard.intern.card.progress.complete')}</div>
     </div>
   )
 }

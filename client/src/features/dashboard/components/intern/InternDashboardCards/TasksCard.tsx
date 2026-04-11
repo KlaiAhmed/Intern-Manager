@@ -1,4 +1,4 @@
-import type { Task } from '../../../types/internDashboard'
+import type { Task, TranslateFn } from '../../../types/internDashboard'
 
 interface TasksCardProps {
   tasks: Task[]
@@ -6,6 +6,7 @@ interface TasksCardProps {
   error: string | null
   onRetry: () => void
   onComplete: (id: string) => void
+  t: TranslateFn
 }
 
 export function TasksCard({
@@ -14,13 +15,14 @@ export function TasksCard({
   error,
   onRetry,
   onComplete,
+  t,
 }: TasksCardProps) {
   const incompleteTasks = tasks.filter((taskItem) => !taskItem.completed).slice(0, 4)
 
   if (loading) {
     return (
       <div className="intern-card tasks-card">
-        <div className="card-title">Tasks</div>
+        <div className="card-title">{t('dashboard.intern.card.tasks.title')}</div>
         <div className="task-list-modern">
           {[1, 2, 3].map((index) => <div key={index} className="skeleton-card skeleton-card-sm" />)}
         </div>
@@ -34,7 +36,7 @@ export function TasksCard({
         <div className="error-state-modern">
           <div className="error-state-icon">⚠️</div>
           <p className="error-state-text">{error}</p>
-          <button className="error-retry-btn" onClick={onRetry}>Retry</button>
+          <button className="error-retry-btn" onClick={onRetry}>{t('dashboard.intern.card.retry')}</button>
         </div>
       </div>
     )
@@ -44,11 +46,11 @@ export function TasksCard({
     return (
       <div className="intern-card tasks-card">
         <div className="card-header">
-          <h2 className="card-title"><span className="card-title-icon">📋</span> Tasks</h2>
+          <h2 className="card-title"><span className="card-title-icon">📋</span> {t('dashboard.intern.card.tasks.title')}</h2>
         </div>
         <div className="empty-state-modern">
           <div className="empty-state-icon">✅</div>
-          <p className="empty-state-text">No tasks assigned</p>
+          <p className="empty-state-text">{t('dashboard.intern.card.tasks.empty')}</p>
         </div>
       </div>
     )
@@ -57,7 +59,7 @@ export function TasksCard({
   return (
     <div className="intern-card tasks-card">
       <div className="card-header">
-        <h2 className="card-title"><span className="card-title-icon">📋</span> Tasks</h2>
+        <h2 className="card-title"><span className="card-title-icon">📋</span> {t('dashboard.intern.card.tasks.title')}</h2>
         <span className="card-action">{tasks.filter((taskItem) => taskItem.completed).length}/{tasks.length}</span>
       </div>
       <div className="task-list-modern">
@@ -72,7 +74,7 @@ export function TasksCard({
             />
             <div className="task-content-modern">
               <p className="task-title-modern">{taskItem.title}</p>
-              <p className="task-due-modern">Due {taskItem.dueDate}</p>
+              <p className="task-due-modern">{t('dashboard.intern.card.tasks.due')} {taskItem.dueDate}</p>
             </div>
             <div className={`task-priority task-priority-${taskItem.priority || 'low'}`} />
           </div>
