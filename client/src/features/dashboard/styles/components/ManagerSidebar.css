@@ -298,28 +298,6 @@
   flex: none;
 }
 
-/* Badge */
-.manager-nav-badge {
-  margin-left: auto;
-  padding: 0.125rem 0.5rem;
-  background: var(--dash-accent);
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 9999px;
-  min-width: 1.5rem;
-  text-align: center;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.manager-sidebar[data-open="true"] .manager-nav-badge {
-  opacity: 1;
-  transform: scale(1);
-}
-
 /* Mobile Styles */
 .manager-mobile-header {
   display: none;
@@ -354,8 +332,7 @@
   }
 
   .manager-sidebar[data-tablet="true"] .manager-sidebar-brand,
-  .manager-sidebar[data-tablet="true"] .manager-nav-label,
-  .manager-sidebar[data-tablet="true"] .manager-nav-badge {
+  .manager-sidebar[data-tablet="true"] .manager-nav-label {
     opacity: 0;
     pointer-events: none;
     max-width: 0;
@@ -425,8 +402,7 @@
   }
 
   .manager-sidebar[data-mobile="true"] .manager-sidebar-brand,
-  .manager-sidebar[data-mobile="true"] .manager-nav-label,
-  .manager-sidebar[data-mobile="true"] .manager-nav-badge {
+  .manager-sidebar[data-mobile="true"] .manager-nav-label {
     opacity: 1;
     pointer-events: auto;
   }
@@ -441,7 +417,6 @@
   .manager-sidebar,
   .manager-sidebar-brand,
   .manager-nav-label,
-  .manager-nav-badge,
   .manager-active-indicator,
   .manager-toggle-icon {
     animation: none !important;

@@ -11,7 +11,6 @@ interface NavItem {
   id: ManagerSection
   label: string
   icon: ReactNode
-  badge?: number
 }
 
 interface ManagerSidebarProps {
@@ -133,9 +132,6 @@ export function ManagerSidebar({
                     {item.icon}
                   </span>
                   <span className="manager-nav-label">{item.label}</span>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span className="manager-nav-badge">{item.badge}</span>
-                  )}
                   {activeSection === item.id && <span className="manager-active-indicator" />}
                 </button>
               </li>
@@ -193,12 +189,12 @@ export const ManagerIcons = {
 export const { Overview: ManagerOverview, Interns, Supervisors, Departments, BarChart: ManagerBarChart } = ManagerIcons
 
 // Helper to get default nav items
-export function getManagerNavItems(internsCount?: number, supervisorsCount?: number, departmentsCount?: number): NavItem[] {
+export function getManagerNavItems(): NavItem[] {
   return [
     { id: 'overview', label: 'Overview', icon: <ManagerOverview /> },
-    { id: 'interns', label: 'Interns', icon: <Interns />, badge: internsCount },
-    { id: 'supervisors', label: 'Supervisors', icon: <Supervisors />, badge: supervisorsCount },
-    { id: 'departments', label: 'Departments', icon: <Departments />, badge: departmentsCount },
+    { id: 'interns', label: 'Interns', icon: <Interns /> },
+    { id: 'supervisors', label: 'Supervisors', icon: <Supervisors /> },
+    { id: 'departments', label: 'Departments', icon: <Departments /> },
     { id: 'biPanel', label: 'BI Panel', icon: <ManagerBarChart /> },
   ]
 }
