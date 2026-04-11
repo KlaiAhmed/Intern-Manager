@@ -3,6 +3,7 @@ using System.Text;
 using InternManager.Api.Common.Options;
 using InternManager.Api.Middleware;
 using InternManager.Api.Services.Auth;
+using InternManager.Api.Services.Email;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -30,10 +31,12 @@ public static class AuthExtensions
         ValidateJwtOptions(jwtOptions);
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         services.AddSingleton<IAuthUserStore, DbAuthUserStore>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPasswordResetService, PasswordResetService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         services.AddScoped<CsrfValidationFilter>();
         services.Configure<MvcOptions>(options =>
