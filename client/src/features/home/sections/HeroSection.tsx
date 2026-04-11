@@ -1,25 +1,33 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { Section } from '../../../components/ui/Section'
 import { useI18n } from '../../../locales/I18nContext'
 import { useAuth } from '../../../stores/AuthContext'
-import { useEffect, useState } from 'react'
 import { classNames } from '../../../utils/classNames'
+import { useHomeStats } from '../hooks/useHomeStats'
 import styles from './HeroSection.module.css'
 
-const heroStats = [
-  { key: 'hero.statTeams', value: '24+' },
-  { key: 'hero.statInterns', value: '1.8K' },
-  { key: 'hero.statCompletion', value: '93%' },
+const heroStatDefinitions = [
+  { key: 'hero.statSupervisors', field: 'supervisors' },
+  { key: 'hero.statInterns', field: 'interns' },
+  { key: 'hero.statMissions', field: 'missions' },
 ] as const
 
-function AnimatedStat({ value, labelKey, delay }: { value: string; labelKey: typeof heroStats[number]['key']; delay: number }) {
-  const { t } = useI18n()
+function AnimatedStat({ value, labelKey, delay }: { value: number; labelKey: typeof heroStatDefinitions[number]['key']; delay: number }) {
+  const { t, locale } = useI18n()
   const [count, setCount] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
-  const numericValue = parseFloat(value.replace(/[^0-9.]/g, ''))
-  const suffix = value.replace(/[0-9.]/g, '')
+  const formatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }),
+    [locale]
+  )
+  const targetValue = Math.max(0, value)
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), delay * 100 + 500)
@@ -31,31 +39,28 @@ function AnimatedStat({ value, labelKey, delay }: { value: string; labelKey: typ
 
     const duration = 1200
     const steps = 40
-    const increment = numericValue / steps
-    let current = 0
-    let step = 0
+    const increment = targetValue / steps
+    let currentStep = 0
+
+    setCount(0)
 
     const timer = setInterval(() => {
-      step++
-      current = Math.min(increment * step, numericValue)
-      setCount(current)
+      currentStep++
+      const nextValue = Math.min(increment * currentStep, targetValue)
+      setCount(nextValue)
 
-      if (step >= steps) {
-        setCount(numericValue)
+      if (currentStep >= steps) {
+        setCount(targetValue)
         clearInterval(timer)
       }
     }, duration / steps)
 
     return () => clearInterval(timer)
-  }, [isVisible, numericValue])
-
-  const displayValue = value.includes('.')
-    ? `${count.toFixed(1)}${suffix}`
-    : `${Math.round(count)}${suffix}`
+  }, [isVisible, targetValue])
 
   return (
     <li className={classNames(styles.heroStatItem, 'reveal-on-scroll')}>
-      <strong>{isVisible ? displayValue : '0'}</strong>
+      <strong>{isVisible ? formatter.format(count) : formatter.format(0)}</strong>
       <span>{t(labelKey)}</span>
     </li>
   )
@@ -65,6 +70,7 @@ export function HeroSection() {
   const { t } = useI18n()
   const { isLoggedIn } = useAuth()
   const navigate = useNavigate()
+  const homeStats = useHomeStats()
 
   return (
     <Section className={styles.heroSection}>
@@ -100,10 +106,10 @@ export function HeroSection() {
 
         <aside className={styles.heroPanel} aria-label="Platform impact metrics">
           <ul className={styles.heroStatsList}>
-            {heroStats.map((stat, index) => (
+            {heroStatDefinitions.map((stat, index) => (
               <AnimatedStat
                 key={stat.key}
-                value={stat.value}
+                value={homeStats?.[stat.field] ?? 0}
                 labelKey={stat.key}
                 delay={index}
               />

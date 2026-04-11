@@ -114,6 +114,7 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .heroStatItem span {
