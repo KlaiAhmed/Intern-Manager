@@ -122,6 +122,15 @@ JWT__REFRESHTOKENDAYS=7
 DATABASE_PATH=app.db
 SQLSERVER_INSTANCE=.\SQLEXPRESS
 
+# Email (SMTP)
+EMAIL__HOST=localhost
+EMAIL__PORT=25
+EMAIL__USERNAME=
+EMAIL__PASSWORD=
+EMAIL__FROMADDRESS=no-reply@axia.local
+EMAIL__FROMNAME=Axia Intern Manager
+EMAIL__USESSL=false
+
 # SuperAdmin Seed
 SUPERADMIN_EMAIL=admin@axia.com
 SUPERADMIN_PASSWORD=Admin@1234
@@ -140,6 +149,7 @@ SUPERADMIN_LASTNAME=Admin
 | `JWT__AUDIENCE` | Yes | — | JWT audience claim |
 | `DATABASE_PATH` | Yes | — | Used to name the SQL Server database |
 | `SQLSERVER_INSTANCE` | No | `.\SQLEXPRESS` | SQL Server instance name |
+| `EMAIL__*` | No | See `.env.example` | SMTP settings for password reset code emails |
 | `SUPERADMIN_*` | Yes | — | Credentials for initial admin account |
 
 > **Note:** `DATABASE_PATH=app.db` creates a database named `AXIAInternManager_app`.
@@ -242,6 +252,9 @@ On startup, `DbSeeder` performs:
 | `POST` | `/auth/refresh` | Rotate refresh token |
 | `POST` | `/auth/logout` | Invalidate tokens and clear cookies |
 | `GET` | `/auth/me` | Get current user claims (requires auth) |
+| `POST` | `/api/auth/forgot-password` | Request a 6-digit reset code (generic 200 response) |
+| `POST` | `/api/auth/verify-reset-code` | Verify reset code and receive a short-lived verification token |
+| `POST` | `/api/auth/reset-password` | Reset password using verification token |
 
 ### Token Details
 

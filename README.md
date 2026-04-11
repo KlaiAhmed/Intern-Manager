@@ -205,6 +205,9 @@ Main endpoints:
 
 - `POST /auth/login` - Sign in
 - `GET /auth/me` - Current user
+- `POST /api/auth/forgot-password` - Request a 6-digit reset code
+- `POST /api/auth/verify-reset-code` - Verify code and get verification token
+- `POST /api/auth/reset-password` - Reset password with verification token
 - `GET /users` - Users list for Admin/SuperAdmin
 - `GET/POST /internships` - Internship management
 - `GET/POST /missions` - Mission management
