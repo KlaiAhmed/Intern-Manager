@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { classNames } from '../../../../utils/classNames'
 import { LanguageSwitcher } from '../../../../components/ui/LanguageSwitcher'
 import { ThemeSwitcher } from '../../../../components/ui/ThemeSwitcher'
@@ -11,6 +11,8 @@ interface LoginAuthViewProps {
 }
 
 export function LoginAuthView({ logic }: LoginAuthViewProps) {
+  const location = useLocation()
+
   const {
     t,
     values,
@@ -28,6 +30,8 @@ export function LoginAuthView({ logic }: LoginAuthViewProps) {
     validateLoginField,
     handleLogin,
   } = logic
+
+  const shouldShowResetSuccess = new URLSearchParams(location.search).get('reset') === 'success'
 
   return (
     <main className={styles.authPage}>
@@ -81,6 +85,11 @@ export function LoginAuthView({ logic }: LoginAuthViewProps) {
             <div>
               <h2 className={styles.loginHeading}>{heading}</h2>
               <p className={styles.loginDescription}>{t('auth.login.description')}</p>
+              {shouldShowResetSuccess ? (
+                <p className={styles.successText} role="status">
+                  {t('auth.reset.successLoginPrompt')}
+                </p>
+              ) : null}
             </div>
 
             <form className={styles.loginForm} noValidate onSubmit={handleLogin}>
@@ -177,9 +186,9 @@ export function LoginAuthView({ logic }: LoginAuthViewProps) {
                   {t('auth.login.rememberMe')}
                 </label>
 
-                <a className={styles.forgotLink} href="#">
+                <Link className={styles.forgotLink} to="/forgot-password">
                   {t('auth.login.forgotPassword')}
-                </a>
+                </Link>
               </div>
 
               <button

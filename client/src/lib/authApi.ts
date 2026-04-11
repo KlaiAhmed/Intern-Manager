@@ -16,6 +16,10 @@ export interface SignupPayload {
   role: string
 }
 
+interface VerifyResetCodeResponse {
+  verificationToken?: string
+}
+
 interface UserSummaryResponse {
   id: string
   fullName?: string
@@ -324,6 +328,60 @@ export async function signupWithPassword(payload: SignupPayload): Promise<AuthUs
   }
 
   return user
+}
+
+export async function requestPasswordResetCode(email: string): Promise<void> {
+  const response = await apiFetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  })
+
+  await ensureSuccess(response)
+}
+
+export async function verifyPasswordResetCode(email: string, code: string): Promise<string> {
+  const response = await apiFetch('/api/auth/verify-reset-code', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, code }),
+  })
+
+  await ensureSuccess(response)
+
+  let payload: VerifyResetCodeResponse | null = null
+  try {
+    payload = (await response.json()) as VerifyResetCodeResponse
+  } catch {
+    payload = null
+  }
+
+  const verificationToken = asTrimmedString(payload?.verificationToken)
+  if (!verificationToken) {
+    throw new ApiRequestError('Invalid or expired code.', 400)
+  }
+
+  return verificationToken
+}
+
+export async function resetPasswordWithVerification(
+  verificationToken: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<void> {
+  const response = await apiFetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ verificationToken, newPassword, confirmPassword }),
+  })
+
+  await ensureSuccess(response)
 }
 
 export async function logoutCurrentUser(): Promise<void> {

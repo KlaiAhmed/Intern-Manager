@@ -231,6 +231,17 @@
   font-size: 0.875rem;
 }
 
+.successText {
+  margin-top: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  color: var(--color-success);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.55rem 0.75rem;
+}
+
 .loginForm {
   margin-top: 2rem;
   display: flex;
