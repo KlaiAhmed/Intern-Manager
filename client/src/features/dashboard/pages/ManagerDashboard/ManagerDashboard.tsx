@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
+import { BIPanelSection } from '../../components/BIPanelSection'
 import { ManagerSidebar, getManagerNavItems } from '../../components/ManagerSidebar'
 import type { ManagerTabId } from './types'
 import { useManagerDashboardState } from './useManagerDashboardState'
@@ -144,6 +145,8 @@ export function ManagerDashboard() {
             loadDepartments={loadDepartments}
           />
         )
+      case 'biPanel':
+        return <BIPanelSection />
       default:
         return null
     }

@@ -17,6 +17,13 @@ const Icon = ({ size = 20, children }: { size?: number; children: ReactNode }) =
 
 export const Icons = {
   // Navigation
+  BarChart: () => (
+    <Icon>
+      <line x1="12" y1="20" x2="12" y2="10" />
+      <line x1="18" y1="20" x2="18" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </Icon>
+  ),
   Overview: () => (
     <Icon>
       <rect x="3" y="3" width="7" height="9" rx="1" />
@@ -177,6 +184,7 @@ export const Icons = {
 
 // Create valid React components for TypeScript
 export const {
+  BarChart,
   Overview,
   Users,
   User,

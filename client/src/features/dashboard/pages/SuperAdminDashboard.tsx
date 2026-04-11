@@ -63,6 +63,7 @@ import { SuperAdminStatCard } from '../components/SuperAdminStatCard'
 import { UserManagementSection } from '../components/UserManagementSection'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import { AuditLogSection } from '../components/AuditLogSection'
+import { BIPanelSection } from '../components/BIPanelSection'
 import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
 import {
@@ -294,6 +295,8 @@ export function SuperAdminDashboard() {
         )
       case 'audit':
         return <AuditLogSection />
+      case 'biPanel':
+        return <BIPanelSection />
       default:
         return <OverviewSection />
     }

@@ -96,11 +96,11 @@ export interface DepartmentRecord {
   name?: string
 }
 
-export type ManagerTabId = 'overview' | 'interns' | 'supervisors' | 'departments'
+export type ManagerTabId = 'overview' | 'interns' | 'supervisors' | 'departments' | 'biPanel'
 
 export interface ManagerNavItem {
   id: ManagerTabId
   label: string
-  icon: 'overview' | 'interns' | 'supervisors' | 'departments'
+  icon: 'overview' | 'interns' | 'supervisors' | 'departments' | 'biPanel'
   badge?: number
 }

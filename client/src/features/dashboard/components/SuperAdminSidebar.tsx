@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode, useCallback } from 'react'
 import {
+  BarChart,
   Overview,
   Users,
   Briefcase,
@@ -20,6 +21,7 @@ export type SuperAdminSection =
   | 'evaluations'
   | 'settings'
   | 'audit'
+  | 'biPanel'
 
 export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
 
@@ -43,6 +45,7 @@ const navItems: NavItem[] = [
   { id: 'internships', label: 'Internships', icon: <Briefcase /> },
   { id: 'missions', label: 'Interns Management', icon: <BookOpen /> },
   { id: 'evaluations', label: 'Evaluations', icon: <ClipboardCheck /> },
+  { id: 'biPanel', label: 'BI Panel', icon: <BarChart /> },
 ]
 
 export function SuperAdminSidebar({

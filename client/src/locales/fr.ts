@@ -256,6 +256,10 @@ export const commonFr = {
   'dashboard.section.inDevelopment': 'En Developpement',
   'dashboard.action.comingSoon': 'Bientot Disponible',
 
+  // Dashboard - BI Panel
+  'dashboard.biPanel.title': 'Tableau de Bord BI',
+  'dashboard.biPanel.subtitle': 'Tableau de Bord Business Intelligence et Analytics',
+
   // Dashboard - Admin
   'dashboard.admin.title': 'Tableau de Bord Admin',
   'dashboard.admin.userAccounts': 'Gestion des Comptes Utilisateurs',

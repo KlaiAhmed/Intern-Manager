@@ -256,6 +256,10 @@ export const commonEn = {
   'dashboard.section.inDevelopment': 'In Development',
   'dashboard.action.comingSoon': 'Coming Soon',
 
+  // Dashboard - BI Panel
+  'dashboard.biPanel.title': 'BI Panel',
+  'dashboard.biPanel.subtitle': 'Business Intelligence and Analytics Dashboard',
+
   // Dashboard - Admin
   'dashboard.admin.title': 'Admin Dashboard',
   'dashboard.admin.userAccounts': 'User Accounts Management',

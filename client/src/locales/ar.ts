@@ -256,6 +256,10 @@ export const commonAr = {
   'dashboard.section.inDevelopment': 'قيد التطوير',
   'dashboard.action.comingSoon': 'قريباً',
 
+  // Dashboard - BI Panel
+  'dashboard.biPanel.title': 'لوحة التحليلات',
+  'dashboard.biPanel.subtitle': 'لوحة تحكم الذكاء الاعمالي والتحليلات',
+
   // Dashboard - Admin
   'dashboard.admin.title': 'لوحة تحكم المدير',
   'dashboard.admin.userAccounts': 'ادارة حسابات المستخدمين',
