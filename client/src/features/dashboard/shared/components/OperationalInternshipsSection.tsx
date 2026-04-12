@@ -400,6 +400,7 @@ export function OperationalInternshipsSection() {
                   <tr key={internship.id}>
                     <td>
                       <button
+                        type="button"
                         className="admin-link-button"
                         onClick={() => openDetailsModal(internship)}
                       >
@@ -414,6 +415,7 @@ export function OperationalInternshipsSection() {
                     <td>
                       <div className="table-row-actions">
                         <button
+                          type="button"
                           className="action-btn"
                           onClick={() => navigate(`/dashboard/admin/missions/${internship.id}/feature-flags`)}
                           aria-label="Configure mission feature flags"
@@ -422,6 +424,7 @@ export function OperationalInternshipsSection() {
                           <Settings />
                         </button>
                         <button
+                          type="button"
                           className="action-btn action-btn-edit"
                           onClick={() => openEditModal(internship)}
                           aria-label={t('dashboard.operational.internships.edit')}
@@ -430,6 +433,7 @@ export function OperationalInternshipsSection() {
                           <Edit />
                         </button>
                         <button
+                          type="button"
                           className="action-btn action-btn-delete"
                           onClick={() => void deleteInternship(internship.id)}
                           aria-label={t('dashboard.operational.internships.delete')}
