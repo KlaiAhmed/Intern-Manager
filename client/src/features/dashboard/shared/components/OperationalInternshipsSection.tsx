@@ -493,7 +493,7 @@ export function OperationalInternshipsSection() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="internship-co-supervisor">Co-supervisor (optional)</label>
+              <label htmlFor="internship-co-supervisor">{t('dashboard.operational.internships.form.coSupervisor')}</label>
               <select
                 id="internship-co-supervisor"
                 value={formState.coSupervisorId}
@@ -529,7 +529,7 @@ export function OperationalInternshipsSection() {
                 value={formState.type}
                 onChange={(event) => setFormState((prev) => ({ ...prev, type: event.target.value }))}
               >
-                <option value="">{t('dashboard.operational.internships.form.selectDepartment')}</option>
+                <option value="">{t('dashboard.operational.internships.form.selectType')}</option>
                 {types.map((type) => (
                   <option key={type.id} value={type.name}>{type.name}</option>
                 ))}
@@ -594,7 +594,7 @@ export function OperationalInternshipsSection() {
 
           <div className="modal-actions">
             <DashboardButton variant="secondary" size="md" onClick={() => setFormModalOpen(false)} type="button">
-              Cancel
+              {t('dashboard.operational.internships.form.cancel')}
             </DashboardButton>
             <DashboardButton variant="primary" size="md" loading={formSubmitting} type="submit">
               {editingInternshipId ? t('dashboard.operational.internships.form.saveChanges') : t('dashboard.operational.internships.form.create')}
@@ -620,14 +620,14 @@ export function OperationalInternshipsSection() {
                 onClick={() => setDetailsTab('details')}
                 type="button"
               >
-                Details
+                {t('dashboard.operational.internships.modal.detailsTab')}
               </button>
               <button
                 className={`admin-tab-button ${detailsTab === 'history' ? 'is-active' : ''}`}
                 onClick={() => setDetailsTab('history')}
                 type="button"
               >
-                History
+                {t('dashboard.operational.internships.modal.historyTab')}
               </button>
             </div>
 
