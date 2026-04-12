@@ -22,7 +22,6 @@ namespace InternManager.Api.Controllers;
 [Route("api/meetings")]
 // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
 [Authorize(Roles = "SuperAdmin,Admin,Supervisor,Intern")]
-[EnableRateLimiting("write-operations")]
 public sealed class MeetingsController(
     AppDbContext dbContext,
     INotificationService notificationService,
@@ -50,6 +49,7 @@ public sealed class MeetingsController(
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMeetings")]
     [FeatureCard(DashboardCard.Meeting)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -187,6 +187,7 @@ public sealed class MeetingsController(
     [HttpPost(Name = "CreateMeeting")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -316,6 +317,7 @@ public sealed class MeetingsController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Réunion non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetMeetingById")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -386,6 +388,7 @@ public sealed class MeetingsController(
     [HttpPatch("{id:guid}", Name = "UpdateMeeting")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -513,6 +516,7 @@ public sealed class MeetingsController(
     [HttpDelete("{id:guid}", Name = "DeleteMeeting")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

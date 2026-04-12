@@ -18,7 +18,6 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/admin/settings")]
 [Authorize]
-[EnableRateLimiting("write-operations")]
 public sealed class AdminSettingsController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
@@ -35,6 +34,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="403">Accès refusé.</response>
     [HttpGet("departments", Name = "ListDepartments")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -58,6 +58,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="404">Département non trouvé.</response>
     [HttpGet("departments/{id:guid}", Name = "GetDepartmentById")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -83,6 +84,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Un département avec ce nom existe déjà.</response>
     [HttpPost("departments", Name = "CreateDepartment")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -111,6 +113,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Un département avec ce nom existe déjà.</response>
     [HttpPatch("departments/{id:guid}", Name = "UpdateDepartment")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -139,6 +142,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Département encore utilisé par des utilisateurs.</response>
     [HttpDelete("departments/{id:guid}", Name = "DeleteDepartment")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -162,6 +166,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="403">Accès refusé.</response>
     [HttpGet("schools", Name = "ListSchools")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -182,6 +187,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="404">École non trouvée.</response>
     [HttpGet("schools/{id:guid}", Name = "GetSchoolById")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -204,6 +210,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Une école avec ce nom existe déjà.</response>
     [HttpPost("schools", Name = "CreateSchool")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -229,6 +236,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Une école avec ce nom existe déjà.</response>
     [HttpPatch("schools/{id:guid}", Name = "UpdateSchool")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -253,6 +261,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">École encore utilisée.</response>
     [HttpDelete("schools/{id:guid}", Name = "DeleteSchool")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -273,6 +282,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internship-types", Name = "ListInternshipTypes")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -293,6 +303,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="404">Type de stage non trouvé.</response>
     [HttpGet("internship-types/{id:guid}", Name = "GetInternshipTypeById")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -315,6 +326,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Un type de stage avec ce nom existe déjà.</response>
     [HttpPost("internship-types", Name = "CreateInternshipType")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -340,6 +352,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Un type de stage avec ce nom existe déjà.</response>
     [HttpPatch("internship-types/{id:guid}", Name = "UpdateInternshipType")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -364,6 +377,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Type de stage encore utilisé.</response>
     [HttpDelete("internship-types/{id:guid}", Name = "DeleteInternshipType")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -384,6 +398,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="403">Accès refusé.</response>
     [HttpGet("skills", Name = "ListSkills")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -404,6 +419,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="404">Compétence non trouvée.</response>
     [HttpGet("skills/{id:guid}", Name = "GetSkillById")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -426,6 +442,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Une compétence avec ce nom existe déjà.</response>
     [HttpPost("skills", Name = "CreateSkill")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -451,6 +468,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Une compétence avec ce nom existe déjà.</response>
     [HttpPatch("skills/{id:guid}", Name = "UpdateSkill")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -475,6 +493,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="409">Compétence encore utilisée.</response>
     [HttpDelete("skills/{id:guid}", Name = "DeleteSkill")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -487,6 +506,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
 
     [HttpGet("verification-statuses", Name = "ListVerificationStatuses")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -497,6 +517,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
 
     [HttpGet("verification-statuses/{id:guid}", Name = "GetVerificationStatusById")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -508,6 +529,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
 
     [HttpPost("verification-statuses", Name = "CreateVerificationStatus")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -520,6 +542,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
 
     [HttpPatch("verification-statuses/{id:guid}", Name = "UpdateVerificationStatus")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -533,6 +556,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
 
     [HttpDelete("verification-statuses/{id:guid}", Name = "DeleteVerificationStatus")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

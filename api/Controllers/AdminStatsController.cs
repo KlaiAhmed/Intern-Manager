@@ -3,6 +3,7 @@ using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -33,6 +34,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns/active", Name = "GetActiveInterns")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -59,6 +61,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns/count", Name = "GetInternsCount")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -82,6 +85,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("supervisors", Name = "GetSupervisorsStats")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -108,6 +112,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("supervisors/count", Name = "GetSupervisorsCount")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -131,6 +136,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("missions", Name = "GetMissionsStats")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -150,6 +156,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <returns>Les compteurs publics utilisés par le héros de la page d accueil.</returns>
     [HttpGet("home", Name = "GetHomeStats")]
     [AllowAnonymous]
+    [EnableRateLimiting("read-frequent")]
     [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
     [ProducesResponseType(typeof(HomeStatsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetHomeStats(CancellationToken cancellationToken)
@@ -182,6 +189,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("admins", Name = "GetAdminsStats")]
     [Authorize(Roles = AdminRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -205,6 +213,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internships/active", Name = "GetActiveInternships")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -237,6 +246,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns-by-department", Name = "GetInternsByDepartment")]
     [Authorize(Roles = AdminRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -283,6 +293,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internships-by-status", Name = "GetInternshipsByStatus")]
     [Authorize(Roles = AdminRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -328,6 +339,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("internships-by-type", Name = "GetInternshipsByType")]
     [Authorize(Roles = AdminRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -388,6 +400,7 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// <response code="403">Accès refusé.</response>
     [HttpGet("deliverables/pending", Name = "GetPendingDeliverablesStats")]
     [Authorize(Roles = DashboardReadRole)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -5,6 +5,7 @@ using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -38,6 +39,7 @@ public sealed class SupervisorStatsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("interns/active", Name = "GetMyActiveInterns")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -78,6 +80,7 @@ public sealed class SupervisorStatsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("deliverables/pending", Name = "GetMyPendingDeliverables")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -111,6 +114,7 @@ public sealed class SupervisorStatsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("avg-progress", Name = "GetMyAvgProgress")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -133,6 +137,7 @@ public sealed class SupervisorStatsController(
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le délai moyen en jours ainsi que la taille de l échantillon.</returns>
     [HttpGet("avg-validation-delay", Name = "GetMyAvgValidationDelay")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(AvgValidationDelayResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -154,6 +159,7 @@ public sealed class SupervisorStatsController(
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Charge actuelle, capacité et répartition par type de stage.</returns>
     [HttpGet("workload", Name = "GetMyWorkload")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(SupervisorWorkloadResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -175,6 +181,7 @@ public sealed class SupervisorStatsController(
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>La liste des livrables en retard ordonnée par criticité.</returns>
     [HttpGet("delays-alerts", Name = "GetMyDelaysAlerts")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(DelaysAlertsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -203,6 +210,7 @@ public sealed class SupervisorStatsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("overdue", Name = "GetMyOverdueItems")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -343,7 +343,7 @@ public sealed class AuthController(
     /// <response code="401">Jeton de rafraîchissement invalide ou expiré.</response>
     [AllowAnonymous]
     [HttpPost("refresh", Name = "RefreshToken")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("auth-refresh")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
@@ -374,6 +374,7 @@ public sealed class AuthController(
     /// <response code="200">Déconnexion traitée (idempotent).</response>
     [AllowAnonymous]
     [HttpPost("logout", Name = "Logout")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
@@ -399,6 +400,7 @@ public sealed class AuthController(
     /// <response code="401">Utilisateur non connecté ou jeton invalide.</response>
     [Authorize]
     [HttpGet("me", Name = "GetCurrentUser")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(AuthMeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public IActionResult Me()

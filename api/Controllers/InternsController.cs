@@ -22,6 +22,7 @@ public sealed class InternsController(
 {
     [HttpGet(Name = "ListInterns")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -119,6 +120,7 @@ public sealed class InternsController(
     }
 
     [HttpGet("{id:guid}", Name = "GetInternById")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(InternDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -281,6 +283,7 @@ public sealed class InternsController(
 
     [HttpPut("{id:guid}/skills", Name = "UpdateInternSkills")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -352,6 +355,7 @@ public sealed class InternsController(
     /// <response code="404">Intern not found or CV not available.</response>
     [HttpGet("{id:guid}/cv", Name = "DownloadInternCv")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -79,6 +79,7 @@ public sealed class DeliverablesController(
     [HttpGet(Name = "ListDeliverables")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<DeliverableQueueItemResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -144,6 +145,7 @@ public sealed class DeliverablesController(
     [FeatureCard(DashboardCard.Deliverables)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -205,6 +207,7 @@ public sealed class DeliverablesController(
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable ou fichier non trouvé.</response>
     [HttpGet("{id:guid}/file", Name = "DownloadDeliverableFile")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -462,6 +465,7 @@ public sealed class DeliverablesController(
     [FeatureCard(DashboardCard.Deliverables)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -544,6 +548,7 @@ public sealed class DeliverablesController(
     [HttpPatch("{id:guid}/validate", Name = "ValidateDeliverable")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

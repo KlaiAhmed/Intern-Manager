@@ -22,7 +22,6 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/evaluations")]
 [Authorize]
-[EnableRateLimiting("write-operations")]
 public sealed class EvaluationsController(
     AppDbContext dbContext,
     ISupervisorScopeService supervisorScopeService,
@@ -50,6 +49,7 @@ public sealed class EvaluationsController(
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListEvaluations")]
     [Authorize(Roles = "Admin,SuperAdmin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -155,6 +155,7 @@ public sealed class EvaluationsController(
     [HttpGet("pending", Name = "ListPendingEvaluations")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -234,6 +235,7 @@ public sealed class EvaluationsController(
     [HttpGet("supervisor/me/status", Name = "GetSupervisorEvaluationStatus")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(EvaluationStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -268,6 +270,7 @@ public sealed class EvaluationsController(
     [HttpPost("pending/sync", Name = "SyncPendingEvaluations")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -378,6 +381,7 @@ public sealed class EvaluationsController(
     [HttpPost(Name = "SubmitEvaluation")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -505,6 +509,7 @@ public sealed class EvaluationsController(
     [HttpPatch("{id:guid}", Name = "UpdateEvaluation")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -635,6 +640,7 @@ public sealed class EvaluationsController(
     [HttpGet("{id:guid}", Name = "GetEvaluationById")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -693,6 +699,7 @@ public sealed class EvaluationsController(
     [FeatureCard(DashboardCard.Evaluation)]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

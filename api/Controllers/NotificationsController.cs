@@ -3,6 +3,7 @@ using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -32,6 +33,7 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
     /// <response code="200">Liste récupérée avec succès.</response>
     /// <response code="401">Utilisateur non connecté.</response>
     [HttpGet(Name = "ListNotifications")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetNotifications(
@@ -95,6 +97,7 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Notification non trouvée.</response>
     [HttpPatch("{id:guid}/read", Name = "MarkNotificationRead")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

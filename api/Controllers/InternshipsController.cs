@@ -5,6 +5,7 @@ using InternManager.Api.Data;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -43,6 +44,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListInternships")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<InternshipResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -99,6 +101,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="404">Stage non trouvé.</response>
     [HttpGet("{id:guid}", Name = "GetInternshipById")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor,Intern")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -149,6 +152,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="409">Conflit (stagiaire déjà en stage).</response>
     [HttpPost(Name = "CreateInternship")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-heavy")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -253,6 +257,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="409">Conflit lors de la mise à jour.</response>
     [HttpPatch("{id:guid}", Name = "UpdateInternship")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(typeof(InternshipResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -325,6 +330,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="409">Conflit lors de la suppression.</response>
     [HttpDelete("{id:guid}", Name = "DeleteInternship")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -386,6 +392,7 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
     /// <response code="404">Stage non trouvé.</response>
     [HttpGet("{id:guid}/history", Name = "GetInternshipHistory")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor,Intern")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

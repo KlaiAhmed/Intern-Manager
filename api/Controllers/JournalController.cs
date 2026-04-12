@@ -37,6 +37,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListJournalEntries")]
     [FeatureCard(DashboardCard.Journal)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -176,6 +177,7 @@ public sealed class JournalController(AppDbContext dbContext) : ControllerBase
     /// <response code="404">Entrée non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetJournalEntryById")]
     [FeatureCard(DashboardCard.Journal)]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

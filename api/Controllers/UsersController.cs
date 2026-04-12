@@ -19,7 +19,6 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize]
-[EnableRateLimiting("write-operations")]
 public sealed class UsersController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
@@ -44,6 +43,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="403">Accès refusé (rôle insuffisant).</response>
     [HttpGet(Name = "ListUsers")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -140,6 +140,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="409">Un compte existe déjà avec cet email.</response>
     [HttpPost(Name = "CreateUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -281,6 +282,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="409">Conflit (email déjà utilisé ou utilisateur archivé).</response>
     [HttpPatch("{id:guid}", Name = "UpdateUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -488,6 +490,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="404">Utilisateur non trouvé.</response>
     [HttpPatch("{id:guid}/archive", Name = "ArchiveUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -619,6 +622,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="409">Utilisateur non archivé ou données liées présentes.</response>
     [HttpDelete("{id:guid}", Name = "DeleteUser")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -684,6 +688,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="404">Utilisateur non trouvé.</response>
     [HttpGet("{id:guid}", Name = "GetUserById")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -717,6 +722,7 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     /// <response code="404">Utilisateur non trouvé.</response>
     [HttpGet("me/summary", Name = "GetUserSummary")]
     [Authorize]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(UserSummaryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

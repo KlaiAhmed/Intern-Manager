@@ -22,7 +22,6 @@ namespace InternManager.Api.Controllers;
 [Route("api/missions")]
 // RBAC policy: endpoints available to Supervisor must also be available to Admin and SuperAdmin.
 [Authorize]
-[EnableRateLimiting("write-operations")]
 public sealed class MissionsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
     /// <summary>
@@ -43,6 +42,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListMissions")]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -162,6 +162,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "CreateMission")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -290,6 +291,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="404">Mission non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetMissionById")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -346,6 +348,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="404">Mission non trouvée.</response>
     [HttpPatch("{id:guid}", Name = "UpdateMission")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -524,6 +527,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="404">Mission non trouvée.</response>
     [HttpPatch("{id:guid}/assign", Name = "AssignMissionIntern")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -677,6 +681,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="404">Mission non trouvée.</response>
     [HttpGet("{id:guid}/history", Name = "GetMissionHistory")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -744,6 +749,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="404">Mission non trouvée.</response>
     [HttpDelete("{id:guid}", Name = "DeleteMission")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
