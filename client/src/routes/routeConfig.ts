@@ -24,7 +24,7 @@ export const appRoutes: RouteDefinition[] = [
   { path: '/dashboard/admin/users', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
   { path: '/dashboard/admin/interns', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
   { path: '/dashboard/admin/internships', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
-  { path: '/dashboard/admin/missions/:missionId/feature-flags', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
+  { path: '/dashboard/admin/missions/:missionId/feature-flags', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] },
   { path: '/dashboard/admin/evaluations', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
   { path: '/dashboard/admin/settings', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
   { path: '/dashboard/admin/audit', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
