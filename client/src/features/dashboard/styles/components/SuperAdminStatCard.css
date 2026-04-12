@@ -165,13 +165,19 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 639px) {
+@media (max-width: 1023px) {
   .super-admin-stat-card {
     padding: var(--dash-space-lg);
   }
+}
+
+@media (max-width: 767px) {
+  .super-admin-stat-card {
+    padding: var(--dash-space-md);
+  }
 
   .super-admin-stat-value {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
 
   .super-admin-stat-icon {
@@ -182,5 +188,33 @@
   .super-admin-stat-icon svg {
     width: 18px;
     height: 18px;
+  }
+
+  .super-admin-stat-label {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 479px) {
+  .super-admin-stat-card {
+    padding: var(--dash-space-sm);
+  }
+
+  .super-admin-stat-value {
+    font-size: 1.375rem;
+  }
+
+  .super-admin-stat-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .super-admin-stat-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .super-admin-stat-label {
+    font-size: 0.75rem;
   }
 }
