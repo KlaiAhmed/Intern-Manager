@@ -5,6 +5,7 @@ import { useI18n } from '../../../locales/I18nContext'
 import { usePageMetadata } from '../../../hooks/usePageMetadata'
 import { useAuth } from '../../../stores/AuthContext'
 import { ApiRequestError } from '../../../lib/authApi'
+import { getConfirmPasswordErrorKey, getPasswordPolicyErrorKey } from '../../../utils/passwordValidation'
 import type {
   AuthVariant,
   FormErrors,
@@ -103,26 +104,12 @@ export function useAuthScreenLogic(variant: AuthVariant) {
     }
 
     if (field === 'password') {
-      if (!fieldValue.trim()) {
-        return t('auth.validation.passwordRequired')
-      }
-
-      if (fieldValue.length < 8) {
-        return t('auth.validation.passwordMin')
-      }
-
-      return undefined
+      const passwordErrorKey = getPasswordPolicyErrorKey(fieldValue)
+      return passwordErrorKey ? t(passwordErrorKey) : undefined
     }
 
-    if (!fieldValue.trim()) {
-      return t('auth.validation.confirmPasswordRequired')
-    }
-
-    if (allValues.password !== fieldValue) {
-      return t('auth.validation.passwordsMismatch')
-    }
-
-    return undefined
+    const confirmPasswordErrorKey = getConfirmPasswordErrorKey(allValues.password, fieldValue)
+    return confirmPasswordErrorKey ? t(confirmPasswordErrorKey) : undefined
   }
 
   const validateForm = (): FormErrors => {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePageMetadata } from '../../../hooks/usePageMetadata'
 import { useI18n } from '../../../locales/I18nContext'
+import { getConfirmPasswordErrorKey, getPasswordPolicyErrorKey } from '../../../utils/passwordValidation'
 import {
   ApiRequestError,
   requestPasswordResetCode,
@@ -11,40 +12,13 @@ import {
 
 type ForgotPasswordStep = 'email' | 'code' | 'password'
 
+interface PasswordFieldErrors {
+  newPassword?: string
+  confirmPassword?: string
+}
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const codePattern = /^\d{6}$/
-
-function isPasswordPolicyValid(password: string): boolean {
-  if (password.length < 8) {
-    return false
-  }
-
-  let hasUpper = false
-  let hasLower = false
-  let hasDigit = false
-  let hasSpecial = false
-
-  for (const character of password) {
-    if (character >= 'A' && character <= 'Z') {
-      hasUpper = true
-      continue
-    }
-
-    if (character >= 'a' && character <= 'z') {
-      hasLower = true
-      continue
-    }
-
-    if (character >= '0' && character <= '9') {
-      hasDigit = true
-      continue
-    }
-
-    hasSpecial = true
-  }
-
-  return hasUpper && hasLower && hasDigit && hasSpecial
-}
 
 function normalizeCodeInput(value: string): string {
   return value.replace(/\D/g, '').slice(0, 6)
@@ -60,6 +34,7 @@ export function useForgotPasswordLogic() {
   const [verificationToken, setVerificationToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordErrors, setPasswordErrors] = useState<PasswordFieldErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
@@ -89,6 +64,23 @@ export function useForgotPasswordLogic() {
   const codeMessage = useMemo(() => {
     return t('auth.reset.codeSentTo').replace('{{email}}', email)
   }, [email, t])
+
+  const getNewPasswordError = (password: string): string | undefined => {
+    const errorKey = getPasswordPolicyErrorKey(password)
+    return errorKey ? t(errorKey) : undefined
+  }
+
+  const getConfirmPasswordError = (password: string, confirmation: string): string | undefined => {
+    const errorKey = getConfirmPasswordErrorKey(password, confirmation)
+    return errorKey ? t(errorKey) : undefined
+  }
+
+  const syncPasswordErrors = (nextPassword: string, nextConfirmPassword: string): void => {
+    setPasswordErrors({
+      newPassword: getNewPasswordError(nextPassword),
+      confirmPassword: getConfirmPasswordError(nextPassword, nextConfirmPassword),
+    })
+  }
 
   const handleSendCode = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
@@ -132,6 +124,7 @@ export function useForgotPasswordLogic() {
       const nextVerificationToken = await verifyPasswordResetCode(email, normalizedCode)
       setCode(normalizedCode)
       setVerificationToken(nextVerificationToken)
+      setPasswordErrors({})
       setStep('password')
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 400) {
@@ -166,17 +159,18 @@ export function useForgotPasswordLogic() {
     event.preventDefault()
     setSubmitError(null)
 
+    const nextErrors: PasswordFieldErrors = {
+      newPassword: getNewPasswordError(newPassword),
+      confirmPassword: getConfirmPasswordError(newPassword, confirmPassword),
+    }
+
+    setPasswordErrors(nextErrors)
+
+    if (nextErrors.newPassword || nextErrors.confirmPassword) {
+      return
+    }
+
     const normalizedPassword = newPassword.trim()
-
-    if (!isPasswordPolicyValid(normalizedPassword)) {
-      setSubmitError(t('auth.validation.passwordPolicy'))
-      return
-    }
-
-    if (normalizedPassword !== confirmPassword.trim()) {
-      setSubmitError(t('auth.validation.passwordsMismatch'))
-      return
-    }
 
     setIsSubmitting(true)
 
@@ -197,6 +191,7 @@ export function useForgotPasswordLogic() {
     code,
     newPassword,
     confirmPassword,
+    passwordErrors,
     isSubmitting,
     submitError,
     resendCooldown,
@@ -205,8 +200,16 @@ export function useForgotPasswordLogic() {
     codeMessage,
     setEmail,
     setCode,
-    setNewPassword,
-    setConfirmPassword,
+    handleNewPasswordChange: (value: string) => {
+      setNewPassword(value)
+      setSubmitError(null)
+      syncPasswordErrors(value, confirmPassword)
+    },
+    handleConfirmPasswordChange: (value: string) => {
+      setConfirmPassword(value)
+      setSubmitError(null)
+      syncPasswordErrors(newPassword, value)
+    },
     setIsPasswordVisible,
     setIsConfirmPasswordVisible,
     handleSendCode,

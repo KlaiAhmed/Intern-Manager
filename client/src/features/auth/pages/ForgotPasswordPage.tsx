@@ -13,6 +13,7 @@ export function ForgotPasswordPage() {
     code,
     newPassword,
     confirmPassword,
+    passwordErrors,
     isSubmitting,
     submitError,
     resendCooldown,
@@ -21,8 +22,8 @@ export function ForgotPasswordPage() {
     codeMessage,
     setEmail,
     setCode,
-    setNewPassword,
-    setConfirmPassword,
+    handleNewPasswordChange,
+    handleConfirmPasswordChange,
     setIsPasswordVisible,
     setIsConfirmPasswordVisible,
     handleSendCode,
@@ -140,9 +141,11 @@ export function ForgotPasswordPage() {
                 type={isPasswordVisible ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                className={styles.input}
+                onChange={(event) => handleNewPasswordChange(event.target.value)}
+                className={`${styles.input} ${passwordErrors.newPassword ? styles.inputError : ''}`}
                 placeholder={t('auth.placeholder.passwordMin8')}
+                aria-invalid={Boolean(passwordErrors.newPassword)}
+                aria-describedby={passwordErrors.newPassword ? 'new-password-error' : undefined}
               />
               <button
                 type="button"
@@ -153,6 +156,11 @@ export function ForgotPasswordPage() {
                 <PasswordVisibilityIcon isVisible={isPasswordVisible} className={styles.visibilityIcon} />
               </button>
             </div>
+            {passwordErrors.newPassword ? (
+              <p id="new-password-error" className={styles.errorText} role="alert">
+                {passwordErrors.newPassword}
+              </p>
+            ) : null}
 
             <label className={styles.label} htmlFor="confirm-password">
               {t('auth.reset.confirmNewPassword')}
@@ -164,9 +172,11 @@ export function ForgotPasswordPage() {
                 type={isConfirmPasswordVisible ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                className={styles.input}
+                onChange={(event) => handleConfirmPasswordChange(event.target.value)}
+                className={`${styles.input} ${passwordErrors.confirmPassword ? styles.inputError : ''}`}
                 placeholder={t('auth.placeholder.confirmPassword')}
+                aria-invalid={Boolean(passwordErrors.confirmPassword)}
+                aria-describedby={passwordErrors.confirmPassword ? 'confirm-password-error' : undefined}
               />
               <button
                 type="button"
@@ -177,6 +187,11 @@ export function ForgotPasswordPage() {
                 <PasswordVisibilityIcon isVisible={isConfirmPasswordVisible} className={styles.visibilityIcon} />
               </button>
             </div>
+            {passwordErrors.confirmPassword ? (
+              <p id="confirm-password-error" className={styles.errorText} role="alert">
+                {passwordErrors.confirmPassword}
+              </p>
+            ) : null}
 
             <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
               {isSubmitting ? (
