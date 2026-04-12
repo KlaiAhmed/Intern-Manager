@@ -6,6 +6,7 @@ import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
 import { Plus, Edit, Archive, Search } from './IconComponents'
 import { Input } from '../../../components/ui/Input'
+import { getConfirmPasswordErrorKey, getPasswordPolicyErrorKey } from '../../../utils/passwordValidation'
 
 export function UserManagementSection() {
   const { t } = useI18n()
@@ -61,6 +62,30 @@ export function UserManagementSection() {
     return classes[role] || 'dash-badge-archived'
   }
 
+  const syncPasswordErrors = (nextPassword: string, nextConfirmPassword: string) => {
+    setFormErrors((previous) => {
+      const nextErrors = { ...previous }
+      const passwordErrorKey = getPasswordPolicyErrorKey(nextPassword)
+      const confirmPasswordErrorKey = getConfirmPasswordErrorKey(nextPassword, nextConfirmPassword)
+
+      if (passwordErrorKey) {
+        nextErrors.password = t(passwordErrorKey)
+      } else {
+        delete nextErrors.password
+      }
+
+      if (confirmPasswordErrorKey) {
+        nextErrors.confirmPassword = t(confirmPasswordErrorKey)
+      } else {
+        delete nextErrors.confirmPassword
+      }
+
+      delete nextErrors.submit
+
+      return nextErrors
+    })
+  }
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
     if (!formData.name.trim()) errors.name = t('auth.validation.firstNameRequired')
@@ -70,16 +95,14 @@ export function UserManagementSection() {
 
     // Password validation for new users
     if (!editingUser) {
-      if (!formData.password.trim()) {
-        errors.password = t('auth.validation.passwordRequired')
-      } else if (formData.password.length < 8) {
-        errors.password = t('auth.validation.passwordMin')
+      const passwordErrorKey = getPasswordPolicyErrorKey(formData.password)
+      if (passwordErrorKey) {
+        errors.password = t(passwordErrorKey)
       }
 
-      if (!formData.confirmPassword.trim()) {
-        errors.confirmPassword = t('auth.validation.confirmPasswordRequired')
-      } else if (formData.password !== formData.confirmPassword) {
-        errors.confirmPassword = t('auth.validation.passwordsMismatch')
+      const confirmPasswordErrorKey = getConfirmPasswordErrorKey(formData.password, formData.confirmPassword)
+      if (confirmPasswordErrorKey) {
+        errors.confirmPassword = t(confirmPasswordErrorKey)
       }
     }
 
@@ -354,7 +377,12 @@ export function UserManagementSection() {
                 id="user-password"
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => {
+                  const nextPassword = e.target.value
+                  const nextFormData = { ...formData, password: nextPassword }
+                  setFormData(nextFormData)
+                  syncPasswordErrors(nextPassword, nextFormData.confirmPassword)
+                }}
                 className={formErrors.password ? 'input-error' : ''}
               />
               {formErrors.password && <span className="field-error">{formErrors.password}</span>}
@@ -366,7 +394,12 @@ export function UserManagementSection() {
                 id="user-confirm-password"
                 type="password"
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onChange={(e) => {
+                  const nextConfirmPassword = e.target.value
+                  const nextFormData = { ...formData, confirmPassword: nextConfirmPassword }
+                  setFormData(nextFormData)
+                  syncPasswordErrors(nextFormData.password, nextConfirmPassword)
+                }}
                 className={formErrors.confirmPassword ? 'input-error' : ''}
               />
               {formErrors.confirmPassword && <span className="field-error">{formErrors.confirmPassword}</span>}

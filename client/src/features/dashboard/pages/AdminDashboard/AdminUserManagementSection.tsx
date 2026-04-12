@@ -6,6 +6,7 @@ import { Skeleton } from '../../components/Skeleton'
 import { ErrorState } from '../../components/ErrorState'
 import { Modal } from '../../components/Modal'
 import { Plus, Edit, Archive, Search } from '../../components/IconComponents'
+import { getConfirmPasswordErrorKey, getPasswordPolicyErrorKey } from '../../../../utils/passwordValidation'
 
 const excludedRoles = new Set(['admin', 'superadmin'])
 
@@ -96,6 +97,30 @@ export function AdminUserManagementSection() {
     return classes[normalizeRole(role)] || 'dash-badge-archived'
   }
 
+  const syncPasswordErrors = (nextPassword: string, nextConfirmPassword: string) => {
+    setFormErrors((previous) => {
+      const nextErrors = { ...previous }
+      const passwordErrorKey = getPasswordPolicyErrorKey(nextPassword)
+      const confirmPasswordErrorKey = getConfirmPasswordErrorKey(nextPassword, nextConfirmPassword)
+
+      if (passwordErrorKey) {
+        nextErrors.password = t(passwordErrorKey)
+      } else {
+        delete nextErrors.password
+      }
+
+      if (confirmPasswordErrorKey) {
+        nextErrors.confirmPassword = t(confirmPasswordErrorKey)
+      } else {
+        delete nextErrors.confirmPassword
+      }
+
+      delete nextErrors.submit
+
+      return nextErrors
+    })
+  }
+
   const validateForm = (): boolean => {
     const nextErrors: Record<string, string> = {}
 
@@ -109,16 +134,14 @@ export function AdminUserManagementSection() {
     }
 
     if (!editingUser) {
-      if (!formData.password.trim()) {
-        nextErrors.password = t('auth.validation.passwordRequired')
-      } else if (formData.password.length < 8) {
-        nextErrors.password = t('auth.validation.passwordMin')
+      const passwordErrorKey = getPasswordPolicyErrorKey(formData.password)
+      if (passwordErrorKey) {
+        nextErrors.password = t(passwordErrorKey)
       }
 
-      if (!formData.confirmPassword.trim()) {
-        nextErrors.confirmPassword = t('auth.validation.confirmPasswordRequired')
-      } else if (formData.password !== formData.confirmPassword) {
-        nextErrors.confirmPassword = t('auth.validation.passwordsMismatch')
+      const confirmPasswordErrorKey = getConfirmPasswordErrorKey(formData.password, formData.confirmPassword)
+      if (confirmPasswordErrorKey) {
+        nextErrors.confirmPassword = t(confirmPasswordErrorKey)
       }
     }
 
@@ -395,7 +418,12 @@ export function AdminUserManagementSection() {
                   id="user-password"
                   type="password"
                   value={formData.password}
-                  onChange={(event) => setFormData({ ...formData, password: event.target.value })}
+                  onChange={(event) => {
+                    const nextPassword = event.target.value
+                    const nextFormData = { ...formData, password: nextPassword }
+                    setFormData(nextFormData)
+                    syncPasswordErrors(nextPassword, nextFormData.confirmPassword)
+                  }}
                   className={formErrors.password ? 'input-error' : ''}
                 />
                 {formErrors.password && <span className="field-error">{formErrors.password}</span>}
@@ -407,7 +435,12 @@ export function AdminUserManagementSection() {
                   id="user-confirm-password"
                   type="password"
                   value={formData.confirmPassword}
-                  onChange={(event) => setFormData({ ...formData, confirmPassword: event.target.value })}
+                  onChange={(event) => {
+                    const nextConfirmPassword = event.target.value
+                    const nextFormData = { ...formData, confirmPassword: nextConfirmPassword }
+                    setFormData(nextFormData)
+                    syncPasswordErrors(nextFormData.password, nextConfirmPassword)
+                  }}
                   className={formErrors.confirmPassword ? 'input-error' : ''}
                 />
                 {formErrors.confirmPassword && <span className="field-error">{formErrors.confirmPassword}</span>}
