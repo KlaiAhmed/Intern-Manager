@@ -55,7 +55,8 @@
 */
 
 import type { ReactNode } from 'react'
-import { Suspense, lazy, useState, useCallback } from 'react'
+import { Suspense, lazy, useState, useCallback, useMemo } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useI18n } from '../../../locales/I18nContext'
 import { useSuperAdminStats } from '../hooks/useSuperAdminStats'
 import type { SuperAdminSection } from '../components/SuperAdminSidebar'
@@ -66,6 +67,7 @@ import { AuditLogSection } from '../components/AuditLogSection'
 import { BIPanelSection } from '../components/BIPanelSection'
 import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
+import { MissionFeatureFlagsSection } from './AdminDashboard/MissionFeatureFlagsSection'
 import {
   DashboardShell,
   OperationalEvaluationsSection,
@@ -115,6 +117,25 @@ const Icons = {
     <polyline points="14 2 14 8 20 8" />
     <path d="m9 15 2 2 4-4" />
   </Icon>,
+}
+
+const superAdminSections: SuperAdminSection[] = [
+  'overview',
+  'users',
+  'internships',
+  'missions',
+  'evaluations',
+  'settings',
+  'audit',
+  'biPanel',
+]
+
+function isMissionFeatureFlagsRoute(pathname: string): boolean {
+  return pathname.startsWith('/dashboard/admin/missions/') && pathname.endsWith('/feature-flags')
+}
+
+function isSuperAdminSection(value: unknown): value is SuperAdminSection {
+  return typeof value === 'string' && superAdminSections.includes(value as SuperAdminSection)
 }
 
 // Chart loading fallback
@@ -267,14 +288,85 @@ function OverviewSection() {
 // Main Dashboard Component
 export function SuperAdminDashboard() {
   const { t } = useI18n()
-  const [activeSection, setActiveSection] = useState<SuperAdminSection>('overview')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { missionId } = useParams<{ missionId?: string }>()
+  const featureFlagsRoute = isMissionFeatureFlagsRoute(location.pathname)
+  const locationState = location.state as { activeSection?: unknown } | null
+  const [activeSection, setActiveSection] = useState<SuperAdminSection>(() => {
+    if (featureFlagsRoute) {
+      return 'internships'
+    }
+
+    if (isSuperAdminSection(locationState?.activeSection)) {
+      return locationState.activeSection
+    }
+
+    return 'overview'
+  })
   const [activeSettingsSubSection, setActiveSettingsSubSection] = useState<SettingsSubSection>('departments')
+
+  const resolvedActiveSection = featureFlagsRoute ? 'internships' : activeSection
+
+  const pageTitle = useMemo(() => {
+    if (featureFlagsRoute) {
+      return 'Mission Feature Controls'
+    }
+
+    switch (activeSection) {
+      case 'overview':
+        return t('dashboard.superAdmin.title')
+      case 'users':
+        return 'User Management'
+      case 'internships':
+        return 'Internships'
+      case 'missions':
+        return 'Interns Management'
+      case 'evaluations':
+        return 'Evaluations'
+      case 'settings':
+        return 'Referential Settings'
+      case 'audit':
+        return 'Audit & Security'
+      case 'biPanel':
+        return 'BI Panel'
+      default:
+        return t('dashboard.superAdmin.title')
+    }
+  }, [activeSection, featureFlagsRoute, t])
 
   const handleSectionChange = useCallback((nextSection: SuperAdminSection) => {
     setActiveSection(nextSection)
-  }, [])
+
+    if (featureFlagsRoute) {
+      navigate('/dashboard', { state: { activeSection: nextSection } })
+    }
+  }, [featureFlagsRoute, navigate])
 
   const renderContent = useCallback(() => {
+    if (featureFlagsRoute) {
+      if (!missionId) {
+        return (
+          <ErrorState
+            message="Mission id is missing in the current route."
+            onRetry={() => {
+              navigate('/dashboard', { state: { activeSection: 'internships' } })
+            }}
+          />
+        )
+      }
+
+      return (
+        <MissionFeatureFlagsSection
+          missionId={missionId}
+          onBack={() => {
+            setActiveSection('internships')
+            navigate('/dashboard', { state: { activeSection: 'internships' } })
+          }}
+        />
+      )
+    }
+
     switch (activeSection) {
       case 'overview':
         return <OverviewSection />
@@ -300,15 +392,15 @@ export function SuperAdminDashboard() {
       default:
         return <OverviewSection />
     }
-  }, [activeSection, activeSettingsSubSection, t])
+  }, [activeSection, activeSettingsSubSection, featureFlagsRoute, missionId, navigate])
 
   return (
     <DashboardShell
-      activeSection={activeSection}
+      activeSection={resolvedActiveSection}
       onSectionChange={handleSectionChange}
       onSettingsSubSectionChange={setActiveSettingsSubSection}
-      pageTitle={t('dashboard.superAdmin.title')}
-      contentKey={activeSection}
+      pageTitle={pageTitle}
+      contentKey={featureFlagsRoute ? location.pathname : activeSection}
     >
       {renderContent()}
     </DashboardShell>
