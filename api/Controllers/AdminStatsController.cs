@@ -1,4 +1,5 @@
 ﻿using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -219,14 +220,12 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetActiveInternshipsCount(CancellationToken cancellationToken)
     {
-        var count = await dbContext.Users
+        var count = await dbContext.Missions
             .AsNoTracking()
-            .Join(
-                dbContext.InternProfiles.AsNoTracking(),
-                user => user.Id,
-                profile => profile.InternId,
-                (user, profile) => new { user, profile })
-            .CountAsync(item => item.user.Role == UserRole.Intern && item.user.VerificationStatus == InternVerificationStatus.ACTIVE, cancellationToken);
+            .CountAsync(
+                mission => mission.InternId.HasValue &&
+                           mission.Status == DomainStatuses.Mission.Active,
+                cancellationToken);
 
         return Ok(new { count });
     }
@@ -252,20 +251,69 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternsByDepartment(CancellationToken cancellationToken)
     {
-        var data = await dbContext.InternProfiles
+        var activeInterns = await dbContext.Users
             .AsNoTracking()
-            .Include(profile => profile.Intern)
-            .ThenInclude(intern => intern!.Department)
-            .Where(profile => profile.Intern != null &&
-                              profile.Intern.VerificationStatus == InternVerificationStatus.ACTIVE &&
-                              profile.Intern.Role == UserRole.Intern)
-            .Select(profile => new
+            .Where(user => user.Role == UserRole.Intern &&
+                           user.VerificationStatus == InternVerificationStatus.ACTIVE)
+            .Select(user => new
             {
-                DepartmentName = profile.Intern!.Department != null
-                    ? profile.Intern.Department.Name
-                    : null
+                user.Id,
+                UserDepartmentName = user.Department != null ? user.Department.Name : null
             })
-            .GroupBy(entry => string.IsNullOrWhiteSpace(entry.DepartmentName) ? "Unassigned" : entry.DepartmentName!)
+            .ToListAsync(cancellationToken);
+
+        if (activeInterns.Count == 0)
+        {
+            return Ok(new { data = Array.Empty<object>() });
+        }
+
+        var activeInternIds = activeInterns
+            .Select(item => item.Id)
+            .ToList();
+
+        var assignedMissions = await dbContext.Missions
+            .AsNoTracking()
+            .Where(mission => mission.InternId.HasValue && activeInternIds.Contains(mission.InternId.Value))
+            .Select(mission => new
+            {
+                mission.Id,
+                InternId = mission.InternId!.Value,
+                mission.Status,
+                mission.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var missionDepartmentById = await LoadLatestMissionFieldValuesAsync(
+            assignedMissions.Select(item => item.Id).ToList(),
+            "department",
+            cancellationToken);
+
+        var preferredMissionByInternId = assignedMissions
+            .GroupBy(item => item.InternId)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderByDescending(item => string.Equals(item.Status, DomainStatuses.Mission.Active, StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(item => item.CreatedAt)
+                    .First());
+
+        var data = activeInterns
+            .Select(intern =>
+            {
+                preferredMissionByInternId.TryGetValue(intern.Id, out var preferredMission);
+
+                var departmentFromUser = NormalizeLabel(intern.UserDepartmentName);
+                string? departmentFromMission = null;
+
+                if (preferredMission is not null &&
+                    missionDepartmentById.TryGetValue(preferredMission.Id, out var missionDepartmentValue))
+                {
+                    departmentFromMission = NormalizeLabel(missionDepartmentValue);
+                }
+
+                return ResolveLabelOrFallback(departmentFromUser, departmentFromMission, "Unassigned");
+            })
+            .GroupBy(label => label, StringComparer.OrdinalIgnoreCase)
             .Select(group => new
             {
                 name = group.Key,
@@ -273,7 +321,198 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
             })
             .OrderByDescending(item => item.value)
             .ThenBy(item => item.name)
+            .ToList();
+
+        return Ok(new { data });
+    }
+
+    /// <summary>
+    /// Récupère la répartition des stagiaires par école.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne le nombre de stagiaires actifs pour chaque école.
+    /// Les stagiaires sans école sont regroupés sous "Unassigned".
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste d écoles avec leur nombre de stagiaires.</returns>
+    [HttpGet("interns-by-school", Name = "GetInternsBySchool")]
+    [Authorize(Roles = AdminRole)]
+    [EnableRateLimiting("read-frequent")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetInternsBySchool(CancellationToken cancellationToken)
+    {
+        var activeInternIds = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Role == UserRole.Intern &&
+                           user.VerificationStatus == InternVerificationStatus.ACTIVE)
+            .Select(user => user.Id)
             .ToListAsync(cancellationToken);
+
+        if (activeInternIds.Count == 0)
+        {
+            return Ok(new { data = Array.Empty<object>() });
+        }
+
+        var schoolsByInternId = await (
+            from profile in dbContext.InternProfiles.AsNoTracking()
+            join school in dbContext.Schools.AsNoTracking()
+                on profile.UniversityId equals school.Id into schoolGroup
+            from school in schoolGroup.DefaultIfEmpty()
+            where activeInternIds.Contains(profile.InternId)
+            select new
+            {
+                profile.InternId,
+                SchoolName = school != null ? school.Name : null
+            })
+            .ToListAsync(cancellationToken);
+
+        var schoolByInternId = schoolsByInternId
+            .GroupBy(item => item.InternId)
+            .ToDictionary(
+                group => group.Key,
+                group => NormalizeLabel(group.Select(item => item.SchoolName).FirstOrDefault()));
+
+        var schoolCounts = activeInternIds
+            .Select(internId =>
+            {
+                schoolByInternId.TryGetValue(internId, out var schoolName);
+                return string.IsNullOrWhiteSpace(schoolName) ? "Unassigned" : schoolName!;
+            })
+            .GroupBy(label => label, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new
+            {
+                name = group.Key,
+                value = group.Count()
+            })
+            .OrderByDescending(item => item.value)
+            .ThenBy(item => item.name)
+            .ToList();
+
+        return Ok(new { data = schoolCounts });
+    }
+
+    /// <summary>
+    /// Récupère la répartition des stagiaires par compétence.
+    /// </summary>
+    /// <remarks>
+    /// Cette route retourne le nombre de stagiaires actifs associés à chaque compétence.
+    /// Les stagiaires sans compétence sont regroupés sous "Unassigned".
+    /// </remarks>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste de compétences avec leur nombre de stagiaires.</returns>
+    [HttpGet("interns-by-skill", Name = "GetInternsBySkill")]
+    [Authorize(Roles = AdminRole)]
+    [EnableRateLimiting("read-frequent")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetInternsBySkill(CancellationToken cancellationToken)
+    {
+        var activeInternIds = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Role == UserRole.Intern &&
+                           user.VerificationStatus == InternVerificationStatus.ACTIVE)
+            .Select(user => user.Id)
+            .ToListAsync(cancellationToken);
+
+        if (activeInternIds.Count == 0)
+        {
+            return Ok(new { data = Array.Empty<object>() });
+        }
+
+        var profiles = await dbContext.InternProfiles
+            .AsNoTracking()
+            .Where(profile => activeInternIds.Contains(profile.InternId))
+            .Select(profile => new
+            {
+                profile.Id,
+                profile.InternId
+            })
+            .ToListAsync(cancellationToken);
+
+        var profileIds = profiles
+            .Select(profile => profile.Id)
+            .ToList();
+
+        var internIdByProfileId = profiles
+            .GroupBy(profile => profile.Id)
+            .ToDictionary(group => group.Key, group => group.First().InternId);
+
+        var configuredSkillNames = await dbContext.Skills
+            .AsNoTracking()
+            .OrderBy(skill => skill.Name)
+            .Select(skill => skill.Name)
+            .ToListAsync(cancellationToken);
+
+        var canonicalSkillNames = configuredSkillNames
+            .ToDictionary(name => name, name => name, StringComparer.OrdinalIgnoreCase);
+
+        var skillLinks = profileIds.Count == 0
+            ? []
+            : await dbContext.InternProfileSkills
+                .AsNoTracking()
+                .Where(link => profileIds.Contains(link.InternProfileId))
+                .Select(link => new
+                {
+                    link.InternProfileId,
+                    SkillName = link.Skill != null ? link.Skill.Name : null
+                })
+                .ToListAsync(cancellationToken);
+
+        var internsWithAtLeastOneSkill = new HashSet<Guid>();
+        var skillCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var link in skillLinks)
+        {
+            if (!internIdByProfileId.TryGetValue(link.InternProfileId, out var internId))
+            {
+                continue;
+            }
+
+            internsWithAtLeastOneSkill.Add(internId);
+
+            var resolvedSkillName = NormalizeLabel(link.SkillName);
+            if (string.IsNullOrWhiteSpace(resolvedSkillName))
+            {
+                continue;
+            }
+
+            if (canonicalSkillNames.TryGetValue(resolvedSkillName, out var canonicalSkillName))
+            {
+                resolvedSkillName = canonicalSkillName;
+            }
+
+            if (!skillCounts.TryAdd(resolvedSkillName, 1))
+            {
+                skillCounts[resolvedSkillName]++;
+            }
+        }
+
+        foreach (var configuredSkillName in configuredSkillNames)
+        {
+            skillCounts.TryAdd(configuredSkillName, 0);
+        }
+
+        var unassignedCount = activeInternIds.Count - internsWithAtLeastOneSkill.Count;
+        if (unassignedCount > 0)
+        {
+            if (!skillCounts.TryAdd("Unassigned", unassignedCount))
+            {
+                skillCounts["Unassigned"] += unassignedCount;
+            }
+        }
+
+        var data = skillCounts
+            .Select(item => new
+            {
+                name = item.Key,
+                value = item.Value
+            })
+            .OrderByDescending(item => item.value)
+            .ThenBy(item => item.name)
+            .ToList();
 
         return Ok(new { data });
     }
@@ -299,11 +538,10 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternshipsByStatus(CancellationToken cancellationToken)
     {
-        var raw = await dbContext.InternProfiles
+        var raw = await dbContext.Users
             .AsNoTracking()
-            .Include(profile => profile.Intern)
-            .Where(profile => profile.Intern != null && profile.Intern.Role == UserRole.Intern)
-            .GroupBy(profile => profile.Intern!.VerificationStatus)
+            .Where(user => user.Role == UserRole.Intern)
+            .GroupBy(user => user.VerificationStatus)
             .Select(group => new
             {
                 status = group.Key,
@@ -328,8 +566,8 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     /// Récupère la répartition des stages par type.
     /// </summary>
     /// <remarks>
-    /// Cette route retourne le nombre de stages pour chaque type de stage.
-    /// Les données sont extraites des logs d audit de création de stage.
+    /// Cette route retourne le nombre de stages assignés pour chaque type de stage,
+    /// en utilisant les informations de mission et l historique métier.
     /// Réservé aux super-administrateurs.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
@@ -345,44 +583,69 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternshipsByType(CancellationToken cancellationToken)
     {
-        var loggedTypeValues = await dbContext.AuditLogs
+        var configuredTypeNames = await dbContext.InternshipTypes
             .AsNoTracking()
-            .Where(log => EF.Functions.Like(log.Action, "internship.create%") &&
-                          log.Entity != null &&
-                          log.Entity != string.Empty)
-            .Select(log => log.Entity!)
+            .OrderBy(type => type.Name)
+            .Select(type => type.Name)
             .ToListAsync(cancellationToken);
 
-        var typeFromLogs = loggedTypeValues
-            .Select(TryExtractInternshipType)
-            .Where(typeName => !string.IsNullOrWhiteSpace(typeName))
-            .Select(typeName => typeName!)
-            .GroupBy(typeName => typeName, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new
+        var canonicalTypeNames = configuredTypeNames
+            .ToDictionary(name => name, name => name, StringComparer.OrdinalIgnoreCase);
+
+        var assignedMissions = await dbContext.Missions
+            .AsNoTracking()
+            .Where(mission => mission.InternId.HasValue)
+            .Select(mission => new
             {
-                name = group.Key,
-                value = group.Count()
+                mission.Id,
+                TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
+                mission.Level
+            })
+            .ToListAsync(cancellationToken);
+
+        var missionTypeById = await LoadLatestMissionFieldValuesAsync(
+            assignedMissions.Select(item => item.Id).ToList(),
+            "type",
+            cancellationToken);
+
+        var countsByType = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var mission in assignedMissions)
+        {
+            missionTypeById.TryGetValue(mission.Id, out var typeFromHistory);
+
+            var resolvedType = NormalizeLabel(typeFromHistory)
+                ?? NormalizeLabel(mission.TypeName)
+                ?? NormalizeLabel(mission.Level)
+                ?? "Unassigned";
+
+            if (canonicalTypeNames.TryGetValue(resolvedType, out var canonicalTypeName))
+            {
+                resolvedType = canonicalTypeName;
+            }
+
+            if (!countsByType.TryAdd(resolvedType, 1))
+            {
+                countsByType[resolvedType]++;
+            }
+        }
+
+        foreach (var configuredTypeName in configuredTypeNames)
+        {
+            countsByType.TryAdd(configuredTypeName, 0);
+        }
+
+        var data = countsByType
+            .Select(item => new
+            {
+                name = item.Key,
+                value = item.Value
             })
             .OrderByDescending(item => item.value)
             .ThenBy(item => item.name)
             .ToList();
 
-        if (typeFromLogs.Count > 0)
-        {
-            return Ok(new { data = typeFromLogs });
-        }
-
-        var configuredTypes = await dbContext.InternshipTypes
-            .AsNoTracking()
-            .OrderBy(type => type.Name)
-            .Select(type => new
-            {
-                name = type.Name,
-                value = 0
-            })
-            .ToListAsync(cancellationToken);
-
-        return Ok(new { data = configuredTypes });
+        return Ok(new { data });
     }
 
     /// <summary>
@@ -420,39 +683,53 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
             .CountAsync(user => user.Role == role && user.Status == UserStatus.Active, cancellationToken);
     }
 
-    private static string? TryExtractInternshipType(string entity)
+    private async Task<Dictionary<Guid, string?>> LoadLatestMissionFieldValuesAsync(
+        IReadOnlyCollection<Guid> missionIds,
+        string field,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(entity))
+        if (missionIds.Count == 0)
         {
-            return null;
+            return new Dictionary<Guid, string?>();
         }
 
-        const string marker = "type:";
-        var markerIndex = entity.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex < 0)
-        {
-            return null;
-        }
+        var entries = await dbContext.MissionHistoryEntries
+            .AsNoTracking()
+            .Where(entry => missionIds.Contains(entry.MissionId) && entry.Field == field)
+            .OrderByDescending(entry => entry.ChangedAt)
+            .Select(entry => new
+            {
+                entry.MissionId,
+                entry.NewValue
+            })
+            .ToListAsync(cancellationToken);
 
-        var valueStart = markerIndex + marker.Length;
-        if (valueStart >= entity.Length)
-        {
-            return null;
-        }
+        return entries
+            .GroupBy(entry => entry.MissionId)
+            .ToDictionary(
+                group => group.Key,
+                group => NormalizeLabel(group.Select(entry => entry.NewValue).FirstOrDefault()));
+    }
 
-        var valueChunk = entity[valueStart..].Trim();
-        if (valueChunk.Length == 0)
-        {
-            return null;
-        }
-
-        var separatorIndex = valueChunk.IndexOf(' ');
-        var extractedValue = separatorIndex < 0
-            ? valueChunk
-            : valueChunk[..separatorIndex];
-
-        return string.IsNullOrWhiteSpace(extractedValue)
+    private static string? NormalizeLabel(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
             ? null
-            : extractedValue.Trim();
+            : value.Trim();
+    }
+
+    private static string ResolveLabelOrFallback(string? primary, string? secondary, string fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(primary))
+        {
+            return primary;
+        }
+
+        if (!string.IsNullOrWhiteSpace(secondary))
+        {
+            return secondary;
+        }
+
+        return fallback;
     }
 }
