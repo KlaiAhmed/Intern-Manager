@@ -84,24 +84,6 @@ export function HeroSection() {
           <p className={styles.heroKicker}>Axia</p>
           <h1 className={styles.heroTitle}>{t('hero.title')}</h1>
           <p className={styles.heroDescription}>{t('hero.description')}</p>
-          {!isLoggedIn && (
-            <div className={styles.heroActions}>
-              <Button
-                size="md"
-                variant="primary"
-                onClick={() => navigate('/signup')}
-              >
-                {t('nav.getStarted')}
-              </Button>
-              <Button
-                size="md"
-                variant="secondary"
-                onClick={() => navigate('/login')}
-              >
-                {t('nav.login')}
-              </Button>
-            </div>
-          )}
         </div>
 
         <aside className={styles.heroPanel} aria-label="Platform impact metrics">

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link } from 'react-router-dom'
 import { useI18n } from '../../../locales/I18nContext'
 import { classNames } from '../../../utils/classNames'
 import { useNotifications } from '../hooks/useNotifications'
@@ -381,18 +380,6 @@ export function NotificationBell({ role, shouldClose = false }: NotificationBell
               ))}
             </ul>
           )}
-
-          <div className={styles.notificationPanelFooter}>
-            <Link
-              to="/dashboard"
-              className={styles.notificationPanelAction}
-              onClick={() => {
-                closePanel()
-              }}
-            >
-              {t('notifications.viewAll')}
-            </Link>
-          </div>
         </div>
       ) : null}
     </div>
