@@ -223,8 +223,8 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
         var count = await dbContext.Missions
             .AsNoTracking()
             .CountAsync(
-                mission => mission.InternId.HasValue &&
-                           mission.Status == DomainStatuses.Mission.Active,
+                mission => mission.Status == DomainStatuses.Mission.Active &&
+                           (mission.InternId.HasValue || mission.InternAssignments.Any()),
                 cancellationToken);
 
         return Ok(new { count });
@@ -271,16 +271,28 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
             .Select(item => item.Id)
             .ToList();
 
-        var assignedMissions = await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.InternId.HasValue && activeInternIds.Contains(mission.InternId.Value))
-            .Select(mission => new
-            {
-                mission.Id,
-                InternId = mission.InternId!.Value,
-                mission.Status,
-                mission.CreatedAt
-            })
+        var assignedMissions = await (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                where activeInternIds.Contains(assignment.InternId)
+                select new
+                {
+                    mission.Id,
+                    InternId = assignment.InternId,
+                    mission.Status,
+                    mission.CreatedAt
+                })
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(mission => mission.InternId.HasValue && activeInternIds.Contains(mission.InternId.Value))
+                    .Select(mission => new
+                    {
+                        mission.Id,
+                        InternId = mission.InternId!.Value,
+                        mission.Status,
+                        mission.CreatedAt
+                    }))
             .ToListAsync(cancellationToken);
 
         var missionDepartmentById = await LoadLatestMissionFieldValuesAsync(
@@ -592,15 +604,27 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
         var canonicalTypeNames = configuredTypeNames
             .ToDictionary(name => name, name => name, StringComparer.OrdinalIgnoreCase);
 
-        var assignedMissions = await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.InternId.HasValue)
-            .Select(mission => new
-            {
-                mission.Id,
-                TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
-                mission.Level
-            })
+        var assignedMissions = await (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                select new
+                {
+                    mission.Id,
+                    InternId = assignment.InternId,
+                    TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
+                    mission.Level
+                })
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(mission => mission.InternId.HasValue)
+                    .Select(mission => new
+                    {
+                        mission.Id,
+                        InternId = mission.InternId!.Value,
+                        TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
+                        mission.Level
+                    }))
             .ToListAsync(cancellationToken);
 
         var missionTypeById = await LoadLatestMissionFieldValuesAsync(

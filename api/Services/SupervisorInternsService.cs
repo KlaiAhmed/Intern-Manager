@@ -40,20 +40,35 @@ public sealed class SupervisorInternsService(
 
         var internIdList = interns.Select(item => item.Id).ToList();
 
-        var activeMissionRows = await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.SupervisorId == supervisorId &&
-                              mission.InternId.HasValue &&
-                              internIdList.Contains(mission.InternId.Value) &&
-                              mission.Status == DomainStatuses.Mission.Active)
-            .Select(mission => new
-            {
-                InternId = mission.InternId!.Value,
-                MissionId = mission.Id,
-                MissionTitle = mission.Title,
-                mission.CreatedAt,
-                StageType = mission.InternshipType != null ? mission.InternshipType.Name : null
-            })
+        var activeMissionRows = await (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                where mission.SupervisorId == supervisorId &&
+                      internIdList.Contains(assignment.InternId) &&
+                      mission.Status == DomainStatuses.Mission.Active
+                select new
+                {
+                    InternId = assignment.InternId,
+                    MissionId = mission.Id,
+                    MissionTitle = mission.Title,
+                    mission.CreatedAt,
+                    StageType = mission.InternshipType != null ? mission.InternshipType.Name : null
+                })
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(mission => mission.SupervisorId == supervisorId &&
+                                      mission.InternId.HasValue &&
+                                      internIdList.Contains(mission.InternId.Value) &&
+                                      mission.Status == DomainStatuses.Mission.Active)
+                    .Select(mission => new
+                    {
+                        InternId = mission.InternId!.Value,
+                        MissionId = mission.Id,
+                        MissionTitle = mission.Title,
+                        mission.CreatedAt,
+                        StageType = mission.InternshipType != null ? mission.InternshipType.Name : null
+                    }))
             .ToListAsync(cancellationToken);
 
         var latestMissionByIntern = activeMissionRows

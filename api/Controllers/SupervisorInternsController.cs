@@ -67,10 +67,16 @@ public sealed class SupervisorInternsController(
             return Forbid();
         }
 
-        var assignedInternIdsQuery = dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.SupervisorId == supervisorId.Value && mission.InternId.HasValue)
-            .Select(mission => mission.InternId!.Value)
+        var assignedInternIdsQuery = (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                where mission.SupervisorId == supervisorId.Value
+                select assignment.InternId)
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(mission => mission.SupervisorId == supervisorId.Value && mission.InternId.HasValue)
+                    .Select(mission => mission.InternId!.Value))
             .Union(
                 dbContext.Deliverables
                     .AsNoTracking()
@@ -113,7 +119,8 @@ public sealed class SupervisorInternsController(
                 id = user.Id,
                 name = $"{user.FirstName} {user.LastName}".Trim(),
                 missionTitle = dbContext.Missions
-                    .Where(mission => mission.SupervisorId == supervisorId.Value && mission.InternId == user.Id)
+                    .Where(mission => mission.SupervisorId == supervisorId.Value &&
+                                      (mission.InternId == user.Id || mission.InternAssignments.Any(assignment => assignment.InternId == user.Id)))
                     .OrderByDescending(mission => mission.CreatedAt)
                     .Select(mission => mission.Title)
                     .FirstOrDefault() ?? string.Empty,

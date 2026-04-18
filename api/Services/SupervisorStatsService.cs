@@ -100,18 +100,31 @@ public sealed class SupervisorStatsService(
 
         var missionTypeRows = activeInternIds.Count == 0
             ? []
-            : await dbContext.Missions
-                .AsNoTracking()
-                .Where(mission => mission.SupervisorId == supervisorId &&
-                                  mission.InternId.HasValue &&
-                                  activeInternIds.Contains(mission.InternId.Value) &&
-                                  mission.Status == DomainStatuses.Mission.Active)
-                .Select(mission => new
+            : await (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                where mission.SupervisorId == supervisorId &&
+                      activeInternIds.Contains(assignment.InternId) &&
+                      mission.Status == DomainStatuses.Mission.Active
+                select new
                 {
-                    InternId = mission.InternId!.Value,
+                    InternId = assignment.InternId,
                     mission.CreatedAt,
                     TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null
                 })
+                .Union(
+                    dbContext.Missions
+                        .AsNoTracking()
+                        .Where(mission => mission.SupervisorId == supervisorId &&
+                                          mission.InternId.HasValue &&
+                                          activeInternIds.Contains(mission.InternId.Value) &&
+                                          mission.Status == DomainStatuses.Mission.Active)
+                        .Select(mission => new
+                        {
+                            InternId = mission.InternId!.Value,
+                            mission.CreatedAt,
+                            TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null
+                        }))
                 .ToListAsync(cancellationToken);
 
         var latestTypeByIntern = missionTypeRows

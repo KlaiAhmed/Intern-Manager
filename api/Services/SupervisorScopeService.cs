@@ -8,10 +8,16 @@ public sealed class SupervisorScopeService(AppDbContext dbContext) : ISupervisor
 {
     public async Task<IReadOnlySet<Guid>> GetAssignedInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
     {
-        var assignedInternIds = await dbContext.Missions
-            .AsNoTracking()
-            .Where(mission => mission.SupervisorId == supervisorId && mission.InternId.HasValue)
-            .Select(mission => mission.InternId!.Value)
+        var assignedInternIds = await (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                where mission.SupervisorId == supervisorId
+                select assignment.InternId)
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(mission => mission.SupervisorId == supervisorId && mission.InternId.HasValue)
+                    .Select(mission => mission.InternId!.Value))
             .Union(
                 dbContext.Deliverables
                     .AsNoTracking()

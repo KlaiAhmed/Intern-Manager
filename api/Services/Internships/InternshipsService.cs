@@ -81,12 +81,14 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
 
         var missionIds = missions.Select(item => item.Id).ToList();
         var metadataByMissionId = await LoadMetadataForMissionsAsync(missionIds, cancellationToken);
+        var assignedInternsByMissionId = await LoadAssignedInternsForMissionsAsync(missionIds, cancellationToken);
 
         var data = missions
             .Select(item =>
             {
                 metadataByMissionId.TryGetValue(item.Id, out var metadata);
-                return MapToResponse(item, metadata);
+                assignedInternsByMissionId.TryGetValue(item.Id, out var assignedInterns);
+                return MapToResponse(item, metadata, assignedInterns);
             })
             .ToList();
 
@@ -115,9 +117,11 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         }
 
         var metadataByMissionId = await LoadMetadataForMissionsAsync([mission.Id], cancellationToken);
+        var assignedInternsByMissionId = await LoadAssignedInternsForMissionsAsync([mission.Id], cancellationToken);
         metadataByMissionId.TryGetValue(mission.Id, out var metadata);
+        assignedInternsByMissionId.TryGetValue(mission.Id, out var assignedInterns);
 
-        return MapToResponse(mission, metadata);
+        return MapToResponse(mission, metadata, assignedInterns);
     }
 
     public async Task<InternshipResponse> CreateAsync(CreateInternshipRequest request, CancellationToken cancellationToken = default)
@@ -174,7 +178,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             Id = Guid.NewGuid(),
             SupervisorId = supervisor.Id,
             InternId = intern?.Id,
-            Title = BuildInternshipTitle(typeName, intern),
+            Title = ResolveMissionTitle(request.MissionName, typeName, intern),
             Description = objectives,
             SkillsJson = "[]",
             Tools = string.Empty,
@@ -201,7 +205,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         {
             historyEntries.Add(BuildHistoryEntry(
                 mission.Id,
-                "internId",
+                "internIds",
                 null,
                 mission.InternId.Value.ToString(),
                 actorUserId,
@@ -243,6 +247,17 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             actorName));
 
         dbContext.Missions.Add(mission);
+
+        if (intern is not null)
+        {
+            dbContext.MissionInternAssignments.Add(new MissionInternAssignment
+            {
+                MissionId = mission.Id,
+                InternId = intern.Id,
+                AssignedAt = now
+            });
+        }
+
         dbContext.MissionHistoryEntries.AddRange(historyEntries);
 
         var auditEntity = BuildCreateAuditEntity(mission.Id, typeName, status, mission.InternId);
@@ -263,7 +278,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             coSupervisor?.Id,
             endDate);
 
-        return MapToResponse(mission, metadata);
+        return MapToResponse(mission, metadata, []);
     }
 
     public async Task<InternshipResponse> UpdateAsync(
@@ -515,7 +530,13 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
 
         if (historyEntries.Count == 0)
         {
-            return MapToResponse(mission, new InternshipMetadata(nextDepartment, nextType, nextCoSupervisorId, nextEndDate));
+            var assignedInternsByMissionId = await LoadAssignedInternsForMissionsAsync([mission.Id], cancellationToken);
+            assignedInternsByMissionId.TryGetValue(mission.Id, out var assignedInterns);
+
+            return MapToResponse(
+                mission,
+                new InternshipMetadata(nextDepartment, nextType, nextCoSupervisorId, nextEndDate),
+                assignedInterns);
         }
 
         dbContext.MissionHistoryEntries.AddRange(historyEntries);
@@ -531,7 +552,13 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return MapToResponse(mission, new InternshipMetadata(nextDepartment, nextType, nextCoSupervisorId, nextEndDate));
+        var updatedAssignedInternsByMissionId = await LoadAssignedInternsForMissionsAsync([mission.Id], cancellationToken);
+        updatedAssignedInternsByMissionId.TryGetValue(mission.Id, out var updatedAssignedInterns);
+
+        return MapToResponse(
+            mission,
+            new InternshipMetadata(nextDepartment, nextType, nextCoSupervisorId, nextEndDate),
+            updatedAssignedInterns);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -711,16 +738,42 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             UserContextHelper.ResolveCurrentActorName(user));
     }
 
-    private static InternshipResponse MapToResponse(Mission mission, InternshipMetadata? metadata)
+    private static InternshipResponse MapToResponse(
+        Mission mission,
+        InternshipMetadata? metadata,
+        IReadOnlyList<AssignedInternInfo>? assignedInterns)
     {
+        var resolvedAssignedInterns = assignedInterns?.Where(item => item.InternId != Guid.Empty).ToList() ?? [];
+
+        if (resolvedAssignedInterns.Count == 0 && mission.InternId.HasValue)
+        {
+            resolvedAssignedInterns.Add(new AssignedInternInfo(
+                mission.InternId.Value,
+                mission.Intern is null
+                    ? string.Empty
+                    : $"{mission.Intern.FirstName} {mission.Intern.LastName}".Trim()));
+        }
+
+        var primaryIntern = resolvedAssignedInterns.FirstOrDefault();
+
         return new InternshipResponse
         {
             Id = mission.Id,
             MissionTitle = mission.Title,
-            InternId = mission.InternId,
-            InternName = mission.Intern is null
+            InternId = primaryIntern?.InternId,
+            InternName = string.IsNullOrWhiteSpace(primaryIntern?.InternName)
                 ? null
-                : $"{mission.Intern.FirstName} {mission.Intern.LastName}".Trim(),
+                : primaryIntern.InternName,
+            InternIds = resolvedAssignedInterns
+                .Select(item => item.InternId)
+                .Distinct()
+                .ToList(),
+            InternNames = resolvedAssignedInterns
+                .Select(item => item.InternName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name)
+                .ToList(),
             SupervisorId = mission.SupervisorId,
             SupervisorName = mission.Supervisor is null
                 ? null
@@ -733,6 +786,39 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             EndDate = mission.EndDate ?? metadata?.EndDate,
             Objectives = mission.Description
         };
+    }
+
+    private async Task<Dictionary<Guid, IReadOnlyList<AssignedInternInfo>>> LoadAssignedInternsForMissionsAsync(
+        IReadOnlyCollection<Guid> missionIds,
+        CancellationToken cancellationToken)
+    {
+        if (missionIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<AssignedInternInfo>>();
+        }
+
+        var rows = await dbContext.MissionInternAssignments
+            .AsNoTracking()
+            .Where(item => missionIds.Contains(item.MissionId))
+            .Select(item => new
+            {
+                item.MissionId,
+                item.InternId,
+                FirstName = item.Intern != null ? item.Intern.FirstName : string.Empty,
+                LastName = item.Intern != null ? item.Intern.LastName : string.Empty
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(item => item.MissionId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<AssignedInternInfo>)group
+                    .Select(item => new AssignedInternInfo(
+                        item.InternId,
+                        $"{item.FirstName} {item.LastName}".Trim()))
+                    .OrderBy(item => item.InternName)
+                    .ToList());
     }
 
     private async Task<Dictionary<Guid, InternshipMetadata>> LoadMetadataForMissionsAsync(
@@ -872,6 +958,16 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         };
     }
 
+    private static string ResolveMissionTitle(string? customMissionName, string? typeName, User? intern)
+    {
+        if (!string.IsNullOrWhiteSpace(customMissionName))
+        {
+            return customMissionName.Trim();
+        }
+
+        return BuildInternshipTitle(typeName, intern);
+    }
+
     private static string BuildInternshipTitle(string? typeName, User? intern)
     {
         var internName = intern is null
@@ -939,4 +1035,8 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         string? Type,
         Guid? CoSupervisorId,
         DateTime? EndDate);
+
+    private sealed record AssignedInternInfo(
+        Guid InternId,
+        string InternName);
 }
