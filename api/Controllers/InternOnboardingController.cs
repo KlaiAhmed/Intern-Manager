@@ -92,6 +92,7 @@ public sealed class InternOnboardingController(
                 profile.StartDate = payload.StartDate;
                 profile.EndDate = payload.EndDate;
                 profile.WorkPreference = payload.WorkPreference;
+                profile.PhoneNumber = payload.PhoneNumber;
                 profile.CvFileUrl = uploadedCvFileUrl;
 
                 intern.VerificationStatus = InternVerificationStatus.PENDING;

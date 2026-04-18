@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace InternManager.Api.Controllers;
 
@@ -29,6 +30,7 @@ public sealed class InternProfileController(
     IInternSkillsService internSkillsService) : ControllerBase
 {
     private const long MaxCvUploadBytes = 2 * 1024 * 1024;
+    private static readonly Regex PhoneNumberRegex = new(@"^\+?[0-9][0-9\s().-]{6,19}$", RegexOptions.Compiled);
 
     /// <summary>
     /// Récupère le profil du stagiaire connecté.
@@ -178,6 +180,21 @@ public sealed class InternProfileController(
             }
 
             profile.WorkPreference = workPreference;
+        }
+
+        if (request.PhoneNumber is not null)
+        {
+            var normalizedPhoneNumber = NormalizePhoneNumber(request.PhoneNumber);
+
+            if (!string.IsNullOrWhiteSpace(normalizedPhoneNumber) && !IsValidPhoneNumber(normalizedPhoneNumber))
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["phoneNumber"] = "Phone number format is invalid."
+                });
+            }
+
+            profile.PhoneNumber = normalizedPhoneNumber;
         }
 
         if (request.StartDate.HasValue)
@@ -490,6 +507,7 @@ public sealed class InternProfileController(
             CurrentYearOfStudy = string.Empty,
             ExpectedGraduationDate = null,
             WorkPreference = null,
+            PhoneNumber = null,
             CvFileUrl = null,
             StartDate = null,
             EndDate = null,
@@ -513,6 +531,7 @@ public sealed class InternProfileController(
             currentYearOfStudy = profile.CurrentYearOfStudy,
             expectedGraduationDate = profile.ExpectedGraduationDate,
             workPreference = profile.WorkPreference?.ToString().ToLowerInvariant(),
+            phoneNumber = profile.PhoneNumber,
             cvFileUrl = profile.CvFileUrl,
             status = verificationStatus.ToString(),
             verificationStatus = verificationStatus.ToString(),
@@ -532,6 +551,18 @@ public sealed class InternProfileController(
         }
 
         return Enum.TryParse(rawValue.Trim(), ignoreCase: true, out workPreference);
+    }
+
+    private static string? NormalizePhoneNumber(string? rawValue)
+    {
+        return string.IsNullOrWhiteSpace(rawValue)
+            ? null
+            : rawValue.Trim();
+    }
+
+    private static bool IsValidPhoneNumber(string rawValue)
+    {
+        return PhoneNumberRegex.IsMatch(rawValue);
     }
 
   /// <summary>
@@ -626,6 +657,8 @@ public sealed class UpdateInternProfileRequest
     public DateTime? EndDate { get; init; }
 
     public string? WorkPreference { get; init; }
+
+    public string? PhoneNumber { get; init; }
 }
 
 public sealed class UpdateInternSkillsRequest

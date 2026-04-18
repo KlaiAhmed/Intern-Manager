@@ -10,6 +10,10 @@ public sealed class InternshipResponse
 
     public string? InternName { get; init; }
 
+    public IReadOnlyList<Guid> InternIds { get; init; } = Array.Empty<Guid>();
+
+    public IReadOnlyList<string> InternNames { get; init; } = Array.Empty<string>();
+
     public Guid SupervisorId { get; init; }
 
     public string? SupervisorName { get; init; }

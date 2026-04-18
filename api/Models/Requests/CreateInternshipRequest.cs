@@ -2,6 +2,8 @@ namespace InternManager.Api.Models.Requests;
 
 public class CreateInternshipRequest
 {
+    public string? MissionName { get; set; }
+
     public string? InternId { get; set; }
 
     public string? SupervisorId { get; set; }

@@ -162,6 +162,7 @@ public sealed class InternsController(
                 item.UniversityId,
                 item.Major,
                 item.CurrentYearOfStudy,
+                item.PhoneNumber,
                 item.CvFileUrl,
                 item.StartDate,
                 item.EndDate
@@ -270,7 +271,7 @@ public sealed class InternsController(
             CvFileUrl = profile?.CvFileUrl,
             StartDate = profile?.StartDate ?? currentMission?.StartDate,
             EndDate = profile?.EndDate ?? currentMission?.EndDate,
-            Phone = null,
+            Phone = profile?.PhoneNumber,
             School = schoolName,
             Specialty = specialty,
             Level = level,
@@ -429,6 +430,13 @@ public sealed class InternsController(
     private async Task<HashSet<Guid>> ResolveAssignedInternIdsAsync(Guid supervisorId, CancellationToken cancellationToken)
     {
         var assignedInternIds = new HashSet<Guid>();
+
+        assignedInternIds.UnionWith(await (
+                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                where mission.SupervisorId == supervisorId
+                select assignment.InternId)
+            .ToListAsync(cancellationToken));
 
         assignedInternIds.UnionWith(await dbContext.Missions
             .AsNoTracking()

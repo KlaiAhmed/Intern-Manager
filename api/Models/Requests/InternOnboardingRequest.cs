@@ -18,6 +18,8 @@ public sealed class InternOnboardingForm
 
     public string? WorkPreference { get; init; }
 
+    public string? PhoneNumber { get; init; }
+
     public IFormFile? Cv { get; init; }
 }
 
@@ -29,4 +31,5 @@ public sealed record ValidatedInternOnboardingPayload(
     DateTime StartDate,
     DateTime EndDate,
     WorkPreference WorkPreference,
+    string? PhoneNumber,
     IFormFile Cv);

@@ -86,19 +86,44 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
             });
         }
 
-        if (mission.InternId.HasValue && mission.InternId.Value != request.InternId)
+        var existingInternIds = await dbContext.MissionInternAssignments
+            .AsNoTracking()
+            .Where(item => item.MissionId == mission.Id)
+            .Select(item => item.InternId)
+            .ToListAsync(cancellationToken);
+
+        if (existingInternIds.Count == 0 && mission.InternId.HasValue)
+        {
+            existingInternIds.Add(mission.InternId.Value);
+        }
+
+        if (existingInternIds.Contains(request.InternId))
         {
             return StatusCode(StatusCodes.Status409Conflict, new
             {
-                message = "Mission is already assigned to another intern. Unassign it first before assigning a different intern."
+                message = "Intern is already assigned to this mission."
             });
         }
 
         var hasActiveMissionElsewhere = await dbContext.Missions
             .AsNoTracking()
             .AnyAsync(item => item.Id != mission.Id &&
-                              item.InternId == request.InternId &&
-                              item.Status == "active", cancellationToken);
+                              item.Status == "active" &&
+                              (item.InternId == request.InternId ||
+                               item.InternAssignments.Any(assignment => assignment.InternId == request.InternId)),
+                      cancellationToken);
+
+        if (!hasActiveMissionElsewhere)
+        {
+            hasActiveMissionElsewhere = await dbContext.MissionInternAssignments
+                .AsNoTracking()
+                .AnyAsync(
+                    assignment => assignment.InternId == request.InternId &&
+                                  assignment.MissionId != mission.Id &&
+                                  assignment.Mission != null &&
+                                  assignment.Mission.Status == "active",
+                    cancellationToken);
+        }
 
         if (hasActiveMissionElsewhere)
         {
@@ -108,9 +133,25 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
             });
         }
 
-        mission.InternId = request.InternId;
         var previousMissionStatus = mission.Status;
+        if (!mission.InternId.HasValue)
+        {
+            mission.InternId = request.InternId;
+        }
+
         mission.Status = "active";
+
+        dbContext.MissionInternAssignments.Add(new MissionInternAssignment
+        {
+            MissionId = mission.Id,
+            InternId = request.InternId,
+            AssignedAt = DateTime.UtcNow
+        });
+
+        var updatedInternIds = existingInternIds
+            .Append(request.InternId)
+            .Distinct()
+            .ToList();
 
         var deliverables = await dbContext.Deliverables
             .Where(item => item.MissionId == mission.Id)
@@ -118,14 +159,19 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
 
         foreach (var deliverable in deliverables)
         {
-            deliverable.InternId = request.InternId;
+            if (!deliverable.InternId.HasValue)
+            {
+                deliverable.InternId = request.InternId;
+            }
         }
 
         var deliverableIds = deliverables.Select(item => item.Id).ToList();
         if (deliverableIds.Count > 0)
         {
             var linkedTasks = await dbContext.InternTasks
-                .Where(task => task.DeliverableId.HasValue && deliverableIds.Contains(task.DeliverableId.Value))
+                .Where(task => task.InternId == request.InternId &&
+                               task.DeliverableId.HasValue &&
+                               deliverableIds.Contains(task.DeliverableId.Value))
                 .ToListAsync(cancellationToken);
 
             if (linkedTasks.Count > 0)
@@ -160,9 +206,9 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
         {
             Id = Guid.NewGuid(),
             MissionId = mission.Id,
-            Field = "internId",
-            OldValue = null,
-            NewValue = request.InternId.ToString(),
+            Field = "internIds",
+            OldValue = existingInternIds.Count == 0 ? null : string.Join(',', existingInternIds),
+            NewValue = string.Join(',', updatedInternIds),
             ChangedByUserId = actorUserId,
             ChangedBy = UserContextHelper.ResolveCurrentActorName(User),
             ChangedAt = DateTime.UtcNow
@@ -226,6 +272,7 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
         {
             missionId = mission.Id,
             internId = request.InternId,
+            internIds = updatedInternIds,
             status = intern.VerificationStatus.ToString(),
             verificationStatus = intern.VerificationStatus.ToString(),
             startDate,

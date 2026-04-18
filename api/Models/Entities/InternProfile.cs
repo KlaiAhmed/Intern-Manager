@@ -21,6 +21,8 @@ public sealed class InternProfile
 
     public WorkPreference? WorkPreference { get; set; }
 
+    public string? PhoneNumber { get; set; }
+
     public string? CvFileUrl { get; set; }
 
     public DateTime? StartDate { get; set; }

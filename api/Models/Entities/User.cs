@@ -76,4 +76,9 @@ public class User
     /// Date de dernière mise à jour du compte en temps universel (UTC).
     /// </summary>
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Missions auxquelles un intern est affecte.
+    /// </summary>
+    public ICollection<MissionInternAssignment> AssignedMissions { get; set; } = new List<MissionInternAssignment>();
 }

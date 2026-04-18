@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace InternManager.Api.Middleware;
 
@@ -13,6 +14,7 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
 {
     public const string ValidatedPayloadItemKey = "intern.onboarding.validated-payload";
     private const long MaxCvUploadBytes = 2 * 1024 * 1024;
+    private static readonly Regex PhoneNumberRegex = new(@"^\+?[0-9][0-9\s().-]{6,19}$", RegexOptions.Compiled);
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
@@ -76,6 +78,7 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
         var rawUniversityId = form.UniversityId?.Trim();
         var major = (form.Major ?? string.Empty).Trim();
         var currentYearOfStudy = (form.CurrentYearOfStudy ?? string.Empty).Trim();
+        var phoneNumber = NormalizePhoneNumber(form.PhoneNumber);
         Guid universityId = Guid.Empty;
 
         if (string.IsNullOrWhiteSpace(rawUniversityId) || !Guid.TryParse(rawUniversityId, out universityId))
@@ -133,6 +136,11 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
             AddFieldError(errors, "workPreference", "Work preference must be one of: remote, hybrid, onsite.");
         }
 
+        if (!string.IsNullOrWhiteSpace(phoneNumber) && !IsValidPhoneNumber(phoneNumber))
+        {
+            AddFieldError(errors, "phoneNumber", "Phone number format is invalid.");
+        }
+
         if (errors.Count > 0)
         {
             context.Result = new BadRequestObjectResult(new
@@ -182,6 +190,7 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
             startDate,
             endDate,
             workPreference,
+            phoneNumber,
             form.Cv!);
 
         await next();
@@ -230,6 +239,18 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
         };
 
         return normalized is "remote" or "hybrid" or "onsite";
+    }
+
+    private static string? NormalizePhoneNumber(string? raw)
+    {
+        return string.IsNullOrWhiteSpace(raw)
+            ? null
+            : raw.Trim();
+    }
+
+    private static bool IsValidPhoneNumber(string value)
+    {
+        return PhoneNumberRegex.IsMatch(value);
     }
 
     private static bool HasValidPdfSignature(IFormFile file)

@@ -124,7 +124,8 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
         var isManager = User.IsInRole("Manager");
         var isSupervisorScope = User.IsInRole("Supervisor") && result.SupervisorId == currentUserId.Value;
-        var isInternScope = User.IsInRole("Intern") && result.InternId == currentUserId.Value;
+        var isInternScope = User.IsInRole("Intern") &&
+                    (result.InternId == currentUserId.Value || result.InternIds.Contains(currentUserId.Value));
 
         if (!isAdmin && !isManager && !isSupervisorScope && !isInternScope)
         {
@@ -417,7 +418,11 @@ public sealed class InternshipsController(IInternshipsService service, AppDbCont
         var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
         var isManager = User.IsInRole("Manager");
         var isSupervisorScope = User.IsInRole("Supervisor") && mission.SupervisorId == currentUserId.Value;
-        var isInternScope = User.IsInRole("Intern") && mission.InternId == currentUserId.Value;
+        var isInternScope = User.IsInRole("Intern") &&
+                            (mission.InternId == currentUserId.Value ||
+                             await _dbContext.MissionInternAssignments
+                                 .AsNoTracking()
+                                 .AnyAsync(item => item.MissionId == mission.Id && item.InternId == currentUserId.Value, cancellationToken));
 
         if (!isAdmin && !isManager && !isSupervisorScope && !isInternScope)
         {
