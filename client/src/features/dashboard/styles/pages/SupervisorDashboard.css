@@ -25,44 +25,6 @@
   gap: var(--dash-space-sm);
 }
 
-.supervisor-notification-trigger {
-  appearance: none;
-  border: 1px solid var(--dash-border);
-  border-radius: var(--dash-radius-md);
-  background: var(--dash-bg-primary);
-  color: var(--dash-text);
-  font-family: var(--dash-font-body);
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: var(--dash-space-sm) var(--dash-space-md);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--dash-space-sm);
-  cursor: pointer;
-  transition:
-    border-color var(--dash-duration-fast) var(--dash-ease),
-    background-color var(--dash-duration-fast) var(--dash-ease);
-}
-
-.supervisor-notification-trigger:hover {
-  border-color: var(--dash-border-hover);
-  background: var(--dash-bg-secondary);
-}
-
-.supervisor-notification-trigger-badge {
-  min-width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 999px;
-  padding-inline: 0.4rem;
-  background: var(--dash-error);
-  color: white;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
 .supervisor-kpi-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -294,11 +256,6 @@
   .supervisor-header-actions {
     width: 100%;
     flex-wrap: wrap;
-  }
-
-  .supervisor-notification-trigger {
-    width: 100%;
-    justify-content: center;
   }
 
   .supervisor-kpi-row {

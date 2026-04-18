@@ -1,10 +1,9 @@
-﻿import { DashboardButton } from '../../components/DashboardButton'
+import { DashboardButton } from '../../components/DashboardButton'
 import { DashboardMetricCard } from '../../components/DashboardMetricCard'
 import { EvaluationRow } from '../../components/EvaluationRow'
 import { ErrorState } from '../../components/ErrorState'
 import { MetricBar } from '../../components/MetricBar'
 import { Modal } from '../../components/Modal'
-import { NotificationPanel } from '../../components/NotificationPanel'
 import { Panel } from '../../components/Panel'
 import { ProgressRow } from '../../components/ProgressRow'
 import { Skeleton } from '../../components/Skeleton'
@@ -63,7 +62,6 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
     queueState,
     meetingsState,
     evaluationsState,
-    notificationsState,
     internOptions,
     meetingForm,
     meetingFormError,
@@ -73,11 +71,8 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
     resolveDelaySeverityLabel,
     resolveDelaySeverityTone,
     resolveEvaluationTypeLabel,
-    resolveNotificationTypeLabel,
     handleQueueAccept,
     handleQueueReject,
-    openNotificationsPanel,
-    closeNotificationsPanel,
     activeEvaluation,
     evaluationScores,
     evaluationComment,
@@ -101,8 +96,6 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
   const summerRatio = internTypeTotal > 0 ? Math.round((workload.summerCount / internTypeTotal) * 100) : 0
   const otherRatio = internTypeTotal > 0 ? Math.max(0, 100 - pfeRatio - summerRatio) : 0
 
-  const unreadBadge = notificationsState.unreadCount > 99 ? '99+' : String(notificationsState.unreadCount)
-
   return (
     <div className="dashboard-container supervisor-dashboard">
       <header className="supervisor-header">
@@ -122,19 +115,6 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
           >
             {t('dashboard.action.refresh')}
           </DashboardButton>
-
-          <button
-            type="button"
-            className="supervisor-notification-trigger"
-            onClick={() => {
-              void openNotificationsPanel()
-            }}
-          >
-            <span>{t('dashboard.supervisor.notifications.title')}</span>
-            {notificationsState.unreadCount > 0 && (
-              <span className="supervisor-notification-trigger-badge">{unreadBadge}</span>
-            )}
-          </button>
         </div>
       </header>
 
@@ -489,25 +469,6 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
           </div>
         </Panel>
       </div>
-
-      <NotificationPanel
-        isOpen={notificationsState.isPanelOpen}
-        title={t('dashboard.supervisor.notifications.title')}
-        notifications={notificationsState.items}
-        isLoading={notificationsState.isLoading}
-        error={notificationsState.error}
-        loadingLabel={t('dashboard.loading')}
-        emptyMessage={t('dashboard.supervisor.notifications.empty')}
-        retryLabel={t('dashboard.action.refresh')}
-        closeLabel={t('dashboard.form.close')}
-        readLabel={t('dashboard.supervisor.notifications.read')}
-        unreadLabel={t('dashboard.supervisor.notifications.unread')}
-        resolveTypeLabel={(item) => resolveNotificationTypeLabel(item.type)}
-        onClose={closeNotificationsPanel}
-        onRetry={() => {
-          void notificationsState.refresh()
-        }}
-      />
 
       <Modal
         isOpen={Boolean(activeEvaluation)}

@@ -1,4 +1,61 @@
 import { useState, useEffect, useMemo, type FormEvent, type ChangeEvent, type DragEvent } from 'react'
+
+// Phone Input Component with +216 prefix
+function PhoneInput({ value, onChange, error, disabled }: {
+  value: string
+  onChange: (value: string) => void
+  error?: string
+  disabled?: boolean
+}) {
+  const { t } = useI18n()
+  const isValid = value.length === PHONE_DIGITS_REQUIRED
+  const digitsOnly = value.replace(/[^0-9]/g, '')
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value.replace(/[^0-9]/g, '')
+    if (inputValue.length <= PHONE_DIGITS_REQUIRED) {
+      onChange(inputValue)
+    }
+  }
+
+  const wrapperClass = [
+    'phone-input-wrapper',
+    error ? 'has-error' : '',
+    isValid ? 'is-valid' : ''
+  ].filter(Boolean).join(' ')
+
+  return (
+    <div>
+      <div className={wrapperClass}>
+        <span className="phone-prefix">+216</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          className="phone-input"
+          value={digitsOnly}
+          onChange={handleChange}
+          disabled={disabled}
+          placeholder={t('dashboard.intern.application.placeholder.phoneNumber')}
+          aria-label={t('dashboard.intern.application.phoneNumber')}
+          autoComplete="tel-national"
+        />
+        {isValid && (
+          <span className="phone-valid-indicator" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+        )}
+      </div>
+      <div className={`phone-helper${isValid ? ' valid' : ''}`}>
+        <span>{isValid ? t('dashboard.intern.application.phoneValid') : t('dashboard.intern.application.phoneDigitsHint')}</span>
+        <span className="phone-digit-count">{digitsOnly.length}/{PHONE_DIGITS_REQUIRED}</span>
+      </div>
+    </div>
+  )
+}
+
 import { useI18n } from '../../../../locales/I18nContext'
 import { CustomSelect } from '../../../../components/ui'
 import { useSchoolsApi, type School } from '../../api/schoolsApi'
@@ -15,6 +72,7 @@ interface InternApplicationFormData {
   startDate: string
   endDate: string
   workPreference: WorkPreference
+  phoneNumber: string
   cvFile: File | null
 }
 
@@ -23,6 +81,9 @@ interface MultiStepApplicationFormProps {
 }
 
 type FormStep = 1 | 2 | 3
+
+const PHONE_DIGITS_REQUIRED = 8
+const phoneDigitsPattern = /^[0-9]{0,8}$/
 
 export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFormProps) {
   const { t } = useI18n()
@@ -43,6 +104,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
     startDate: '',
     endDate: '',
     workPreference: 'hybrid',
+    phoneNumber: '',
     cvFile: null,
   })
 
@@ -130,6 +192,9 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       newErrors.workPreference = t('dashboard.intern.application.required')
     }
 
+  if (formData.phoneNumber.trim() && formData.phoneNumber.length !== PHONE_DIGITS_REQUIRED) {
+    newErrors.phoneNumber = t('dashboard.intern.application.error.phoneDigits').replace('{{count}}', String(PHONE_DIGITS_REQUIRED))
+  }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -221,6 +286,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       multipartData.append('startDate', formData.startDate)
       multipartData.append('endDate', formData.endDate)
       multipartData.append('workPreference', formData.workPreference)
+      multipartData.append('phoneNumber', '+216' + formData.phoneNumber.trim())
       multipartData.append('cv', formData.cvFile)
 
       await api.postFormData('/api/interns/me/onboarding', multipartData)
@@ -388,6 +454,23 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                 {errors.workPreference && <span className="field-error">{errors.workPreference}</span>}
               </div>
 
+              <div className="form-field">
+                <label htmlFor="phoneNumber" className="form-label">
+                  {t('dashboard.intern.application.phoneNumber')}
+                </label>
+                <input
+                  id="phoneNumber"
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  disabled={isSubmitting}
+                  className={`form-input ${errors.phoneNumber ? 'input-error' : ''}`}
+                  placeholder={t('dashboard.intern.application.placeholder.phoneNumber')}
+                />
+                {errors.phoneNumber && <span className="field-error">{errors.phoneNumber}</span>}
+              </div>
+
               <div className="form-actions">
                 <button type="button" className="btn-next" onClick={handleNext} disabled={isSubmitting}>
                   {t('dashboard.intern.application.next')}
@@ -504,6 +587,10 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                   <span className="review-value">
                     {workPreferenceOptions.find((opt) => opt.value === formData.workPreference)?.label}
                   </span>
+                </div>
+                <div className="review-item">
+                  <span className="review-label">{t('dashboard.intern.application.phoneNumber')}</span>
+                  <span className="review-value">{formData.phoneNumber.trim() || '—'}</span>
                 </div>
                 <div className="review-item">
                   <span className="review-label">CV</span>

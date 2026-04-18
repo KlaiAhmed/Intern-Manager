@@ -245,6 +245,7 @@ export function PendingStatusView({
 
   const universityValue = profile?.universityName?.trim() || profile?.universityId?.trim() || null
   const majorValue = profile?.major?.trim() || null
+  const phoneNumberValue = profile?.phoneNumber?.trim() || null
   const currentYearValue = formatCurrentYearOfStudy(profile?.currentYearOfStudy)
   const expectedGraduationValue = formatPendingDate(profile?.expectedGraduationDate, locale)
   const startDateValue = formatPendingDate(profile?.startDate, locale)
@@ -295,6 +296,16 @@ export function PendingStatusView({
                 <div className="pending-profile-value">
                   {majorValue ? (
                     <span>{majorValue}</span>
+                  ) : (
+                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="pending-profile-row">
+                <span className="pending-profile-label">{t('dashboard.intern.application.phoneNumber')}</span>
+                <div className="pending-profile-value">
+                  {phoneNumberValue ? (
+                    <span>{phoneNumberValue}</span>
                   ) : (
                     <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
                   )}

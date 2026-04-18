@@ -98,6 +98,7 @@ export interface InternProfileReadOnly {
   universityId?: string | null
   universityName?: string | null
   major?: string | null
+  phoneNumber?: string | null
   currentYearOfStudy?: string | null
   expectedGraduationDate?: string | null
   startDate?: string | null

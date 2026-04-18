@@ -5,7 +5,6 @@ import { useDelaysAlerts } from '../../hooks/supervisor/useDelaysAlerts'
 import { useEvaluations } from '../../hooks/supervisor/useEvaluations'
 import { useInternProgress } from '../../hooks/supervisor/useInternProgress'
 import { useMeetings } from '../../hooks/supervisor/useMeetings'
-import { useNotifications } from '../../hooks/supervisor/useNotifications'
 import { useSupervisorKpis } from '../../hooks/supervisor/useSupervisorKpis'
 import { useSupervisorWorkload } from '../../hooks/supervisor/useSupervisorWorkload'
 import { useValidationQueue } from '../../hooks/supervisor/useValidationQueue'
@@ -116,7 +115,6 @@ export function useSupervisorDashboardState() {
   const queueState = useValidationQueue()
   const meetingsState = useMeetings()
   const evaluationsState = useEvaluations()
-  const notificationsState = useNotifications()
 
   const [meetingForm, setMeetingForm] = useState<SupervisorMeetingForm>(initialMeetingForm)
   const [meetingFormError, setMeetingFormError] = useState<string | null>(null)
@@ -188,18 +186,8 @@ export function useSupervisorDashboardState() {
       queueState.refresh(),
       meetingsState.refresh(),
       evaluationsState.refresh(),
-      notificationsState.refresh(),
     ])
-  }, [
-    delaysState,
-    evaluationsState,
-    kpisState,
-    meetingsState,
-    notificationsState,
-    progressState,
-    queueState,
-    workloadState,
-  ])
+  }, [delaysState, evaluationsState, kpisState, meetingsState, progressState, queueState, workloadState])
 
   const openInternProfile = useCallback(
     (internId: string) => {
@@ -249,27 +237,6 @@ export function useSupervisorDashboardState() {
       }
 
       return t('dashboard.evaluation.endOfInternship')
-    },
-    [t]
-  )
-
-  const resolveNotificationTypeLabel = useCallback(
-    (rawType: string): string => {
-      const normalized = normalizeToken(rawType)
-
-      if (normalized.includes('meeting')) {
-        return t('dashboard.supervisor.notifications.typeMeeting')
-      }
-
-      if (normalized.includes('reject')) {
-        return t('dashboard.supervisor.notifications.typeRejection')
-      }
-
-      if (normalized.includes('deliverable') || normalized.includes('submit')) {
-        return t('dashboard.supervisor.notifications.typeSubmission')
-      }
-
-      return t('dashboard.supervisor.notifications.typeGeneric')
     },
     [t]
   )
@@ -356,10 +323,6 @@ export function useSupervisorDashboardState() {
     setEvaluationComment('')
   }, [activeEvaluation, evaluationComment, evaluationScores, evaluationsState])
 
-  const openNotificationsPanel = useCallback(async () => {
-    await notificationsState.openPanel().catch(() => undefined)
-  }, [notificationsState])
-
   return {
     t,
     refreshAll,
@@ -373,7 +336,6 @@ export function useSupervisorDashboardState() {
     queueState,
     meetingsState,
     evaluationsState,
-    notificationsState,
     internOptions,
     meetingForm,
     meetingFormError,
@@ -383,11 +345,8 @@ export function useSupervisorDashboardState() {
     resolveDelaySeverityLabel,
     resolveDelaySeverityTone,
     resolveEvaluationTypeLabel,
-    resolveNotificationTypeLabel,
     handleQueueAccept,
     handleQueueReject,
-    openNotificationsPanel,
-    closeNotificationsPanel: notificationsState.closePanel,
     activeEvaluation,
     evaluationScores,
     evaluationComment,
