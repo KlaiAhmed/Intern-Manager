@@ -29,6 +29,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Mission> Missions => Set<Mission>();
 
     /// <summary>
+    /// Table de liaison mission-stagiaire pour les affectations multiples.
+    /// </summary>
+    public DbSet<MissionInternAssignment> MissionInternAssignments => Set<MissionInternAssignment>();
+
+    /// <summary>
     /// Table des drapeaux de fonctionnalites du dashboard par mission.
     /// </summary>
     public DbSet<MissionFeatureFlags> MissionFeatureFlags => Set<MissionFeatureFlags>();
@@ -311,6 +316,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(mission => mission.InternshipTypeId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<MissionInternAssignment>(entity =>
+        {
+            entity.ToTable("MissionInternAssignments");
+
+            entity.HasKey(assignment => new { assignment.MissionId, assignment.InternId });
+
+            entity.Property(assignment => assignment.AssignedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(assignment => assignment.InternId);
+
+            entity.HasOne(assignment => assignment.Mission)
+                .WithMany(mission => mission.InternAssignments)
+                .HasForeignKey(assignment => assignment.MissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(assignment => assignment.Intern)
+                .WithMany(user => user.AssignedMissions)
+                .HasForeignKey(assignment => assignment.InternId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<MissionFeatureFlags>(entity =>
@@ -694,6 +722,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                         ? null
                         : (WorkPreference?)Enum.Parse<WorkPreference>(value, true))
                 .HasMaxLength(16);
+
+            entity.Property(profile => profile.PhoneNumber)
+                .HasMaxLength(32);
 
             entity.Property(profile => profile.CvFileUrl)
                 .HasMaxLength(2048);

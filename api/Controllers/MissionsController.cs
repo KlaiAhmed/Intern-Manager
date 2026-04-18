@@ -94,6 +94,8 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         var missionsQuery = dbContext.Missions
             .AsNoTracking()
             .Include(mission => mission.Intern)
+            .Include(mission => mission.InternAssignments)
+                .ThenInclude(assignment => assignment.Intern)
             .Include(mission => mission.Supervisor)
             .AsQueryable();
 
@@ -126,13 +128,48 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 ? count
                 : 0;
 
+            var assignedInterns = mission.InternAssignments
+                .Select(assignment => new
+                {
+                    assignment.InternId,
+                    FullName = assignment.Intern != null
+                        ? $"{assignment.Intern.FirstName} {assignment.Intern.LastName}".Trim()
+                        : string.Empty
+                })
+                .Where(item => item.InternId != Guid.Empty)
+                .OrderBy(item => item.FullName)
+                .ToList();
+
+            if (assignedInterns.Count == 0 && mission.InternId.HasValue)
+            {
+                assignedInterns.Add(new
+                {
+                    InternId = mission.InternId.Value,
+                    FullName = mission.Intern != null
+                        ? $"{mission.Intern.FirstName} {mission.Intern.LastName}".Trim()
+                        : string.Empty
+                });
+            }
+
+            var internIds = assignedInterns
+                .Select(item => item.InternId)
+                .Distinct()
+                .ToArray();
+
+            var internNames = assignedInterns
+                .Select(item => item.FullName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
             return new
             {
                 id = mission.Id,
                 title = mission.Title,
-                internName = mission.Intern != null
-                    ? $"{mission.Intern.FirstName} {mission.Intern.LastName}".Trim()
-                    : (string?)null,
+                internId = internIds.FirstOrDefault(),
+                internIds,
+                internName = internNames.FirstOrDefault(),
+                internNames,
                 supervisorName = mission.Supervisor != null
                     ? $"{mission.Supervisor.FirstName} {mission.Supervisor.LastName}".Trim()
                     : (string?)null,
@@ -186,7 +223,21 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return BadRequest(new { message = "Invalid internId." });
         }
 
+        if (!TryResolveOptionalInternIds(request.InternIds, out var internIds))
+        {
+            return BadRequest(new { message = "Invalid internIds." });
+        }
+
         if (internId.HasValue)
+        {
+            internIds.Add(internId.Value);
+        }
+
+        internIds = internIds
+            .Distinct()
+            .ToList();
+
+        if (internIds.Count > 0)
         {
             return StatusCode(StatusCodes.Status409Conflict, new
             {
@@ -268,7 +319,9 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         {
             id = mission.Id,
             title = mission.Title,
-            status = mission.Status
+            status = mission.Status,
+            internIds = Array.Empty<Guid>(),
+            internNames = Array.Empty<string>()
         };
 
         return CreatedAtAction(nameof(GetMissionById), new { id = mission.Id }, result);
@@ -307,6 +360,8 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         var mission = await dbContext.Missions
             .AsNoTracking()
             .Include(item => item.Intern)
+            .Include(item => item.InternAssignments)
+                .ThenInclude(assignment => assignment.Intern)
             .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
 
         if (mission is null)
@@ -314,16 +369,50 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return NotFound();
         }
 
+        var assignedInterns = mission.InternAssignments
+            .Select(assignment => new
+            {
+                assignment.InternId,
+                FullName = assignment.Intern != null
+                    ? $"{assignment.Intern.FirstName} {assignment.Intern.LastName}".Trim()
+                    : string.Empty
+            })
+            .Where(item => item.InternId != Guid.Empty)
+            .OrderBy(item => item.FullName)
+            .ToList();
+
+        if (assignedInterns.Count == 0 && mission.InternId.HasValue)
+        {
+            assignedInterns.Add(new
+            {
+                InternId = mission.InternId.Value,
+                FullName = mission.Intern != null
+                    ? $"{mission.Intern.FirstName} {mission.Intern.LastName}".Trim()
+                    : string.Empty
+            });
+        }
+
+        var internIds = assignedInterns
+            .Select(item => item.InternId)
+            .Distinct()
+            .ToArray();
+
+        var internNames = assignedInterns
+            .Select(item => item.FullName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         return Ok(new
         {
             id = mission.Id,
             title = mission.Title,
             description = mission.Description,
             status = mission.Status,
-            internId = mission.InternId,
-            internName = mission.Intern != null
-                ? $"{mission.Intern.FirstName} {mission.Intern.LastName}".Trim()
-                : string.Empty,
+            internId = internIds.Length > 0 ? internIds[0] : (Guid?)null,
+            internIds,
+            internName = internNames.FirstOrDefault() ?? string.Empty,
+            internNames,
             tools = mission.Tools,
             level = mission.Level,
             createdAt = mission.CreatedAt
@@ -445,13 +534,32 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 });
             }
 
-            if (normalizedStatus == DomainStatuses.Mission.Completed && mission.InternId.HasValue)
+            if (normalizedStatus == DomainStatuses.Mission.Completed)
             {
-                var intern = await dbContext.Users
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(item => item.Id == mission.InternId.Value && item.Role == UserRole.Intern, cancellationToken);
+                var assignedInternIds = await ResolveMissionAssignedInternIdsAsync(mission.Id, cancellationToken);
 
-                if (intern is null || intern.VerificationStatus != InternVerificationStatus.ACTIVE)
+                if (assignedInternIds.Count == 0 && mission.InternId.HasValue)
+                {
+                    assignedInternIds = [mission.InternId.Value];
+                }
+
+                var internStatuses = assignedInternIds.Count == 0
+                    ? []
+                    : await dbContext.Users
+                    .AsNoTracking()
+                    .Where(item => assignedInternIds.Contains(item.Id) && item.Role == UserRole.Intern)
+                    .Select(item => new
+                    {
+                        item.Id,
+                        item.VerificationStatus
+                    })
+                    .ToListAsync(cancellationToken);
+
+                var hasInactiveIntern = assignedInternIds.Count > 0 &&
+                    (internStatuses.Count != assignedInternIds.Count ||
+                     internStatuses.Any(item => item.VerificationStatus != InternVerificationStatus.ACTIVE));
+
+                if (hasInactiveIntern)
                 {
                     return StatusCode(StatusCodes.Status409Conflict, new
                     {
@@ -459,12 +567,15 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                     });
                 }
 
-                notificationService.QueueNotification(
-                    mission.InternId.Value,
-                    "intern.status.completed",
-                    "Internship completed",
-                    "Congratulations. Your internship status is now COMPLETED.",
-                    $"mission:{mission.Id}");
+                foreach (var assignedInternId in assignedInternIds)
+                {
+                    notificationService.QueueNotification(
+                        assignedInternId,
+                        "intern.status.completed",
+                        "Internship completed",
+                        "Congratulations. Your internship status is now COMPLETED.",
+                        $"mission:{mission.Id}");
+                }
             }
 
             if (!string.Equals(mission.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
@@ -476,12 +587,15 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         if (historyEntries.Count == 0)
         {
+            var assignedInternIds = await ResolveMissionAssignedInternIdsAsync(mission.Id, cancellationToken);
+
             return Ok(new
             {
                 id = mission.Id,
                 title = mission.Title,
                 status = mission.Status,
-                internId = mission.InternId
+                internId = assignedInternIds.Count > 0 ? assignedInternIds[0] : (Guid?)null,
+                internIds = assignedInternIds
             });
         }
 
@@ -498,12 +612,15 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var updatedInternIds = await ResolveMissionAssignedInternIdsAsync(mission.Id, cancellationToken);
+
         return Ok(new
         {
             id = mission.Id,
             title = mission.Title,
             status = mission.Status,
-            internId = mission.InternId
+            internId = updatedInternIds.Count > 0 ? updatedInternIds[0] : (Guid?)null,
+            internIds = updatedInternIds
         });
     }
 
@@ -547,6 +664,20 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return BadRequest(new { message = "Invalid internId." });
         }
 
+        if (!TryResolveOptionalInternIds(request.InternIds, out var requestedInternIds))
+        {
+            return BadRequest(new { message = "Invalid internIds." });
+        }
+
+        if (requestedInternId.HasValue)
+        {
+            requestedInternIds.Add(requestedInternId.Value);
+        }
+
+        requestedInternIds = requestedInternIds
+            .Distinct()
+            .ToList();
+
         var mission = await dbContext.Missions
             .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == supervisorId.Value, cancellationToken);
 
@@ -555,7 +686,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return NotFound(new { message = "Mission not found." });
         }
 
-        if (requestedInternId.HasValue)
+        if (requestedInternIds.Count > 0)
         {
             return StatusCode(StatusCodes.Status409Conflict, new
             {
@@ -563,19 +694,35 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             });
         }
 
-        if (mission.InternId == requestedInternId)
+        var existingInternIds = await ResolveMissionAssignedInternIdsAsync(mission.Id, cancellationToken);
+        if (existingInternIds.Count == 0 && mission.InternId.HasValue)
+        {
+            existingInternIds = [mission.InternId.Value];
+        }
+
+        if (existingInternIds.Count == 0)
         {
             return Ok(new
             {
                 id = mission.Id,
-                internId = mission.InternId,
+                internId = (Guid?)null,
+                internIds = Array.Empty<Guid>(),
                 status = mission.Status
             });
         }
 
-        var oldInternId = mission.InternId;
-        mission.InternId = requestedInternId;
-        mission.Status = requestedInternId.HasValue ? DomainStatuses.Mission.Active : DomainStatuses.Mission.Template;
+        var oldInternIds = existingInternIds;
+        mission.InternId = null;
+        mission.Status = DomainStatuses.Mission.Template;
+
+        var assignmentLinks = await dbContext.MissionInternAssignments
+            .Where(item => item.MissionId == mission.Id)
+            .ToListAsync(cancellationToken);
+
+        if (assignmentLinks.Count > 0)
+        {
+            dbContext.MissionInternAssignments.RemoveRange(assignmentLinks);
+        }
 
         var deliverables = await dbContext.Deliverables
             .Where(item => item.MissionId == mission.Id)
@@ -583,7 +730,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
         foreach (var deliverable in deliverables)
         {
-            deliverable.InternId = requestedInternId;
+            deliverable.InternId = null;
         }
 
         var deliverableIds = deliverables.Select(item => item.Id).ToList();
@@ -598,39 +745,20 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 dbContext.InternTasks.RemoveRange(linkedTasks);
             }
 
-            if (requestedInternId.HasValue)
-            {
-                foreach (var deliverable in deliverables)
-                {
-                    var isComplete = deliverable.Progress >= 100 ||
-                                     deliverable.Status.Equals(DomainStatuses.Deliverable.Accepted, StringComparison.OrdinalIgnoreCase);
-
-                    dbContext.InternTasks.Add(new InternTask
-                    {
-                        Id = Guid.NewGuid(),
-                        InternId = requestedInternId.Value,
-                        DeliverableId = deliverable.Id,
-                        Title = deliverable.Title,
-                        DueDate = deliverable.DueDate,
-                        IsComplete = isComplete,
-                        CompletedAt = isComplete ? DateTime.UtcNow : null,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
-            }
+            // No task recreation when mission is explicitly unassigned.
         }
 
         dbContext.MissionHistoryEntries.Add(BuildHistoryEntry(
             mission.Id,
-            "internId",
-            oldInternId?.ToString(),
-            requestedInternId?.ToString(),
+            "internIds",
+            string.Join(',', oldInternIds),
+            null,
             supervisorId));
 
         dbContext.MissionHistoryEntries.Add(BuildHistoryEntry(
             mission.Id,
             "status",
-            oldInternId.HasValue ? DomainStatuses.Mission.Active : DomainStatuses.Mission.Template,
+            oldInternIds.Count > 0 ? DomainStatuses.Mission.Active : DomainStatuses.Mission.Template,
             mission.Status,
             supervisorId));
 
@@ -639,26 +767,17 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             ActorUserId = supervisorId,
             Actor = UserContextHelper.ResolveCurrentActorName(User),
             Action = "mission.assign",
-            Entity = $"mission:{mission.Id} intern:{requestedInternId}",
+            Entity = $"mission:{mission.Id} internCount:{oldInternIds.Count}",
             Timestamp = DateTime.UtcNow
         });
-
-        if (requestedInternId.HasValue)
-        {
-            notificationService.QueueNotification(
-                requestedInternId.Value,
-                "mission.assigned",
-                "Mission assignment updated",
-                $"Mission '{mission.Title}' is now assigned to you.",
-                $"mission:{mission.Id}");
-        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new
         {
             id = mission.Id,
-            internId = mission.InternId,
+            internId = (Guid?)null,
+            internIds = Array.Empty<Guid>(),
             status = mission.Status
         });
     }
@@ -845,6 +964,43 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         return false;
     }
 
+    private static bool TryResolveOptionalInternIds(IEnumerable<string>? rawInternIds, out List<Guid> internIds)
+    {
+        internIds = [];
+
+        if (rawInternIds is null)
+        {
+            return true;
+        }
+
+        foreach (var rawInternId in rawInternIds)
+        {
+            if (string.IsNullOrWhiteSpace(rawInternId))
+            {
+                continue;
+            }
+
+            if (!Guid.TryParse(rawInternId.Trim(), out var parsedInternId))
+            {
+                return false;
+            }
+
+            internIds.Add(parsedInternId);
+        }
+
+        return true;
+    }
+
+    private async Task<List<Guid>> ResolveMissionAssignedInternIdsAsync(Guid missionId, CancellationToken cancellationToken)
+    {
+        return await dbContext.MissionInternAssignments
+            .AsNoTracking()
+            .Where(item => item.MissionId == missionId)
+            .Select(item => item.InternId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
 }
 
 public sealed class CreateMissionRequest
@@ -862,6 +1018,8 @@ public sealed class CreateMissionRequest
     public string[] Deliverables { get; init; } = Array.Empty<string>();
 
     public string InternId { get; init; } = string.Empty;
+
+    public string[] InternIds { get; init; } = Array.Empty<string>();
 }
 
 public sealed class UpdateMissionRequest
@@ -882,4 +1040,6 @@ public sealed class UpdateMissionRequest
 public sealed class AssignMissionRequest
 {
     public string? InternId { get; init; }
+
+    public string[] InternIds { get; init; } = Array.Empty<string>();
 }

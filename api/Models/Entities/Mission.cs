@@ -32,6 +32,8 @@ public sealed class Mission
 
     public User? Intern { get; set; }
 
+    public ICollection<MissionInternAssignment> InternAssignments { get; set; } = new List<MissionInternAssignment>();
+
     public InternshipType? InternshipType { get; set; }
 
     public MissionFeatureFlags? FeatureFlags { get; set; }

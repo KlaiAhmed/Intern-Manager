@@ -18,7 +18,7 @@ public sealed class TaskWorkflowService(AppDbContext dbContext, ISupervisorScope
 
         var hasAnyAssignment = await dbContext.Missions
             .AsNoTracking()
-            .AnyAsync(mission => mission.InternId == internId, cancellationToken)
+            .AnyAsync(mission => mission.InternId == internId || mission.InternAssignments.Any(assignment => assignment.InternId == internId), cancellationToken)
             || await dbContext.Deliverables
                 .AsNoTracking()
                 .AnyAsync(deliverable => deliverable.InternId == internId, cancellationToken)

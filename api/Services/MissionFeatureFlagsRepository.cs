@@ -32,7 +32,9 @@ public sealed class MissionFeatureFlagsRepository(AppDbContext dbContext) : IMis
     {
         var missionId = await dbContext.Missions
             .AsNoTracking()
-            .Where(item => item.InternId == internId && item.Status == DomainStatuses.Mission.Active)
+            .Where(item => item.Status == DomainStatuses.Mission.Active &&
+                           (item.InternId == internId ||
+                            item.InternAssignments.Any(assignment => assignment.InternId == internId)))
             .OrderByDescending(item => item.CreatedAt)
             .Select(item => item.Id)
             .FirstOrDefaultAsync(cancellationToken);
@@ -43,10 +45,16 @@ public sealed class MissionFeatureFlagsRepository(AppDbContext dbContext) : IMis
     /// <inheritdoc />
     public async Task<IReadOnlyList<Guid>> GetInternIdsForMissionAsync(Guid missionId, CancellationToken cancellationToken)
     {
-        return await dbContext.Missions
+        return await dbContext.MissionInternAssignments
             .AsNoTracking()
-            .Where(item => item.Id == missionId && item.InternId.HasValue)
-            .Select(item => item.InternId!.Value)
+            .Where(item => item.MissionId == missionId)
+            .Select(item => item.InternId)
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(item => item.Id == missionId && item.InternId.HasValue)
+                    .Select(item => item.InternId!.Value))
+            .Distinct()
             .ToListAsync(cancellationToken);
     }
 
