@@ -239,9 +239,16 @@ export function OperationalInternshipsSection() {
 
       // Create flow only allows template; activation is handled by assignment endpoints.
       payload.status = 'template'
-    } else if (normalizedStatus && normalizedStatus !== 'active') {
-      // Avoid sending forbidden "active" in update payloads.
-      payload.status = normalizedStatus
+    } else {
+      // Allow missionName update for admin/superadmin on edit.
+      if (formState.missionTitle.trim()) {
+        payload.missionName = formState.missionTitle.trim()
+      }
+
+      if (normalizedStatus && normalizedStatus !== 'active') {
+        // Avoid sending forbidden "active" in update payloads.
+        payload.status = normalizedStatus
+      }
     }
 
     try {

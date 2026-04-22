@@ -1,4 +1,4 @@
-﻿namespace InternManager.Api.Models.Entities;
+namespace InternManager.Api.Models.Entities;
 
 public sealed class Mission
 {
@@ -9,6 +9,8 @@ public sealed class Mission
     public Guid? InternId { get; set; }
 
     public string Title { get; set; } = string.Empty;
+
+    public bool IsTitleManuallySet { get; set; }
 
     public string Description { get; set; } = string.Empty;
 

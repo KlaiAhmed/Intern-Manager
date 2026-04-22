@@ -1,4 +1,4 @@
-﻿using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Entities;
 using InternManager.Api.Models.FeatureFlags;
 using InternManager.Api.Common.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -266,18 +266,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .ValueGeneratedOnAdd()
                 .HasDefaultValueSql("NEWID()");
 
-            entity.Property(mission => mission.Title)
-                .IsRequired()
-                .HasMaxLength(200);
+entity.Property(mission => mission.Title)
+                .HasMaxLength(500);
 
-            entity.Property(mission => mission.Description)
-                .HasMaxLength(4000);
-
-            entity.Property(mission => mission.SkillsJson)
-                .IsRequired();
-
-            entity.Property(mission => mission.Tools)
-                .HasMaxLength(1000);
+            entity.Property(mission => mission.IsTitleManuallySet)
+                .HasDefaultValue(false);
 
             entity.Property(mission => mission.InternshipTypeId);
 

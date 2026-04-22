@@ -2,6 +2,8 @@ namespace InternManager.Api.Models.Requests;
 
 public class UpdateInternshipRequest
 {
+    public string? MissionName { get; set; }
+
     public string? SupervisorId { get; set; }
 
     public string? CoSupervisorId { get; set; }

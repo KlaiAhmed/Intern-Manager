@@ -173,12 +173,24 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             ? string.Empty
             : request.Objectives.Trim();
 
+        var currentUserRole = httpContextAccessor.HttpContext is { User: not null }
+            ? UserContextHelper.ResolveCurrentUserRole(httpContextAccessor.HttpContext.User)
+            : null;
+        var canSetCustomTitle = currentUserRole is UserRole.SuperAdmin or UserRole.Admin;
+        var hasManualTitle = !string.IsNullOrWhiteSpace(request.MissionName);
+
+        if (!canSetCustomTitle && hasManualTitle)
+        {
+            throw new InvalidOperationException("Only SuperAdmin and Admin can set a custom mission name.");
+        }
+
         var mission = new Mission
         {
             Id = Guid.NewGuid(),
             SupervisorId = supervisor.Id,
             InternId = intern?.Id,
             Title = ResolveMissionTitle(request.MissionName, typeName, intern),
+            IsTitleManuallySet = hasManualTitle,
             Description = objectives,
             SkillsJson = "[]",
             Tools = string.Empty,
@@ -332,6 +344,60 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var (actorUserId, actorName) = ResolveActor();
         var historyEntries = new List<MissionHistoryEntry>();
 
+        var currentUserRole = httpContextAccessor.HttpContext is { User: not null }
+            ? UserContextHelper.ResolveCurrentUserRole(httpContextAccessor.HttpContext.User)
+            : null;
+        var canSetCustomTitle = currentUserRole is UserRole.SuperAdmin or UserRole.Admin;
+
+        if (request.MissionName is not null)
+        {
+            if (!canSetCustomTitle && !string.IsNullOrWhiteSpace(request.MissionName))
+            {
+                throw new InvalidOperationException("Only SuperAdmin and Admin can set a custom mission name.");
+            }
+
+            var hasManualTitle = !string.IsNullOrWhiteSpace(request.MissionName);
+
+            if (!hasManualTitle && mission.IsTitleManuallySet)
+            {
+                var regeneratedTitle = BuildInternshipTitle(currentType, mission.Intern);
+                if (!string.Equals(mission.Title, regeneratedTitle, StringComparison.Ordinal))
+                {
+                    AddHistoryEntry(
+                        historyEntries,
+                        mission.Id,
+                        "title",
+                        mission.Title,
+                        regeneratedTitle,
+                        actorUserId,
+                        actorName);
+
+                    mission.Title = regeneratedTitle;
+                }
+            }
+            else if (hasManualTitle)
+            {
+                var normalizedName = request.MissionName.Trim();
+                var resolvedTitle = ResolveMissionTitle(normalizedName, currentType, mission.Intern);
+
+                if (!string.Equals(mission.Title, resolvedTitle, StringComparison.Ordinal))
+                {
+                    AddHistoryEntry(
+                        historyEntries,
+                        mission.Id,
+                        "title",
+                        mission.Title,
+                        resolvedTitle,
+                        actorUserId,
+                        actorName);
+
+                    mission.Title = resolvedTitle;
+                }
+            }
+
+            mission.IsTitleManuallySet = hasManualTitle;
+        }
+
         if (request.SupervisorId is not null)
         {
             var nextSupervisor = await ResolveRequiredSupervisorAsync(request.SupervisorId, cancellationToken);
@@ -418,7 +484,10 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
 
                 mission.InternshipTypeId = requestedTypeId;
                 mission.InternshipType = requestedType;
-                mission.Title = BuildInternshipTitle(requestedTypeName, mission.Intern);
+                if (!mission.IsTitleManuallySet)
+                {
+                    mission.Title = BuildInternshipTitle(requestedTypeName, mission.Intern);
+                }
                 nextType = requestedTypeName;
             }
         }
