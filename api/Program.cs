@@ -35,12 +35,12 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services
-    .AddControllers(options =>
-    {
-        options.Filters.AddService<FeatureFlagGateFilter>();
-    })
-    .ConfigureApiBehaviorOptions(options =>
-    {
+.AddControllers(options =>
+{
+    options.Filters.AddService<FeatureFlagGateFilter>();
+})
+.ConfigureApiBehaviorOptions(options =>
+{
         options.InvalidModelStateResponseFactory = context =>
         {
             var validationProblemDetails = new ValidationProblemDetails(context.ModelState)
@@ -90,27 +90,33 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddPolicy("auth", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-            }));
+options.AddPolicy("auth", context =>
+ {
+ var userId = context.User?.FindFirst("userId")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+ return RateLimitPartition.GetFixedWindowLimiter(
+ partitionKey: userId,
+ factory: _ => new FixedWindowRateLimiterOptions
+ {
+ PermitLimit = 5,
+ Window = TimeSpan.FromMinutes(1),
+ QueueLimit = 0,
+ QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+ });
+ });
 
-    options.AddPolicy("auth-refresh", context =>
-    RateLimitPartition.GetFixedWindowLimiter(
-        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip",
-        factory: _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 10,
-            Window = TimeSpan.FromMinutes(1),
-            QueueLimit = 0,
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-        }));
+ options.AddPolicy("auth-refresh", context =>
+ {
+ var userId = context.User?.FindFirst("userId")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+ return RateLimitPartition.GetFixedWindowLimiter(
+ partitionKey: userId,
+ factory: _ => new FixedWindowRateLimiterOptions
+ {
+ PermitLimit = 10,
+ Window = TimeSpan.FromMinutes(1),
+ QueueLimit = 0,
+ QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+ });
+ });
 
     options.AddFixedWindowLimiter("upload", limiterOptions =>
     {
