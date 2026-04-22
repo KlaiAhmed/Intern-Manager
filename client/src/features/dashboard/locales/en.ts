@@ -39,4 +39,28 @@ export const dashboardEn = {
   'dashboard.supervisor.evaluations.completed': 'Completed',
   'dashboard.supervisor.evaluations.badgeDue': 'Pending',
   'dashboard.supervisor.evaluations.badgeCompleted': 'Submitted',
+
+  'dashboard.supervisor.tasks.quickAdd': 'Assign Task',
+  'dashboard.supervisor.tasks.noInterns': 'No interns available.',
+  'dashboard.supervisor.tasks.assign': 'Assign Task',
+
+  'dashboard.supervisor.deliverables.quickAdd': 'Assign Deliverable',
+  'dashboard.supervisor.deliverables.noOptions': 'No interns or missions available.',
+  'dashboard.supervisor.deliverables.assign': 'Assign Deliverable',
+
+  'dashboard.form.intern': 'Intern',
+  'dashboard.form.title': 'Title',
+  'dashboard.form.description': 'Description',
+  'dashboard.form.dueDate': 'Due Date',
+  'dashboard.form.mission': 'Mission',
+  'dashboard.form.note': 'Note',
+  'dashboard.form.date': 'Date',
+  'dashboard.form.cancel': 'Cancel',
+  'dashboard.form.save': 'Save',
+  'dashboard.form.submit': 'Submit',
+  'dashboard.form.required': 'This field is required.',
+  'dashboard.form.close': 'Close',
+
+  'dashboard.error.load': 'An error occurred. Please try again.',
+  'dashboard.noData': 'No data available.',
 } as const
