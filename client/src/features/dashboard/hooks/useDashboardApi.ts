@@ -6,11 +6,13 @@ type JsonRecord = Record<string, unknown>
 
 class DashboardApiError extends Error {
   status: number
+  fieldErrors: Record<string, string>
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, fieldErrors: Record<string, string> = {}) {
     super(message)
     this.name = 'DashboardApiError'
     this.status = status
+    this.fieldErrors = fieldErrors
   }
 }
 
@@ -18,75 +20,33 @@ function isJsonRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null
 }
 
-function getFirstValidationMessage(errors: unknown): string | null {
-  if (!isJsonRecord(errors)) {
-    return null
-  }
-
-  for (const validationValue of Object.values(errors)) {
-    if (Array.isArray(validationValue)) {
-      const firstMessage = validationValue.find((item): item is string => typeof item === 'string')
+function parseFieldErrors(errors: JsonRecord): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [field, messages] of Object.entries(errors)) {
+    if (Array.isArray(messages)) {
+      const firstMessage = messages.find((item): item is string => typeof item === 'string')
       if (firstMessage) {
-        return firstMessage
+        result[field] = firstMessage
       }
     }
   }
-
-  return null
+  return result
 }
 
-async function readResponseMessage(response: Response): Promise<string | null> {
-  const contentType = response.headers.get('content-type') ?? ''
-
-  if (contentType.includes('application/json') || contentType.includes('text/json') || contentType.includes('+json')) {
-    try {
-      const payload: unknown = await response.json()
-
-      if (typeof payload === 'string' && payload.trim()) {
-        return payload
-      }
-
-      if (isJsonRecord(payload)) {
-        const directMessage = payload.message
-        if (typeof directMessage === 'string' && directMessage.trim()) {
-          return directMessage
-        }
-
-        const titleMessage = payload.title
-        if (typeof titleMessage === 'string' && titleMessage.trim()) {
-          return titleMessage
-        }
-
-        const errorMessage = payload.error
-        if (typeof errorMessage === 'string' && errorMessage.trim()) {
-          return errorMessage
-        }
-
-        const detailMessage = payload.detail
-        if (typeof detailMessage === 'string' && detailMessage.trim()) {
-          return detailMessage
-        }
-
-        const validationMessage = getFirstValidationMessage(payload.errors)
-        if (validationMessage) {
-          return validationMessage
-        }
-      }
-    } catch {
-      return null
+function parseFlatFieldErrors(payload: unknown): Record<string, string> {
+  const result: Record<string, string> = {}
+  if (!isJsonRecord(payload)) {
+    return result
+  }
+  for (const [key, value] of Object.entries(payload)) {
+    if (key === 'message' || key === 'title' || key === 'error' || key === 'detail' || key === 'errors') {
+      continue
+    }
+    if (typeof value === 'string' && value.trim()) {
+      result[key] = value.trim()
     }
   }
-
-  try {
-    const responseText = await response.text()
-    if (responseText.trim()) {
-      return responseText
-    }
-  } catch {
-    return null
-  }
-
-  return null
+  return result
 }
 
 async function ensureSuccess(response: Response): Promise<void> {
@@ -94,9 +54,65 @@ async function ensureSuccess(response: Response): Promise<void> {
     return
   }
 
-  const apiMessage = await readResponseMessage(response)
+  const contentType = response.headers.get('content-type') ?? ''
+  let fieldErrors: Record<string, string> = {}
+  let apiMessage: string | null = null
+
+  if (contentType.includes('application/json') || contentType.includes('text/json') || contentType.includes('+json')) {
+    try {
+      const payload: unknown = await response.json()
+
+      if (typeof payload === 'string' && payload.trim()) {
+        apiMessage = payload
+      } else if (isJsonRecord(payload)) {
+        const directMessage = payload.message
+        if (typeof directMessage === 'string' && directMessage.trim()) {
+          apiMessage = directMessage
+        }
+
+        const titleMessage = payload.title
+        if (typeof titleMessage === 'string' && titleMessage.trim() && !apiMessage) {
+          apiMessage = titleMessage
+        }
+
+        const errorMessage = payload.error
+        if (typeof errorMessage === 'string' && errorMessage.trim() && !apiMessage) {
+          apiMessage = errorMessage
+        }
+
+        const detailMessage = payload.detail
+        if (typeof detailMessage === 'string' && detailMessage.trim() && !apiMessage) {
+          apiMessage = detailMessage
+        }
+
+        const errors = payload.errors
+        if (isJsonRecord(errors)) {
+          fieldErrors = parseFieldErrors(errors)
+        } else {
+          const flatErrors = parseFlatFieldErrors(payload)
+          if (Object.keys(flatErrors).length > 0) {
+            fieldErrors = flatErrors
+          }
+        }
+      }
+    } catch {
+      // Continue to fallback
+    }
+  }
+
+  if (!apiMessage) {
+    try {
+      const responseText = await response.text()
+      if (responseText.trim()) {
+        apiMessage = responseText
+      }
+    } catch {
+      // Continue to fallback
+    }
+  }
+
   const fallbackMessage = response.statusText || 'Unexpected API error.'
-  throw new DashboardApiError(apiMessage ?? fallbackMessage, response.status)
+  throw new DashboardApiError(apiMessage ?? fallbackMessage, response.status, fieldErrors)
 }
 
 async function parseJsonBody<T>(response: Response): Promise<T> {
@@ -238,8 +254,11 @@ export function useDashboardApi() {
     return parseJsonBody<T>(response)
   }, [])
 
-  return useMemo(
-    () => ({ get, post, patch, put, del, postFormData }),
-    [get, post, patch, put, del, postFormData]
-  )
+return useMemo(
+  () => ({ get, post, patch, put, del, postFormData }),
+  [get, post, patch, put, del, postFormData]
+)
 }
+
+export { DashboardApiError }
+export type { JsonRecord }
