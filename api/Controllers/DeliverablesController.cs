@@ -32,33 +32,22 @@ public sealed class DeliverablesController(
 {
     private const long MaxUploadBytes = 10 * 1024 * 1024;
 
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".pdf",
-        ".doc",
-        ".docx",
-        ".xlsx",
-        ".ppt",
-        ".pptx",
-        ".txt",
-        ".png",
-        ".jpg",
-        ".jpeg"
-    };
+private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+ {
+ ".pdf",
+ ".doc",
+ ".docx",
+ ".zip"
+ };
 
-    private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-powerpoint",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "text/plain",
-        "image/png",
-        "image/jpeg"
-    };
+ private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
+ {
+ "application/pdf",
+ "application/msword",
+ "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+ "application/zip",
+ "application/x-zip-compressed"
+ };
 
     /// <summary>
     /// Récupère la liste des livrables du superviseur connecté.
@@ -358,19 +347,13 @@ public sealed class DeliverablesController(
             return NotFound(new { message = "Deliverable not found." });
         }
 
-        var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "deliverables");
-        Directory.CreateDirectory(uploadsDirectory);
+var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "deliverables");
+ Directory.CreateDirectory(uploadsDirectory);
 
-        var storedFileName = $"{deliverable.Id}_{DateTime.UtcNow:yyyyMMddHHmmssfff}{fileExtension}";
-        var destinationPath = Path.Combine(uploadsDirectory, storedFileName);
-        var tempPath = Path.Combine(uploadsDirectory, $"{Guid.NewGuid():N}.tmp");
+ var storedFileName = $"{deliverable.Id}_{Guid.NewGuid():N}{fileExtension}";
+ var destinationPath = Path.Combine(uploadsDirectory, storedFileName);
 
-        await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
-        {
-            await request.File.CopyToAsync(stream, cancellationToken);
-        }
-
-        var latestVersionNumber = await dbContext.DeliverableVersions
+ var latestVersionNumber = await dbContext.DeliverableVersions
             .AsNoTracking()
             .Where(version => version.DeliverableId == deliverable.Id)
             .Select(version => (int?)version.VersionNumber)
@@ -408,33 +391,46 @@ public sealed class DeliverablesController(
             task.CompletedAt = DateTime.UtcNow;
         }
 
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = internId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "deliverable.submit",
-            Entity = $"deliverable:{deliverable.Id}",
-            Timestamp = DateTime.UtcNow
-        });
+dbContext.AuditLogs.Add(new AuditLog
+ {
+ ActorUserId = internId,
+ Actor = UserContextHelper.ResolveCurrentActorName(User),
+ Action = "deliverable.submit",
+ Entity = $"deliverable:{deliverable.Id}",
+ Timestamp = DateTime.UtcNow
+ });
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            System.IO.File.Move(tempPath, destinationPath, overwrite: true);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
+ var tempPath = Path.Combine(uploadsDirectory, $"{Guid.NewGuid():N}.tmp");
+ await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+ {
+ await request.File.CopyToAsync(stream, cancellationToken);
+ }
 
-            if (System.IO.File.Exists(tempPath))
-            {
-                System.IO.File.Delete(tempPath);
-            }
+ await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+ try
+ {
+ await dbContext.SaveChangesAsync(cancellationToken);
+ System.IO.File.Move(tempPath, destinationPath, overwrite: true);
+ await transaction.CommitAsync(cancellationToken);
+ }
+ catch
+ {
+ await transaction.RollbackAsync(cancellationToken);
 
-            throw;
-        }
+ if (System.IO.File.Exists(tempPath))
+ {
+ System.IO.File.Delete(tempPath);
+ }
+
+ throw;
+ }
+ finally
+ {
+ if (System.IO.File.Exists(tempPath))
+ {
+ System.IO.File.Delete(tempPath);
+ }
+ }
 
         var result = new
         {

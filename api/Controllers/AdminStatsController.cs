@@ -1,4 +1,4 @@
-﻿using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Constants;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
@@ -21,35 +21,8 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     private const string AdminRole = "Admin,SuperAdmin";
     private const string DashboardReadRole = "Admin,SuperAdmin,Manager";
 
-    /// <summary>
-    /// Récupère le nombre de stagiaires actifs.
-    /// </summary>
-    /// <remarks>
-    /// Cette route retourne le nombre total de stagiaires avec le statut "actif".
-    /// Réservé aux super-administrateurs et accessible aux managers pour la lecture du tableau de bord.
-    /// </remarks>
-    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
-    /// <returns>Le nombre de stagiaires actifs.</returns>
-    /// <response code="200">Nombre récupéré avec succès.</response>
-    /// <response code="401">Utilisateur non connecté.</response>
-    /// <response code="403">Accès refusé.</response>
-    [HttpGet("interns/active", Name = "GetActiveInterns")]
-    [Authorize(Roles = DashboardReadRole)]
-    [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetActiveInternsCount(CancellationToken cancellationToken)
-    {
-        Response.Headers["Deprecation"] = "true";
-        Response.Headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT";
-        Response.Headers["Link"] = "</api/stats/interns/count>; rel=\"successor-version\"";
-
-        return await GetInternsCount(cancellationToken);
-    }
-
-    /// <summary>
-    /// Récupère le nombre total de stagiaires.
+/// <summary>
+/// Récupère le nombre total de stagiaires.
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre de stagiaires actifs.
@@ -72,35 +45,8 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
         return Ok(new { count });
     }
 
-    /// <summary>
-    /// Récupère le nombre de superviseurs actifs.
-    /// </summary>
-    /// <remarks>
-    /// Cette route retourne le nombre total de superviseurs avec le statut "actif".
-    /// Réservé aux super-administrateurs et accessible aux managers pour le tableau de bord.
-    /// </remarks>
-    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
-    /// <returns>Le nombre de superviseurs.</returns>
-    /// <response code="200">Nombre récupéré avec succès.</response>
-    /// <response code="401">Utilisateur non connecté.</response>
-    /// <response code="403">Accès refusé.</response>
-    [HttpGet("supervisors", Name = "GetSupervisorsStats")]
-    [Authorize(Roles = DashboardReadRole)]
-    [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetSupervisorsCount(CancellationToken cancellationToken)
-    {
-        Response.Headers["Deprecation"] = "true";
-        Response.Headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT";
-        Response.Headers["Link"] = "</api/stats/supervisors/count>; rel=\"successor-version\"";
-
-        return await GetSupervisorsCountForAdmin(cancellationToken);
-    }
-
-    /// <summary>
-    /// Récupère le nombre total de superviseurs pour les administrateurs.
+/// <summary>
+/// Récupère le nombre total de superviseurs pour les administrateurs.
     /// </summary>
     /// <remarks>
     /// Cette route retourne le nombre de superviseurs actifs.
