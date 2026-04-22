@@ -1,4 +1,4 @@
-﻿using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Attributes;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -312,16 +312,17 @@ public sealed class TasksController(
                 : request.DueDate.Value.ToUniversalTime())
             : (DateTime?)null;
 
-        var task = new InternTask
-        {
-            Id = Guid.NewGuid(),
-            InternId = request.InternId,
-            DeliverableId = deliverableId,
-            Title = request.Title.Trim(),
-            DueDate = normalizedDueDate,
-            IsComplete = false,
-            CreatedAt = DateTime.UtcNow
-        };
+var task = new InternTask
+{
+    Id = Guid.NewGuid(),
+    InternId = request.InternId,
+    DeliverableId = deliverableId,
+    Title = request.Title.Trim(),
+    Description = request.Description?.Trim(),
+    DueDate = normalizedDueDate,
+    IsComplete = false,
+    CreatedAt = DateTime.UtcNow
+};
 
         dbContext.InternTasks.Add(task);
 
@@ -362,6 +363,8 @@ public sealed class AssignTaskRequest
     public Guid? DeliverableId { get; init; }
 
     public string Title { get; init; } = string.Empty;
+
+    public string? Description { get; init; }
 
     public DateTime? DueDate { get; init; }
 }

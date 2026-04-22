@@ -20,13 +20,15 @@ namespace InternManager.Api.Controllers;
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
 /// <param name="deliverablesService">Service métier des livrables.</param>
+/// <param name="notificationService">Service pour envoyer des notifications.</param>
 [ApiController]
 [Route("api/deliverables")]
 [Authorize]
 public sealed class DeliverablesController(
     AppDbContext dbContext,
     IWebHostEnvironment environment,
-    IDeliverablesService deliverablesService) : ControllerBase
+    IDeliverablesService deliverablesService,
+    INotificationService notificationService) : ControllerBase
 {
     private const long MaxUploadBytes = 10 * 1024 * 1024;
 
@@ -593,6 +595,137 @@ public sealed class DeliverablesController(
         }
     }
 
+    /// <summary>
+    /// Assigne un nouveau livrable à un stagiaire.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de créer un livrable pour un stagiaire.
+    /// Le livrable est lié à une mission existante du superviseur.
+    /// Le stagiaire reçoit une notification lors de l assignation.
+    /// </remarks>
+    /// <param name="request">Objet contenant les informations du livrable (stagiaire, titre, date limite).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Les informations du livrable créé.</returns>
+    /// <response code="201">Livrable assigné avec succès.</response>
+    /// <response code="400">Données invalides.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    [HttpPost(Name = "AssignDeliverable")]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> AssignDeliverable([FromBody] AssignDeliverableRequest request, CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        if (request.InternId == Guid.Empty)
+        {
+            return BadRequest(new { message = "internId is required." });
+        }
+
+        if (request.MissionId == Guid.Empty)
+        {
+            return BadRequest(new { message = "missionId is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { message = "title is required." });
+        }
+
+        var internExists = await dbContext.Users
+            .AsNoTracking()
+            .AnyAsync(user => user.Id == request.InternId && user.Role == UserRole.Intern, cancellationToken);
+
+        if (!internExists)
+        {
+            return BadRequest(new { message = "Intern not found." });
+        }
+
+        var missionExists = await dbContext.Missions
+            .AsNoTracking()
+            .AnyAsync(mission => mission.Id == request.MissionId && mission.SupervisorId == supervisorId.Value, cancellationToken);
+
+        if (!missionExists)
+        {
+            return BadRequest(new { message = "Mission not found for current supervisor." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
+        {
+            var canAssign = await dbContext.MissionInternAssignments
+                .AsNoTracking()
+                .AnyAsync(assignment => 
+                    assignment.MissionId == request.MissionId && 
+                    assignment.InternId == request.InternId, cancellationToken);
+
+            if (!canAssign)
+            {
+                return Forbid();
+            }
+        }
+
+        var normalizedDueDate = request.DueDate.HasValue
+            ? (request.DueDate.Value.Kind == DateTimeKind.Utc
+                ? request.DueDate.Value
+                : request.DueDate.Value.ToUniversalTime())
+            : (DateTime?)null;
+
+var deliverable = new Deliverable
+{
+    Id = Guid.NewGuid(),
+    MissionId = request.MissionId,
+    SupervisorId = supervisorId.Value,
+    InternId = request.InternId,
+    Title = request.Title.Trim(),
+    Description = request.Description?.Trim(),
+    Status = DomainStatuses.Deliverable.Pending,
+    DueDate = normalizedDueDate,
+    Progress = 0,
+    Version = 1,
+    CreatedAt = DateTime.UtcNow
+};
+
+        dbContext.Deliverables.Add(deliverable);
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "deliverable.assign",
+            Entity = $"deliverable:{deliverable.Id} intern:{deliverable.InternId}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        notificationService.QueueNotification(
+            deliverable.InternId.Value,
+            "deliverable.assigned",
+            "New deliverable assigned",
+            $"Deliverable '{deliverable.Title}' has been assigned to you.",
+            $"deliverable:{deliverable.Id}");
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Created($"/api/deliverables/{deliverable.Id}", new
+        {
+            id = deliverable.Id,
+            internId = deliverable.InternId,
+            title = deliverable.Title,
+            dueDate = deliverable.DueDate,
+            status = deliverable.Status,
+            progress = deliverable.Progress
+        });
+    }
+
     private static string NormalizeStatusForIntern(string rawStatus)
     {
         var normalizedStatus = rawStatus.Trim().ToLowerInvariant();
@@ -626,4 +759,17 @@ public sealed class SubmitDeliverableForm
 public sealed class UpdateDeliverableProgressRequest
 {
     public int Progress { get; init; }
+}
+
+public sealed class AssignDeliverableRequest
+{
+    public Guid InternId { get; init; }
+
+    public Guid MissionId { get; init; }
+
+    public string Title { get; init; } = string.Empty;
+
+    public string? Description { get; init; }
+
+    public DateTime? DueDate { get; init; }
 }
