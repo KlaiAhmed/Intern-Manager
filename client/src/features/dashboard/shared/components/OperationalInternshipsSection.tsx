@@ -7,7 +7,7 @@ import { Edit, Plus, Search, Settings, Trash2 } from '../../components/IconCompo
 import { ErrorState } from '../../components/ErrorState'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
-import { useDashboardApi } from '../../hooks/useDashboardApi'
+import { useDashboardApi, DashboardApiError } from '../../hooks/useDashboardApi'
 import type {
   DashboardUser,
   DashboardUserApi,
@@ -217,56 +217,61 @@ export function OperationalInternshipsSection() {
       return
     }
 
-    setFormSubmitting(true)
-    setFormError(null)
+setFormSubmitting(true)
+  setFormError(null)
 
-    const normalizedStatus = formState.status.trim().toLowerCase()
+  const normalizedStatus = formState.status.trim().toLowerCase()
 
-    const payload: Record<string, string> = {
-      supervisorId: formState.supervisorId.trim(),
-      coSupervisorId: formState.coSupervisorId.trim(),
-      department: formState.department.trim(),
-      type: formState.type.trim(),
-      startDate: toIsoDate(formState.startDate),
-      endDate: toIsoDate(formState.endDate),
-      objectives: formState.objectives.trim(),
+  const payload: Record<string, string> = {
+    supervisorId: formState.supervisorId.trim(),
+    coSupervisorId: formState.coSupervisorId.trim(),
+    department: formState.department.trim(),
+    type: formState.type.trim(),
+    startDate: toIsoDate(formState.startDate),
+    endDate: toIsoDate(formState.endDate),
+    objectives: formState.objectives.trim(),
+  }
+
+  if (!editingInternshipId) {
+    if (formState.missionTitle.trim()) {
+      payload.missionName = formState.missionTitle.trim()
+    }
+  } else {
+    if (formState.missionTitle.trim()) {
+      payload.missionName = formState.missionTitle.trim()
     }
 
-    if (!editingInternshipId) {
-      if (formState.missionTitle.trim()) {
-        payload.missionName = formState.missionTitle.trim()
-      }
+    if (normalizedStatus && normalizedStatus !== 'active') {
+      payload.status = normalizedStatus
+    }
+  }
 
-      // Create flow only allows template; activation is handled by assignment endpoints.
-      payload.status = 'template'
+try {
+    if (editingInternshipId) {
+      await api.patch(`/api/internships/${editingInternshipId}`, payload)
     } else {
-      // Allow missionName update for admin/superadmin on edit.
-      if (formState.missionTitle.trim()) {
-        payload.missionName = formState.missionTitle.trim()
-      }
-
-      if (normalizedStatus && normalizedStatus !== 'active') {
-        // Avoid sending forbidden "active" in update payloads.
-        payload.status = normalizedStatus
-      }
+      await api.post('/api/internships', payload)
     }
 
-    try {
-      if (editingInternshipId) {
-        await api.patch(`/api/internships/${editingInternshipId}`, payload)
+    setFormModalOpen(false)
+    setEditingInternshipId(null)
+    setFormState(defaultInternshipFormState)
+    await loadInternships()
+  } catch (requestError) {
+    if (requestError instanceof DashboardApiError) {
+      const fieldKeys = Object.keys(requestError.fieldErrors)
+      if (fieldKeys.length > 0) {
+        const firstField = fieldKeys[0]
+        setFormError(requestError.fieldErrors[firstField])
       } else {
-        await api.post('/api/internships', payload)
+        setFormError(requestError.message || toDashboardErrorMessage(requestError))
       }
-
-      setFormModalOpen(false)
-      setEditingInternshipId(null)
-      setFormState(defaultInternshipFormState)
-      await loadInternships()
-    } catch (requestError) {
+    } else {
       setFormError(toDashboardErrorMessage(requestError))
-    } finally {
-      setFormSubmitting(false)
     }
+  } finally {
+    setFormSubmitting(false)
+  }
   }
 
   const deleteInternship = async (internshipId: string) => {
@@ -483,16 +488,15 @@ export function OperationalInternshipsSection() {
         onClose={() => setFormModalOpen(false)}
         title={editingInternshipId ? t('dashboard.operational.internships.modal.editTitle') : t('dashboard.operational.internships.modal.createTitle')}
       >
-        <form
-          className="modal-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void saveInternship()
-          }}
-        >
-          <p className="section-subtitle">{t('dashboard.operational.internships.form.missionNameHelp')}</p>
+<form
+  className="modal-form"
+  onSubmit={(event) => {
+    event.preventDefault()
+    void saveInternship()
+  }}
+>
 
-          <div className="form-field">
+  <div className="form-field">
             <label htmlFor="internship-mission-name">{t('dashboard.operational.internships.form.missionName')}</label>
             <input
               id="internship-mission-name"
@@ -534,56 +538,35 @@ export function OperationalInternshipsSection() {
             </div>
           </div>
 
-          <div className="admin-form-grid admin-form-grid-three">
-            <div className="form-field">
-              <label htmlFor="internship-department">{t('dashboard.operational.internships.form.department')}</label>
-              <select
-                id="internship-department"
-                value={formState.department}
-                onChange={(event) => setFormState((prev) => ({ ...prev, department: event.target.value }))}
-              >
-                <option value="">{t('dashboard.operational.internships.form.selectDepartment')}</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.name}>{department.name}</option>
-                ))}
-              </select>
-            </div>
+<div className="admin-form-grid admin-form-grid-two">
+  <div className="form-field">
+    <label htmlFor="internship-department">{t('dashboard.operational.internships.form.department')}</label>
+    <select
+      id="internship-department"
+      value={formState.department}
+      onChange={(event) => setFormState((prev) => ({ ...prev, department: event.target.value }))}
+    >
+      <option value="">{t('dashboard.operational.internships.form.selectDepartment')}</option>
+      {departments.map((department) => (
+        <option key={department.id} value={department.name}>{department.name}</option>
+      ))}
+    </select>
+  </div>
 
-            <div className="form-field">
-              <label htmlFor="internship-type">{t('dashboard.operational.internships.form.type')}</label>
-              <select
-                id="internship-type"
-                value={formState.type}
-                onChange={(event) => setFormState((prev) => ({ ...prev, type: event.target.value }))}
-              >
-                <option value="">{t('dashboard.operational.internships.form.selectType')}</option>
-                {types.map((type) => (
-                  <option key={type.id} value={type.name}>{type.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="internship-status">{t('dashboard.operational.internships.form.status')}</label>
-              <select
-                id="internship-status"
-                value={formState.status}
-                onChange={(event) => setFormState((prev) => ({ ...prev, status: event.target.value }))}
-              >
-                {!isEditing ? (
-                  <option value="template">template</option>
-                ) : (
-                  <>
-                    <option value="template">template</option>
-                    <option value="active" disabled>active (managed by assignment)</option>
-                    <option value="paused">paused</option>
-                    <option value="completed">completed</option>
-                    <option value="cancelled">cancelled</option>
-                  </>
-                )}
-              </select>
-            </div>
-          </div>
+  <div className="form-field">
+    <label htmlFor="internship-type">{t('dashboard.operational.internships.form.type')}</label>
+    <select
+      id="internship-type"
+      value={formState.type}
+      onChange={(event) => setFormState((prev) => ({ ...prev, type: event.target.value }))}
+    >
+      <option value="">{t('dashboard.operational.internships.form.selectType')}</option>
+      {types.map((type) => (
+        <option key={type.id} value={type.name}>{type.name}</option>
+      ))}
+    </select>
+  </div>
+</div>
 
           <div className="admin-form-grid admin-form-grid-two">
             <div className="form-field">
@@ -607,17 +590,34 @@ export function OperationalInternshipsSection() {
             </div>
           </div>
 
-          <div className="form-field">
-            <label htmlFor="internship-objectives">{t('dashboard.operational.internships.form.objectives')}</label>
-            <textarea
-              id="internship-objectives"
-              className="admin-textarea"
-              value={formState.objectives}
-              onChange={(event) => setFormState((prev) => ({ ...prev, objectives: event.target.value }))}
-            />
-          </div>
+<div className="form-field">
+  <label htmlFor="internship-objectives">{t('dashboard.operational.internships.form.objectives')}</label>
+  <textarea
+    id="internship-objectives"
+    className="admin-textarea"
+    value={formState.objectives}
+    onChange={(event) => setFormState((prev) => ({ ...prev, objectives: event.target.value }))}
+  />
+</div>
 
-          {formError && <p className="form-error">{formError}</p>}
+{isEditing && (
+  <div className="form-field">
+    <label htmlFor="internship-status">{t('dashboard.operational.internships.form.status')}</label>
+    <select
+      id="internship-status"
+      value={formState.status}
+      onChange={(event) => setFormState((prev) => ({ ...prev, status: event.target.value }))}
+    >
+      <option value="template">template</option>
+      <option value="active" disabled>active (managed by assignment)</option>
+      <option value="paused">paused</option>
+      <option value="completed">completed</option>
+      <option value="cancelled">cancelled</option>
+    </select>
+  </div>
+)}
+
+{formError && <p className="form-error">{formError}</p>}
 
           <div className="modal-actions">
             <DashboardButton variant="secondary" size="md" onClick={() => setFormModalOpen(false)} type="button">
