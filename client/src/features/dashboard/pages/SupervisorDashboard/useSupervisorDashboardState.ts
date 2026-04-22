@@ -8,12 +8,16 @@ import { useMeetings } from '../../hooks/supervisor/useMeetings'
 import { useSupervisorKpis } from '../../hooks/supervisor/useSupervisorKpis'
 import { useSupervisorWorkload } from '../../hooks/supervisor/useSupervisorWorkload'
 import { useValidationQueue } from '../../hooks/supervisor/useValidationQueue'
+import { useTaskAssignment } from '../../hooks/supervisor/useTaskAssignment'
+import { useDeliverableAssignment } from '../../hooks/supervisor/useDeliverableAssignment'
 import type {
   SupervisorEvaluationDueItem,
   SupervisorEvaluationScores,
   SupervisorInternProgressItem,
   SupervisorMeetingForm,
   SupervisorValidationQueueItem,
+  SupervisorTaskForm,
+  SupervisorDeliverableForm,
 } from '../../types/supervisorDashboard'
 
 type ProgressTone = 'on-track' | 'at-risk' | 'late'
@@ -31,6 +35,21 @@ const initialMeetingForm: SupervisorMeetingForm = {
   internId: '',
   date: '',
   note: '',
+}
+
+const initialTaskForm: SupervisorTaskForm = {
+  internId: '',
+  title: '',
+  description: '',
+  dueDate: '',
+}
+
+const initialDeliverableForm: SupervisorDeliverableForm = {
+  internId: '',
+  missionId: '',
+  title: '',
+  description: '',
+  dueDate: '',
 }
 
 function normalizeToken(value: string): string {
@@ -115,9 +134,17 @@ export function useSupervisorDashboardState() {
   const queueState = useValidationQueue()
   const meetingsState = useMeetings()
   const evaluationsState = useEvaluations()
+  const taskAssignment = useTaskAssignment()
+  const deliverableAssignment = useDeliverableAssignment()
 
   const [meetingForm, setMeetingForm] = useState<SupervisorMeetingForm>(initialMeetingForm)
   const [meetingFormError, setMeetingFormError] = useState<string | null>(null)
+
+  const [taskForm, setTaskForm] = useState<SupervisorTaskForm>(initialTaskForm)
+  const [taskFormError, setTaskFormError] = useState<string | null>(null)
+
+  const [deliverableForm, setDeliverableForm] = useState<SupervisorDeliverableForm>(initialDeliverableForm)
+  const [deliverableFormError, setDeliverableFormError] = useState<string | null>(null)
 
   const [activeEvaluation, setActiveEvaluation] = useState<SupervisorEvaluationDueItem | null>(null)
   const [evaluationScores, setEvaluationScores] = useState<SupervisorEvaluationScores>(initialEvaluationScores)
@@ -288,6 +315,70 @@ export function useSupervisorDashboardState() {
     }
   }, [meetingForm, meetingsState, t])
 
+  const updateTaskFormField = useCallback(
+    (field: keyof SupervisorTaskForm, value: string) => {
+      setTaskForm((previous) => ({
+        ...previous,
+        [field]: value,
+      }))
+    },
+    []
+  )
+
+  const submitTaskForm = useCallback(async () => {
+    if (!taskForm.internId.trim() || !taskForm.title.trim()) {
+      setTaskFormError(t('dashboard.form.required'))
+      return
+    }
+
+    setTaskFormError(null)
+
+    try {
+      await taskAssignment.assignTask(taskForm)
+      setTaskForm(initialTaskForm)
+      await refreshAll()
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setTaskFormError(error.message)
+        return
+      }
+
+      setTaskFormError(t('dashboard.error.load'))
+    }
+  }, [taskForm, taskAssignment, t, refreshAll])
+
+  const updateDeliverableFormField = useCallback(
+    (field: keyof SupervisorDeliverableForm, value: string) => {
+      setDeliverableForm((previous) => ({
+        ...previous,
+        [field]: value,
+      }))
+    },
+    []
+  )
+
+  const submitDeliverableForm = useCallback(async () => {
+    if (!deliverableForm.internId.trim() || !deliverableForm.missionId.trim() || !deliverableForm.title.trim()) {
+      setDeliverableFormError(t('dashboard.form.required'))
+      return
+    }
+
+    setDeliverableFormError(null)
+
+    try {
+      await deliverableAssignment.assignDeliverable(deliverableForm)
+      setDeliverableForm(initialDeliverableForm)
+      await refreshAll()
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setDeliverableFormError(error.message)
+        return
+      }
+
+      setDeliverableFormError(t('dashboard.error.load'))
+    }
+  }, [deliverableForm, deliverableAssignment, t, refreshAll])
+
   const openEvaluationModal = useCallback((item: SupervisorEvaluationDueItem) => {
     setActiveEvaluation(item)
     setEvaluationScores(initialEvaluationScores)
@@ -341,6 +432,14 @@ export function useSupervisorDashboardState() {
     meetingFormError,
     updateMeetingFormField,
     submitMeetingForm,
+    taskForm,
+    taskFormError,
+    updateTaskFormField,
+    submitTaskForm,
+    deliverableForm,
+    deliverableFormError,
+    updateDeliverableFormField,
+    submitDeliverableForm,
     openInternProfile,
     resolveDelaySeverityLabel,
     resolveDelaySeverityTone,

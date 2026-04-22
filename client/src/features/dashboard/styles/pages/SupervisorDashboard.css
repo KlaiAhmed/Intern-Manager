@@ -25,6 +25,12 @@
   gap: var(--dash-space-sm);
 }
 
+.supervisor-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--dash-space-sm);
+}
+
 .supervisor-kpi-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

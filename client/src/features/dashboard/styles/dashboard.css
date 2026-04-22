@@ -25,6 +25,8 @@
 @import './components/UserManagementSection.css';
 @import './components/ValidationQueueItem.css';
 @import '../components/supervisor/SupervisorMeetingForm.css';
+@import '../components/supervisor/TaskAssignmentForm.css';
+@import '../components/supervisor/DeliverableAssignmentForm.css';
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';

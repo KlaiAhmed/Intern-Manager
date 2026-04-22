@@ -10,6 +10,8 @@ import { Skeleton } from '../../components/Skeleton'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ValidationQueueItem } from '../../components/ValidationQueueItem'
 import { SupervisorMeetingForm } from '../../components/supervisor/SupervisorMeetingForm'
+import { TaskAssignmentForm } from '../../components/supervisor/TaskAssignmentForm'
+import { DeliverableAssignmentForm } from '../../components/supervisor/DeliverableAssignmentForm'
 import { useSupervisorDashboardState } from './useSupervisorDashboardState'
 
 interface SupervisorDashboardViewProps {
@@ -67,6 +69,14 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
     meetingFormError,
     updateMeetingFormField,
     submitMeetingForm,
+    taskForm,
+    taskFormError,
+    updateTaskFormField,
+    submitTaskForm,
+    deliverableForm,
+    deliverableFormError,
+    updateDeliverableFormField,
+    submitDeliverableForm,
     openInternProfile,
     resolveDelaySeverityLabel,
     resolveDelaySeverityTone,
@@ -163,16 +173,27 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
         )}
       </section>
 
-      <div className="supervisor-two-column">
-        <Panel
-          title={t('dashboard.supervisor.myInterns')}
-          actions={
-            <DashboardButton variant="ghost" size="sm" onClick={() => { void progressState.refresh() }}>
-              {t('dashboard.action.refresh')}
-            </DashboardButton>
-          }
-          className="supervisor-panel"
-        >
+       <div className="supervisor-two-column">
+         <Panel
+           title={t('dashboard.supervisor.myInterns')}
+           actions={
+             <div className="supervisor-panel-actions">
+               <TaskAssignmentForm
+                 internOptions={internOptions}
+                 taskForm={taskForm}
+                 taskFormError={taskFormError}
+                 submitError={null}
+                 isSubmitting={false}
+                 onFieldChange={updateTaskFormField}
+                 onSubmit={submitTaskForm}
+               />
+               <DashboardButton variant="ghost" size="sm" onClick={() => { void progressState.refresh() }}>
+                 {t('dashboard.action.refresh')}
+               </DashboardButton>
+             </div>
+           }
+           className="supervisor-panel"
+         >
           {progressState.isLoading ? (
             <div className="supervisor-list-skeletons">
               <Skeleton height="90px" />
@@ -303,15 +324,27 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
           )}
         </Panel>
 
-        <Panel
-          title={`${t('dashboard.supervisor.pendingDeliverables')} (${queueState.total})`}
-          actions={
-            <DashboardButton variant="ghost" size="sm" onClick={() => { void queueState.refresh() }}>
-              {t('dashboard.action.refresh')}
-            </DashboardButton>
-          }
-          className="supervisor-panel"
-        >
+         <Panel
+           title={`${t('dashboard.supervisor.pendingDeliverables')} (${queueState.total})`}
+           actions={
+             <div className="supervisor-panel-actions">
+                 <DeliverableAssignmentForm
+                   internOptions={internOptions}
+                   missionOptions={progressItems.filter(item => item.missionId).map(item => ({ id: item.missionId!, title: item.missionTitle || t('dashboard.noData') }))}
+                   deliverableForm={deliverableForm}
+                   deliverableFormError={deliverableFormError}
+                   submitError={null}
+                   isSubmitting={false}
+                   onFieldChange={updateDeliverableFormField}
+                   onSubmit={submitDeliverableForm}
+                 />
+               <DashboardButton variant="ghost" size="sm" onClick={() => { void queueState.refresh() }}>
+                 {t('dashboard.action.refresh')}
+               </DashboardButton>
+             </div>
+           }
+           className="supervisor-panel"
+         >
           {queueState.isLoading ? (
             <div className="supervisor-list-skeletons">
               <Skeleton height="120px" />
