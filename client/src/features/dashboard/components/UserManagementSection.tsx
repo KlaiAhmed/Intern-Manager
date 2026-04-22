@@ -117,7 +117,8 @@ export function UserManagementSection() {
       if (editingUser) {
         await updateUser(editingUser.id, formData)
       } else {
-        const { confirmPassword, ...userData } = formData
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- confirmPassword is for validation only
+const { confirmPassword, ...userData } = formData
         await createUser(userData)
       }
       setIsCreateModalOpen(false)
