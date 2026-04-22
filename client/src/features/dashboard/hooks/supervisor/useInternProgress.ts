@@ -8,6 +8,7 @@ interface InternProgressApiItem {
   internId?: unknown
   fullName?: unknown
   missionTitle?: unknown
+  missionId?: unknown
   stageType?: unknown
   progress?: unknown
   status?: unknown
@@ -38,6 +39,7 @@ export function useInternProgress() {
           internId: toStringValue(item.internId),
           fullName: toStringValue(item.fullName),
           missionTitle: toStringValue(item.missionTitle),
+          missionId: item.missionId == null ? null : toStringValue(item.missionId),
           stageType: toStringValue(item.stageType, 'N/A'),
           progress: clampProgress(Number.isFinite(parsedProgress) ? parsedProgress : 0),
           status: toStringValue(item.status, 'ON_TRACK').toUpperCase(),
