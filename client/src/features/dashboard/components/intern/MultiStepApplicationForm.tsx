@@ -1,61 +1,5 @@
 import { useState, useEffect, useMemo, type FormEvent, type ChangeEvent, type DragEvent } from 'react'
 
-// Phone Input Component with +216 prefix
-function PhoneInput({ value, onChange, error, disabled }: {
-  value: string
-  onChange: (value: string) => void
-  error?: string
-  disabled?: boolean
-}) {
-  const { t } = useI18n()
-  const isValid = value.length === PHONE_DIGITS_REQUIRED
-  const digitsOnly = value.replace(/[^0-9]/g, '')
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value.replace(/[^0-9]/g, '')
-    if (inputValue.length <= PHONE_DIGITS_REQUIRED) {
-      onChange(inputValue)
-    }
-  }
-
-  const wrapperClass = [
-    'phone-input-wrapper',
-    error ? 'has-error' : '',
-    isValid ? 'is-valid' : ''
-  ].filter(Boolean).join(' ')
-
-  return (
-    <div>
-      <div className={wrapperClass}>
-        <span className="phone-prefix">+216</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          className="phone-input"
-          value={digitsOnly}
-          onChange={handleChange}
-          disabled={disabled}
-          placeholder={t('dashboard.intern.application.placeholder.phoneNumber')}
-          aria-label={t('dashboard.intern.application.phoneNumber')}
-          autoComplete="tel-national"
-        />
-        {isValid && (
-          <span className="phone-valid-indicator" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </span>
-        )}
-      </div>
-      <div className={`phone-helper${isValid ? ' valid' : ''}`}>
-        <span>{isValid ? t('dashboard.intern.application.phoneValid') : t('dashboard.intern.application.phoneDigitsHint')}</span>
-        <span className="phone-digit-count">{digitsOnly.length}/{PHONE_DIGITS_REQUIRED}</span>
-      </div>
-    </div>
-  )
-}
-
 import { useI18n } from '../../../../locales/I18nContext'
 import { CustomSelect } from '../../../../components/ui'
 import { useSchoolsApi, type School } from '../../api/schoolsApi'
@@ -83,7 +27,6 @@ interface MultiStepApplicationFormProps {
 type FormStep = 1 | 2 | 3
 
 const PHONE_DIGITS_REQUIRED = 8
-const phoneDigitsPattern = /^[0-9]{0,8}$/
 
 export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFormProps) {
   const { t } = useI18n()
@@ -128,8 +71,8 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       }
     }
 
-    void fetchSchools()
-  }, [])
+void fetchSchools()
+}, [schoolsApi])
 
   // Select options
   const yearOptions = [

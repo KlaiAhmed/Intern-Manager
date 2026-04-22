@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Badge } from '../../../components/ui/Badge'
-import { Button } from '../../../components/ui/Button'
 import { Section } from '../../../components/ui/Section'
 import { useI18n } from '../../../locales/I18nContext'
-import { useAuth } from '../../../stores/AuthContext'
 import { classNames } from '../../../utils/classNames'
 import { useHomeStats } from '../hooks/useHomeStats'
 import styles from './HeroSection.module.css'
@@ -68,8 +65,6 @@ function AnimatedStat({ value, labelKey, delay }: { value: number; labelKey: typ
 
 export function HeroSection() {
   const { t } = useI18n()
-  const { isLoggedIn } = useAuth()
-  const navigate = useNavigate()
   const homeStats = useHomeStats()
 
   return (
