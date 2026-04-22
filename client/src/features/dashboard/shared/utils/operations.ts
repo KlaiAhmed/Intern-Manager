@@ -54,7 +54,9 @@ export function toDateInputValue(value: string | null): string {
 }
 
 export function toIsoDate(value: string): string {
-  return new Date(`${value}T00:00:00.000Z`).toISOString()
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day, 0, 0, 0, 0)
+  return date.toISOString()
 }
 
 export function readCount(payload: CountResponse | null | undefined): number {
