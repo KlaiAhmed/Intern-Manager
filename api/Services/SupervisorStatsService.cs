@@ -23,13 +23,15 @@ public sealed class SupervisorStatsService(
             ? 0d
             : deliverableProgressValues.Average(progress => Math.Clamp(progress, 0, 100));
 
-        return Math.Round(averageProgress, 2);
-    }
+return Math.Round(averageProgress, 2);
+ }
 
-    public async Task<AvgValidationDelayResponse> GetAverageValidationDelayAsync(
-        Guid supervisorId,
-        CancellationToken cancellationToken)
-    {
+ public async Task<AvgValidationDelayResponse> GetAverageValidationDelayAsync(
+ Guid supervisorId,
+ CancellationToken cancellationToken)
+ {
+ // Uses calendar month boundaries (1st to last day of month in UTC).
+ // If business-specific month boundaries are needed, this should be made configurable.
         var utcNow = DateTime.UtcNow;
         var monthStart = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1);
