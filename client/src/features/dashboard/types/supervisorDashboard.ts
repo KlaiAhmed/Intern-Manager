@@ -27,6 +27,7 @@ export interface SupervisorInternProgressItem {
   internId: string
   fullName: string
   missionTitle: string
+  missionId: string | null
   stageType: string
   progress: number
   status: string
@@ -76,6 +77,21 @@ export interface SupervisorMeetingForm {
   internId: string
   date: string
   note: string
+}
+
+export interface SupervisorTaskForm {
+  internId: string
+  title: string
+  description: string
+  dueDate: string
+}
+
+export interface SupervisorDeliverableForm {
+  internId: string
+  missionId: string
+  title: string
+  description: string
+  dueDate: string
 }
 
 export interface SupervisorEvaluationDueItem {
