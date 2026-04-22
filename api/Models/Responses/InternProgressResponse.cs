@@ -8,6 +8,8 @@ public sealed class InternProgressResponse
 
     public string MissionTitle { get; init; } = string.Empty;
 
+    public Guid? MissionId { get; init; }
+
     public string StageType { get; init; } = string.Empty;
 
     public int Progress { get; init; }

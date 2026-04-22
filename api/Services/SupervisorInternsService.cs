@@ -138,6 +138,7 @@ public sealed class SupervisorInternsService(
                 InternId = intern.Id,
                 FullName = $"{intern.FirstName} {intern.LastName}".Trim(),
                 MissionTitle = mission?.MissionTitle ?? string.Empty,
+                MissionId = mission?.MissionId,
                 StageType = string.IsNullOrWhiteSpace(mission?.StageType)
                     ? "OTHER"
                     : mission.StageType.Trim().ToUpperInvariant(),
