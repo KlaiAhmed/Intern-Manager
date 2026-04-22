@@ -1,4 +1,4 @@
-﻿namespace InternManager.Api.Models.Entities;
+namespace InternManager.Api.Models.Entities;
 
 public sealed class Deliverable
 {
@@ -11,6 +11,8 @@ public sealed class Deliverable
     public Guid? InternId { get; set; }
 
     public string Title { get; set; } = string.Empty;
+
+    public string? Description { get; set; }
 
     public string Status { get; set; } = "pending";
 
