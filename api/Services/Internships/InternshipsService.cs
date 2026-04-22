@@ -143,48 +143,38 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             throw new InvalidOperationException("Direct intern assignment on internship creation is disabled. Use POST /api/stages/assign.");
         }
 
-        var now = DateTime.UtcNow;
-        var startDate = NormalizeUtc(request.StartDate);
-        var endDate = NormalizeUtc(request.EndDate);
+var now = DateTime.UtcNow;
+    var startDate = NormalizeUtc(request.StartDate);
+    var endDate = NormalizeUtc(request.EndDate);
 
-        if (startDate.Date < now.Date)
-        {
-            throw new ArgumentException("startDate must not be in the past.");
-        }
+    if (startDate.Date < now.Date)
+    {
+        throw new ArgumentException("startDate must not be in the past.");
+    }
 
-        if (endDate <= startDate)
-        {
-            throw new ArgumentException("endDate must be after startDate.");
-        }
+    if (endDate <= startDate)
+    {
+        throw new ArgumentException("endDate must be after startDate.");
+    }
 
-        var normalizedStatus = NormalizeInternshipStatus(request.Status);
-        if (request.Status is not null && normalizedStatus is null)
-        {
-            throw new ArgumentException("Invalid internship status.");
-        }
+var status = DomainStatuses.Mission.Active;
 
-        var status = normalizedStatus ?? DomainStatuses.Mission.Template;
-        if (!string.Equals(status, DomainStatuses.Mission.Template, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("New internships must be created as template and activated only through POST /api/stages/assign.");
-        }
+ var objectives = string.IsNullOrWhiteSpace(request.Objectives)
+ ? string.Empty
+ : request.Objectives.Trim();
 
-        var objectives = string.IsNullOrWhiteSpace(request.Objectives)
-            ? string.Empty
-            : request.Objectives.Trim();
+ var currentUserRole = httpContextAccessor.HttpContext?.User is { } user
+ ? UserContextHelper.ResolveCurrentUserRole(user)
+ : null;
+ var canSetCustomTitle = currentUserRole is UserRole.SuperAdmin or UserRole.Admin;
+ var hasManualTitle = !string.IsNullOrWhiteSpace(request.MissionName);
 
-        var currentUserRole = httpContextAccessor.HttpContext is { User: not null }
-            ? UserContextHelper.ResolveCurrentUserRole(httpContextAccessor.HttpContext.User)
-            : null;
-        var canSetCustomTitle = currentUserRole is UserRole.SuperAdmin or UserRole.Admin;
-        var hasManualTitle = !string.IsNullOrWhiteSpace(request.MissionName);
+ if (!canSetCustomTitle && hasManualTitle)
+ {
+ throw new InvalidOperationException("Only SuperAdmin and Admin can set a custom mission name.");
+ }
 
-        if (!canSetCustomTitle && hasManualTitle)
-        {
-            throw new InvalidOperationException("Only SuperAdmin and Admin can set a custom mission name.");
-        }
-
-        var mission = new Mission
+ var mission = new Mission
         {
             Id = Guid.NewGuid(),
             SupervisorId = supervisor.Id,
@@ -464,33 +454,33 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             }
         }
 
-        if (request.Type is not null || request.InternshipTypeId is not null)
-        {
-            var rawType = request.InternshipTypeId ?? request.Type;
-            var requestedType = await ResolveOptionalInternshipTypeAsync(rawType, cancellationToken);
-            var requestedTypeName = requestedType?.Name;
-            var requestedTypeId = requestedType?.Id;
+if (request.Type is not null || request.InternshipTypeId is not null)
+ {
+ var rawType = request.InternshipTypeId ?? request.Type;
+ var requestedType = await ResolveOptionalInternshipTypeAsync(rawType, cancellationToken);
+ var requestedTypeName = requestedType?.Name;
+ var requestedTypeId = requestedType?.Id;
 
-            if (!string.Equals(currentType, requestedTypeName, StringComparison.OrdinalIgnoreCase))
-            {
-                AddHistoryEntry(
-                    historyEntries,
-                    mission.Id,
-                    "type",
-                    currentType,
-                    requestedTypeName,
-                    actorUserId,
-                    actorName);
+ if (mission.InternshipTypeId != requestedTypeId)
+ {
+ AddHistoryEntry(
+ historyEntries,
+ mission.Id,
+ "type",
+ currentType,
+ requestedTypeName,
+ actorUserId,
+ actorName);
 
-                mission.InternshipTypeId = requestedTypeId;
-                mission.InternshipType = requestedType;
-                if (!mission.IsTitleManuallySet)
-                {
-                    mission.Title = BuildInternshipTitle(requestedTypeName, mission.Intern);
-                }
-                nextType = requestedTypeName;
-            }
-        }
+ mission.InternshipTypeId = requestedTypeId;
+ mission.InternshipType = requestedType;
+ if (!mission.IsTitleManuallySet)
+ {
+ mission.Title = BuildInternshipTitle(requestedTypeName, mission.Intern);
+ }
+ nextType = requestedTypeName;
+ }
+ }
 
         if (request.Department is not null || request.DepartmentId is not null)
         {
