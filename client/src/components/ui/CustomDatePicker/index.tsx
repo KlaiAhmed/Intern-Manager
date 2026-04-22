@@ -56,12 +56,12 @@ export function CustomDatePicker({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Update viewDate when value changes
-  useEffect(() => {
-    if (value) {
-      setViewDate(new Date(value + 'T00:00:00'))
-    }
-  }, [value])
+// Update viewDate when value changes
+useEffect(() => {
+  if (value) {
+    setViewDate(new Date(value + 'T00:00:00')) // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: resetting display to selected date
+  }
+}, [value])
 
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return placeholder

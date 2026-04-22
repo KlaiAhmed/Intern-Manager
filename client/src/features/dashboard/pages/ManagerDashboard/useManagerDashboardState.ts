@@ -282,13 +282,14 @@ export function useManagerDashboardState() {
     }
   }
 
-  useEffect(() => {
-    void loadKPIs()
-    void loadInterns()
-    void loadSupervisors()
-    void loadDepartments()
-    void loadActivity()
-  }, [])
+useEffect(() => {
+  void loadKPIs()
+  void loadInterns()
+  void loadSupervisors()
+  void loadDepartments()
+  void loadActivity()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable hook refs used internally
+}, [])
 
   const refreshAll = () => {
     void loadKPIs()

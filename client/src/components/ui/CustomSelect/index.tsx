@@ -44,11 +44,11 @@ export function CustomSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  useEffect(() => {
-    if (isOpen) {
-      setHighlightedIndex(-1)
-    }
-  }, [isOpen])
+useEffect(() => {
+  if (isOpen) {
+    setHighlightedIndex(-1) // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: reset highlight when opening dropdown
+  }
+}, [isOpen])
 
   const handleToggle = () => {
     if (!disabled) {

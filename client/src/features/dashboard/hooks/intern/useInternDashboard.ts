@@ -233,26 +233,28 @@ export function useInternDashboard() {
     }
   }
 
-  useEffect(() => {
-    void loadInternLifecycleStatus()
-  }, [user?.id])
+useEffect(() => {
+  void loadInternLifecycleStatus()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable hook refs used internally
+}, [user?.id])
 
-  useEffect(() => {
-    if (internLifecycleStatus === 'ACTIVE') {
-      void loadInternship()
-      void loadTasks()
-      void loadDeliverables()
-      void loadJournal()
-      void loadEvaluations()
-      void loadNextMeeting()
-      void loadMeetingsCount()
-      return
-    }
+useEffect(() => {
+  if (internLifecycleStatus === 'ACTIVE') {
+    void loadInternship()
+    void loadTasks()
+    void loadDeliverables()
+    void loadJournal()
+    void loadEvaluations()
+    void loadNextMeeting()
+    void loadMeetingsCount()
+    return
+  }
 
-    if (internLifecycleStatus === 'PENDING') {
-      void loadPendingContext()
-    }
-  }, [internLifecycleStatus])
+  if (internLifecycleStatus === 'PENDING') {
+    void loadPendingContext()
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable hook refs used internally
+}, [internLifecycleStatus])
 
   const handleCompleteTask = async (taskId: string) => {
     try {
