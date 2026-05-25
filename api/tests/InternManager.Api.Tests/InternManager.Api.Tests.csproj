@@ -5,6 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- BUILD FIX: exclude bin/obj from default items to avoid recursive output copying. -->
+    <!-- FIX BUILD: also exclude nested bin/obj to prevent recursive output copies. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;**\bin\**;**\obj\**</DefaultItemExcludes>
+    <!-- FIX BUILD: disable default content/none items to avoid output recursion. -->
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
   </PropertyGroup>
 
   <ItemGroup>

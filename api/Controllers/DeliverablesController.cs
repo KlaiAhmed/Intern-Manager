@@ -21,6 +21,7 @@ namespace InternManager.Api.Controllers;
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
 /// <param name="deliverablesService">Service métier des livrables.</param>
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
+/// <param name="logger">Logger pour les événements du contrôleur.</param>
 [ApiController]
 [Route("api/deliverables")]
 [Authorize]
@@ -28,7 +29,8 @@ public sealed class DeliverablesController(
     AppDbContext dbContext,
     IWebHostEnvironment environment,
     IDeliverablesService deliverablesService,
-    INotificationService notificationService) : ControllerBase
+    INotificationService notificationService,
+    ILogger<DeliverablesController> logger) : ControllerBase
 {
     private const long MaxUploadBytes = 10 * 1024 * 1024;
 
@@ -410,25 +412,62 @@ dbContext.AuditLogs.Add(new AuditLog
  try
  {
  await dbContext.SaveChangesAsync(cancellationToken);
+ // FIX C4: move file before committing DB changes.
  System.IO.File.Move(tempPath, destinationPath, overwrite: true);
  await transaction.CommitAsync(cancellationToken);
  }
  catch
  {
+ // Best-effort cleanup: each step is wrapped in its own try/catch
+ // so that a cleanup failure never masks the original exception.
+ try
+ {
  await transaction.RollbackAsync(cancellationToken);
+ }
+ catch (Exception rollbackEx)
+ {
+ logger.LogWarning(rollbackEx, "Transaction rollback failed after original error");
+ }
 
+ // FIX C4: remove any moved file on rollback to avoid orphaned blobs.
+ try
+ {
+ if (System.IO.File.Exists(destinationPath))
+ {
+ System.IO.File.Delete(destinationPath);
+ }
+ }
+ catch (Exception cleanupEx)
+ {
+ logger.LogWarning(cleanupEx, "Failed to delete destination file after error");
+ }
+
+ try
+ {
  if (System.IO.File.Exists(tempPath))
  {
  System.IO.File.Delete(tempPath);
+ }
+ }
+ catch (Exception cleanupEx)
+ {
+ logger.LogWarning(cleanupEx, "Failed to delete temp file after error");
  }
 
  throw;
  }
  finally
  {
+ try
+ {
  if (System.IO.File.Exists(tempPath))
  {
  System.IO.File.Delete(tempPath);
+ }
+ }
+ catch (Exception cleanupEx)
+ {
+ logger.LogWarning(cleanupEx, "Failed to clean up temp file in finally block");
  }
  }
 
