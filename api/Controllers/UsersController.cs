@@ -1,4 +1,5 @@
-﻿using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Application.Users;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.DTOs.User;
@@ -19,7 +20,7 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize]
-public sealed class UsersController(AppDbContext dbContext) : ControllerBase
+public sealed class UsersController(AppDbContext dbContext, UserDeletionService deletionService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des utilisateurs avec des filtres optionnels.
@@ -625,50 +626,25 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
     [EnableRateLimiting("delete-operations")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(UserDeletionErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(UserDeletionErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(UserDeletionErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteUser(Guid id, CancellationToken cancellationToken)
     {
-        var user = await dbContext.Users
-            .FirstOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (user is null)
+        var result = await deletionService.DeleteUserAsync(id, User, cancellationToken);
+        if (result.Success)
         {
-            return NotFound(new { message = "User not found." });
+            return NoContent();
         }
 
-        var actorRole = UserContextHelper.ResolveCurrentUserRole(User);
-        if (actorRole == UserRole.Admin && user.Role == UserRole.SuperAdmin)
+        var response = new UserDeletionErrorResponse
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admins cannot delete SuperAdmin users." });
-        }
+            Code = result.Code ?? UserDeletionService.ErrorUserDeleteBlocked,
+            Message = result.Message ?? "User deletion failed.",
+            Blockers = result.Blockers
+        };
 
-        if (user.Status != UserStatus.Archived)
-        {
-            return StatusCode(StatusCodes.Status409Conflict, new
-            {
-                message = "Only archived users can be deleted. Archive the user first."
-            });
-        }
-
-        var hasDependencies = await UserHasDependenciesAsync(user.Id, cancellationToken);
-        if (hasDependencies)
-        {
-            return StatusCode(StatusCodes.Status409Conflict, new
-            {
-                message = "User cannot be deleted because related business data still exists."
-            });
-        }
-
-        var actorUserId = UserContextHelper.ResolveCurrentUserId(User);
-        var actorName = UserContextHelper.ResolveCurrentActorName(User);
-        dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.delete", $"user:{user.Id}"));
-
-        dbContext.Users.Remove(user);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return NoContent();
+        return StatusCode(result.StatusCode, response);
     }
 
     /// <summary>
@@ -773,36 +749,6 @@ public sealed class UsersController(AppDbContext dbContext) : ControllerBase
             department = departmentName ?? user.Department?.Name,
             lastLogin = user.LastLoginAt
         };
-    }
-
-    private async Task<bool> UserHasDependenciesAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var hasDependencies = await dbContext.Missions
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
-                              || await dbContext.Deliverables
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
-                              || await dbContext.Evaluations
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
-                              || await dbContext.Meetings
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.SupervisorId == userId || item.InternId == userId, cancellationToken)
-                              || await dbContext.JournalEntries
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.InternId == userId, cancellationToken)
-                              || await dbContext.InternTasks
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.InternId == userId, cancellationToken)
-                              || await dbContext.InternProfiles
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.InternId == userId, cancellationToken)
-                              || await dbContext.Notifications
-                                  .AsNoTracking()
-                                  .AnyAsync(item => item.UserId == userId, cancellationToken);
-
-        return hasDependencies;
     }
 
     private static string NormalizeEmail(string email)

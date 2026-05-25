@@ -1,3 +1,5 @@
+using InternManager.Api.Application.Users;
+
 DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +23,9 @@ var connectionString = BuildSqlServerConnectionString(databasePath, sqlServerIns
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+builder.Services.AddSingleton<UserDeletionPolicy>();
+builder.Services.AddScoped<UserDeletionService>();
 
 builder.Services.AddCors(options =>
 {
