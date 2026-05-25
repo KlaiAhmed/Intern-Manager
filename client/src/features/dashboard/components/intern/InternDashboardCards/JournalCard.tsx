@@ -48,7 +48,7 @@ export function JournalCard({
         <h2 className="card-title"><span className="card-title-icon">📝</span> {t('dashboard.intern.card.journal.title')}</h2>
         <span className="card-action">{t('dashboard.intern.card.journal.entries').replace('{{count}}', String(entries.length))}</span>
       </div>
-      {isReadOnly && <p className="card-readonly-hint">New journal entries are currently disabled.</p>}
+      {isReadOnly && <p className="card-readonly-hint">{t('dashboard.intern.card.journal.readOnlyHint')}</p>}
       {entries.length === 0 ? (
         <div className="empty-state-modern">
           <div className="empty-state-icon">📝</div>
@@ -68,7 +68,7 @@ export function JournalCard({
               <p className="journal-entry-content">{entry.content}</p>
               {Array.isArray(entry.comments) && entry.comments.length > 0 && (
                 <p className="journal-entry-comment-hint">
-                  {entry.comments.length} supervisor comment{entry.comments.length > 1 ? 's' : ''}
+                  {entry.comments.length} {entry.comments.length > 1 ? t('dashboard.intern.card.journal.supervisorComments') : t('dashboard.intern.card.journal.supervisorComment')}
                 </p>
               )}
               <span className="journal-entry-date">{entry.createdAt}</span>

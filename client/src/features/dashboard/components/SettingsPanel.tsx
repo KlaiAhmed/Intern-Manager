@@ -4,6 +4,7 @@ import { useDashboardApi } from '../hooks/useDashboardApi'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
+import { useI18n } from '../../../locales/I18nContext'
 
 export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
 
@@ -18,11 +19,11 @@ interface SettingsPanelProps {
 }
 
 const tabs: { id: SettingsSubSection; label: string; endpoint: string }[] = [
-  { id: 'departments', label: 'Departments', endpoint: 'departments' },
-  { id: 'schools', label: 'Schools', endpoint: 'schools' },
-  { id: 'types', label: 'Internship Types', endpoint: 'internship-types' },
-  { id: 'skills', label: 'Skills', endpoint: 'skills' },
-  { id: 'verification-statuses', label: 'Verification Statuses', endpoint: 'verification-statuses' },
+  { id: 'departments', label: 'dashboard.settings.tab.departments', endpoint: 'departments' },
+  { id: 'schools', label: 'dashboard.settings.tab.schools', endpoint: 'schools' },
+  { id: 'types', label: 'dashboard.settings.tab.internshipTypes', endpoint: 'internship-types' },
+  { id: 'skills', label: 'dashboard.settings.tab.skills', endpoint: 'skills' },
+  { id: 'verification-statuses', label: 'dashboard.settings.tab.verificationStatuses', endpoint: 'verification-statuses' },
 ]
 
 function parseSettingsItems(payload: unknown): SettingsItem[] {
@@ -61,6 +62,7 @@ export function SettingsPanel({
   onSubSectionChange,
 }: SettingsPanelProps) {
   const { get, post, patch, del } = useDashboardApi()
+  const { t } = useI18n()
 
   const [items, setItems] = useState<SettingsItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,11 +82,11 @@ export function SettingsPanel({
       const result = await get<unknown>(`/api/admin/settings/${activeTab.endpoint}`)
       setItems(parseSettingsItems(result))
     } catch {
-      setError(`Failed to load ${activeTab.label.toLowerCase()}`)
+      setError(t('dashboard.settings.operationFailed'))
     } finally {
       setLoading(false)
     }
-  }, [activeTab.endpoint, activeTab.label, get])
+  }, [activeTab.endpoint, get, t])
 
   useEffect(() => {
     void fetchItems()
@@ -92,7 +94,7 @@ export function SettingsPanel({
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      setFormError('Name is required')
+      setFormError(t('dashboard.settings.nameRequired'))
       return
     }
     setIsSubmitting(true)
@@ -112,7 +114,7 @@ export function SettingsPanel({
       setFormData({ name: '' })
       await fetchItems()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Operation failed')
+      setFormError(err instanceof Error ? err.message : t('dashboard.settings.operationFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -126,12 +128,12 @@ export function SettingsPanel({
   }
 
   const handleDelete = async (itemId: string) => {
-    if (confirm(`Are you sure you want to delete this ${activeTab.label.toLowerCase()}?`)) {
+    if (confirm(t('dashboard.settings.deleteConfirm', { item: t(activeTab.label).toLowerCase() }))) {
       try {
         await del(`/api/admin/settings/${activeTab.endpoint}/${itemId}`)
         await fetchItems()
       } catch {
-        setError(`Failed to delete ${activeTab.label.toLowerCase()}`)
+        setError(t('dashboard.settings.deleteFailed', { item: t(activeTab.label).toLowerCase() }))
       }
     }
   }
@@ -139,7 +141,7 @@ export function SettingsPanel({
   return (
     <section className="settings-panel">
       {/* Tab Navigation */}
-      <nav className="settings-tabs" aria-label="Settings sub-navigation">
+      <nav className="settings-tabs" aria-label={t('dashboard.settings.aria.subNav')}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -148,7 +150,7 @@ export function SettingsPanel({
             className={`settings-tab ${activeSubSection === tab.id ? 'active' : ''}`}
             onClick={() => onSubSectionChange(tab.id)}
           >
-            {tab.label}
+            {t(tab.label)}
           </button>
         ))}
       </nav>
@@ -156,7 +158,7 @@ export function SettingsPanel({
       {/* Add Button */}
       <div className="settings-header-row">
         <h2 className="section-title">
-          {activeTab.label} <span className="item-count">({items.length})</span>
+          {t(activeTab.label)} <span className="item-count">({items.length})</span>
         </h2>
         <button
           className="dash-btn dash-btn-primary dash-btn-md"
@@ -168,7 +170,7 @@ export function SettingsPanel({
           }}
         >
           <span className="btn-icon"><Plus /></span>
-          <span>Add {activeTab.label.slice(0, -1)}</span>
+          <span>{t('dashboard.form.add')} {t(activeTab.label).slice(0, -1)}</span>
         </button>
       </div>
 
@@ -183,12 +185,12 @@ export function SettingsPanel({
         <ErrorState message={error} onRetry={fetchItems} />
       ) : items.length === 0 ? (
         <div className="dash-empty">
-          <p>No {activeTab.label.toLowerCase()} configured yet.</p>
+          <p>{t('dashboard.settings.noItems', { items: t(activeTab.label).toLowerCase() })}</p>
           <button
             className="dash-btn dash-btn-secondary dash-btn-md settings-add-first-btn"
             onClick={() => setIsModalOpen(true)}
           >
-            Add your first {activeTab.label.slice(0, -1).toLowerCase()}
+            {t('dashboard.settings.addFirst', { item: t(activeTab.label).slice(0, -1).toLowerCase() })}
           </button>
         </div>
       ) : (
@@ -202,16 +204,16 @@ export function SettingsPanel({
                 <button
                   className="action-btn action-btn-edit"
                   onClick={() => handleEdit(item)}
-                  aria-label={`Edit ${item.name}`}
-                  title="Edit"
+          aria-label={`${t('dashboard.settings.edit')} ${item.name}`}
+          title={t('dashboard.settings.edit')}
                 >
                   <Edit />
                 </button>
                 <button
                   className="action-btn action-btn-delete"
                   onClick={() => handleDelete(item.id)}
-                  aria-label={`Delete ${item.name}`}
-                  title="Delete"
+          aria-label={`${t('dashboard.settings.delete')} ${item.name}`}
+          title={t('dashboard.settings.delete')}
                 >
                   <Trash2 />
                 </button>
@@ -225,7 +227,7 @@ export function SettingsPanel({
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingItem ? `Edit ${activeTab.label.slice(0, -1)}` : `Add ${activeTab.label.slice(0, -1)}`}
+        title={editingItem ? `${t('dashboard.settings.edit')} ${t(activeTab.label).slice(0, -1)}` : `${t('dashboard.form.add')} ${t(activeTab.label).slice(0, -1)}`}
       >
         <form
           className="modal-form"

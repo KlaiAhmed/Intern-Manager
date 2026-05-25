@@ -109,9 +109,9 @@ export function InternDashboard() {
     return (
       <div className="intern-dashboard status-gate-page">
         <div className="status-gate-card">
-          <h1 className="status-gate-title">Unable to load your status</h1>
+          <h1 className="status-gate-title">{t('dashboard.internDashboard.unableLoadStatus')}</h1>
           <p className="status-gate-subtitle">{statusError}</p>
-          <button className="error-retry-btn" onClick={() => { void loadInternLifecycleStatus() }}>Retry</button>
+          <button className="error-retry-btn" onClick={() => { void loadInternLifecycleStatus() }}>{t('dashboard.internDashboard.retry')}</button>
         </div>
       </div>
     )
@@ -121,7 +121,7 @@ export function InternDashboard() {
     return (
       <div className="intern-dashboard status-gate-page">
         <div className="status-gate-card">
-          <h1 className="status-gate-title">Unable to load your profile</h1>
+          <h1 className="status-gate-title">{t('dashboard.internDashboard.unableLoadProfile')}</h1>
         </div>
       </div>
     )
@@ -146,8 +146,8 @@ export function InternDashboard() {
     return (
       <div className="intern-dashboard status-gate-page">
         <div className="status-gate-card">
-          <h1 className="status-gate-title">Internship status: {internLifecycleStatus}</h1>
-          <p className="status-gate-subtitle">This dashboard is currently in read-only mode for your lifecycle state.</p>
+          <h1 className="status-gate-title">{t('dashboard.internDashboard.internshipStatus', { status: internLifecycleStatus })}</h1>
+          <p className="status-gate-subtitle">{t('dashboard.internDashboard.readOnly')}</p>
         </div>
       </div>
     )
@@ -159,8 +159,8 @@ export function InternDashboard() {
         <div className="intern-welcome">
           <div className="intern-avatar">{getUserInitials()}</div>
           <div>
-            <h1 className="intern-greeting">Welcome back{getFirstName() ? `, ${getFirstName()}` : ''}!</h1>
-            <p className="intern-greeting-sub">Here&apos;s your internship overview</p>
+            <h1 className="intern-greeting">{t('dashboard.internDashboard.welcomeBack', { name: getFirstName() ? `, ${getFirstName()}` : '' })}</h1>
+            <p className="intern-greeting-sub">{t('dashboard.internDashboard.overviewSubtitle')}</p>
           </div>
         </div>
       </header>
@@ -260,7 +260,7 @@ export function InternDashboard() {
           className="fab-button"
           onClick={openJournalModal}
           disabled={isJournalReadOnly}
-          aria-label="Add journal entry"
+          aria-label={t('dashboard.internDashboard.addJournalEntry')}
         >
           +
         </button>
@@ -287,7 +287,7 @@ export function InternDashboard() {
               className={formError ? 'input-error' : ''}
             />
             {isJournalReadOnly && (
-              <span className="card-readonly-hint">New journal entries are currently disabled for this mission.</span>
+              <span className="card-readonly-hint">{t('dashboard.internDashboard.journalReadOnly')}</span>
             )}
             {formError && <span className="field-error">{formError}</span>}
           </div>

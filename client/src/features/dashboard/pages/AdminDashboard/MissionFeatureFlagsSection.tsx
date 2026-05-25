@@ -11,6 +11,7 @@ import {
   type DashboardCard,
   type MissionCardConfig,
 } from '../../types/missionFeatureFlags'
+import { useI18n } from '@/locales/I18nContext'
 import styles from './MissionFeatureFlagsSection.module.css'
 
 interface MissionFeatureFlagsSectionProps {
@@ -40,15 +41,7 @@ const dashboardCards: DashboardCard[] = [
   'meeting',
 ]
 
-const cardLabels: Record<DashboardCard, string> = {
-  missionOverview: 'Mission Overview',
-  quickStats: 'Quick Stats',
-  tasks: 'Tasks',
-  deliverables: 'Deliverables',
-  evaluation: 'Evaluation',
-  journal: 'Journal',
-  meeting: 'Meeting',
-}
+
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -110,6 +103,16 @@ function normalizeConfig(payload: unknown): MissionCardConfig {
 }
 
 export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeatureFlagsSectionProps) {
+  const { t } = useI18n()
+  const cardLabels: Record<DashboardCard, string> = {
+    missionOverview: t('dashboard.missionFeatureFlags.cardLabel.missionOverview'),
+    quickStats: t('dashboard.missionFeatureFlags.cardLabel.quickStats'),
+    tasks: t('dashboard.missionFeatureFlags.cardLabel.tasks'),
+    deliverables: t('dashboard.missionFeatureFlags.cardLabel.deliverables'),
+    evaluation: t('dashboard.missionFeatureFlags.cardLabel.evaluation'),
+    journal: t('dashboard.missionFeatureFlags.cardLabel.journal'),
+    meeting: t('dashboard.missionFeatureFlags.cardLabel.meeting'),
+  }
   const api = useDashboardApi()
 
   const [savedConfig, setSavedConfig] = useState<MissionCardConfig>(defaultMissionCardConfig)
@@ -151,7 +154,7 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
 
   unstable_usePrompt({
     when: isDirty,
-    message: 'You have unsaved mission feature flag changes. Leave this page anyway?',
+    message: t('dashboard.missionFeatureFlags.unsavedPrompt'),
   })
 
   const loadConfig = useCallback(async () => {
@@ -240,7 +243,7 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
     try {
       const parsed = JSON.parse(trimmed) as unknown
       if (!isRecord(parsed)) {
-        setRequirementError(card, 'Requirement config must be a JSON object.')
+        setRequirementError(card, t('dashboard.missionFeatureFlags.requirementObject'))
         return
       }
 
@@ -253,7 +256,7 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
         },
       }))
     } catch {
-      setRequirementError(card, 'Invalid JSON format.')
+      setRequirementError(card, t('dashboard.missionFeatureFlags.invalidJson'))
     }
   }
 
@@ -311,20 +314,20 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
     <section className={styles.root}>
       <header className={styles.header}>
         <div>
-          <h2 className={styles.title}>Mission Feature Controls</h2>
+          <h2 className={styles.title}>{t('dashboard.missionFeatureFlags.title')}</h2>
           <p className={styles.subtitle}>Mission ID: {missionId}</p>
-          {isDirty && <p className={styles.dirtyBadge}>Unsaved changes</p>}
+          {isDirty && <p className={styles.dirtyBadge}>{t('dashboard.missionFeatureFlags.unsavedChanges')}</p>}
         </div>
 
         <div className={styles.headerActions}>
           <DashboardButton variant="secondary" size="sm" onClick={onBack}>
-            Back to Internships
+            {t('dashboard.missionFeatureFlags.backToInternships')}
           </DashboardButton>
           <DashboardButton variant="ghost" size="sm" onClick={() => { void loadHistory() }}>
-            Refresh History
+            {t('dashboard.missionFeatureFlags.refreshHistory')}
           </DashboardButton>
           <DashboardButton variant="secondary" size="sm" onClick={resetDraft} disabled={!isDirty || isSaving}>
-            Reset
+            {t('dashboard.missionFeatureFlags.reset')}
           </DashboardButton>
           <DashboardButton
             variant="primary"
@@ -333,7 +336,7 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
             disabled={!isDirty || hasRequirementErrors || isSaving}
             loading={isSaving}
           >
-            Save Changes
+            {t('dashboard.settings.saveChanges')}
           </DashboardButton>
         </div>
       </header>
@@ -358,7 +361,7 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
                     checked={cardConfig.isVisible}
                     onChange={(event) => updateCardFlag(card, 'isVisible', event.target.checked)}
                   />
-                  <span>Visible</span>
+                  <span>{t('dashboard.missionFeatureFlags.visible')}</span>
                 </label>
 
                 <label className={styles.toggleItem}>
@@ -367,12 +370,12 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
                     checked={cardConfig.isInteractive}
                     onChange={(event) => updateCardFlag(card, 'isInteractive', event.target.checked)}
                   />
-                  <span>Interactive</span>
+                  <span>{t('dashboard.missionFeatureFlags.interactive')}</span>
                 </label>
               </div>
 
               <div className={styles.requirementField}>
-                <label htmlFor={`requirement-${card}`}>Requirement JSON</label>
+                <label htmlFor={`requirement-${card}`}>{t('dashboard.missionFeatureFlags.requirementConfig')}</label>
                 <textarea
                   id={`requirement-${card}`}
                   value={requirementText[card]}
@@ -389,7 +392,7 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
 
       <section className={styles.historySection}>
         <div className={styles.historyHeader}>
-          <h3>Recent Changes</h3>
+          <h3>{t('dashboard.missionFeatureFlags.recentChanges')}</h3>
         </div>
 
         {isHistoryLoading ? (
@@ -397,18 +400,18 @@ export function MissionFeatureFlagsSection({ missionId, onBack }: MissionFeature
         ) : historyError ? (
           <ErrorState message={historyError} onRetry={() => { void loadHistory() }} />
         ) : historyItems.length === 0 ? (
-          <p className={styles.emptyText}>No feature-flag history available yet.</p>
+          <p className={styles.emptyText}>{t('dashboard.missionFeatureFlags.noHistory')}</p>
         ) : (
           <div className={styles.historyTableWrapper}>
             <table className={styles.historyTable}>
               <thead>
                 <tr>
-                  <th>Changed At</th>
-                  <th>Changed By</th>
-                  <th>Card</th>
-                  <th>Field</th>
-                  <th>Old Value</th>
-                  <th>New Value</th>
+<th>{t('dashboard.missionFeatureFlags.changedAt')}</th>
+          <th>{t('dashboard.missionFeatureFlags.changedBy')}</th>
+          <th>{t('dashboard.missionFeatureFlags.card')}</th>
+          <th>{t('dashboard.missionFeatureFlags.field')}</th>
+          <th>{t('dashboard.missionFeatureFlags.oldValue')}</th>
+          <th>{t('dashboard.missionFeatureFlags.newValue')}</th>
                 </tr>
               </thead>
               <tbody>

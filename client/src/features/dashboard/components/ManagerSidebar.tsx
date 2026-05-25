@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useI18n } from '../../../locales/I18nContext'
 import {
   ChevronRight,
   X,
@@ -26,6 +27,7 @@ export function ManagerSidebar({
   brandLabel = 'Manager',
   navItems,
 }: ManagerSidebarProps) {
+  const { t } = useI18n()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
@@ -63,7 +65,7 @@ export function ManagerSidebar({
           <button
             className="manager-menu-btn"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
+            aria-label={t('dashboard.sidebar.openMenu')}
           >
             <Menu />
           </button>
@@ -87,16 +89,16 @@ export function ManagerSidebar({
         data-mobile={isMobile}
         data-tablet={isTablet}
         role="navigation"
-        aria-label="Manager navigation"
+        aria-label={t('dashboard.sidebar.managerNav')}
       >
         {/* Header */}
         <div className="manager-sidebar-header">
-          <span className="manager-sidebar-brand">Dashboard</span>
+          <span className="manager-sidebar-brand">{t('dashboard.sidebar.brand')}</span>
           {!isMobile && (
             <button
               className="manager-toggle"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              aria-label={sidebarOpen ? t('dashboard.sidebar.collapseSidebar') : t('dashboard.sidebar.expandSidebar')}
               aria-expanded={sidebarOpen}
             >
               <span className={`manager-toggle-icon ${sidebarOpen ? 'is-rotated' : ''}`}>
@@ -108,15 +110,15 @@ export function ManagerSidebar({
             <button
               className="manager-close-btn"
               onClick={() => setSidebarOpen(false)}
-              aria-label="Close menu"
-            >
-              <X />
+          aria-label={t('dashboard.sidebar.closeMenu')}
+        >
+          <X />
             </button>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="manager-nav" aria-label="Main navigation">
+        <nav className="manager-nav" aria-label={t('dashboard.sidebar.mainNav')}>
           <ul className="manager-nav-list" role="tablist">
             {navItems.map((item) => (
               <li key={item.id} role="presentation">
@@ -189,12 +191,12 @@ export const ManagerIcons = {
 export const { Overview: ManagerOverview, Interns, Supervisors, Departments, BarChart: ManagerBarChart } = ManagerIcons
 
 // Helper to get default nav items
-export function getManagerNavItems(): NavItem[] {
+export function getManagerNavItems(t: (key: string) => string): NavItem[] {
   return [
-    { id: 'overview', label: 'Overview', icon: <ManagerOverview /> },
-    { id: 'interns', label: 'Interns', icon: <Interns /> },
-    { id: 'supervisors', label: 'Supervisors', icon: <Supervisors /> },
-    { id: 'departments', label: 'Departments', icon: <Departments /> },
-    { id: 'biPanel', label: 'BI Panel', icon: <ManagerBarChart /> },
+    { id: 'overview', label: t('dashboard.manager.nav.overview'), icon: <ManagerOverview /> },
+    { id: 'interns', label: t('dashboard.manager.nav.interns'), icon: <Interns /> },
+    { id: 'supervisors', label: t('dashboard.manager.nav.supervisors'), icon: <Supervisors /> },
+    { id: 'departments', label: t('dashboard.manager.nav.departments'), icon: <Departments /> },
+    { id: 'biPanel', label: t('dashboard.manager.nav.biPanel'), icon: <ManagerBarChart /> },
   ]
 }

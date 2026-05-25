@@ -1,6 +1,6 @@
 import type { TranslationKey } from '../../../locales/I18nContext'
 
-export type TranslateFn = (key: TranslationKey) => string
+export type TranslateFn = (key: TranslationKey, interpolationValues?: Record<string, string | number>) => string
 
 export interface Internship {
   id: string

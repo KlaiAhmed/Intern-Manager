@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react'
+import { useI18n } from '../../../locales/I18nContext'
 
 interface NavItem {
   id: string
@@ -32,6 +33,7 @@ export function DashboardLayout({
   headerActions,
   onRefresh,
 }: DashboardLayoutProps) {
+  const { t } = useI18n()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -84,27 +86,27 @@ export function DashboardLayout({
         <button
           className="dash-overlay"
           onClick={() => setSidebarOpen(false)}
-          aria-label="Close menu"
+            aria-label={t('dashboard.sidebar.closeMenu')}
         />
       )}
 
       {/* Sidebar Navigation */}
-      <aside className="dash-sidebar" role="navigation" aria-label="Dashboard navigation">
+      <aside className="dash-sidebar" role="navigation" aria-label={t('dashboard.sidebar.dashboardNav')}>
         <div className="dash-sidebar-header">
           {sidebarOpen && (
-            <span className="dash-sidebar-title">Dashboard</span>
+            <span className="dash-sidebar-title">{t('dashboard.sidebar.brand')}</span>
           )}
           <button
             className="dash-sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-label={sidebarOpen ? t('dashboard.sidebar.collapseSidebar') : t('dashboard.sidebar.expandSidebar')}
             aria-expanded={sidebarOpen}
           >
             {sidebarOpen ? '‹' : '›'}
           </button>
         </div>
 
-        <nav className="dash-nav" aria-label="Dashboard tabs">
+        <nav className="dash-nav" aria-label={t('dashboard.sidebar.dashboardTabs')}>
           <ul className="dash-nav-list" role="tablist">
             {navItems.map((item) => (
               <li key={item.id} role="presentation">
@@ -136,7 +138,7 @@ export function DashboardLayout({
           <button
             className="dash-mobile-menu-button"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
+            aria-label={t('dashboard.sidebar.openMenu')}
           >
             ☰
           </button>
@@ -145,7 +147,7 @@ export function DashboardLayout({
             <button
               className="dash-mobile-refresh"
               onClick={onRefresh}
-              aria-label="Refresh"
+              aria-label={t('dashboard.supervisorJournalReview.refresh')}
             >
               ⟳
             </button>

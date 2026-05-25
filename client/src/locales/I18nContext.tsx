@@ -15,10 +15,17 @@ interface I18nContextValue {
   isRtl: boolean
   isLoading: boolean
   setLocale: (nextLocale: SupportedLocale) => void
-  t: (key: TranslationKey) => string
+  t: (key: TranslationKey, interpolationValues?: Record<string, string | number>) => string
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
+
+function interpolate(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, varName: string) => {
+    const value = values[varName]
+    return value !== undefined ? String(value) : `{{${varName}}}`
+  })
+}
 
 function normalizeLocale(localeCandidate: string): SupportedLocale | null {
   const shortLocale = localeCandidate.slice(0, 2).toLowerCase()
@@ -137,11 +144,16 @@ export function I18nProvider({ children }: PropsWithChildren) {
       isRtl,
       isLoading,
       setLocale,
-      t: (key: TranslationKey): string => {
+      t: (key: TranslationKey, interpolationValues?: Record<string, string | number>): string => {
         const localizedValue = readTranslation(dictionary, key)
         const fallbackValue = readTranslation(fallbackDictionary, key)
+        const rawValue = localizedValue ?? fallbackValue ?? key
 
-        return localizedValue ?? fallbackValue ?? key
+        if (interpolationValues && typeof rawValue === 'string') {
+          return interpolate(rawValue, interpolationValues)
+        }
+
+        return rawValue
       },
     }
   }, [locale, isLoading, setLocale, dictionary])

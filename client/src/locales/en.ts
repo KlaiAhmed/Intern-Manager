@@ -783,4 +783,166 @@ export const commonEn = {
 
   // Application Form
   'application.form.cv': 'CV',
+
+  // Dashboard - Audit Log Section (extended)
+  'dashboard.audit.actionOptions.allActions': 'All Actions',
+  'dashboard.audit.actionOptions.create': 'Create',
+  'dashboard.audit.actionOptions.update': 'Update',
+  'dashboard.audit.actionOptions.delete': 'Delete',
+  'dashboard.audit.actionOptions.login': 'Login',
+  'dashboard.audit.actionOptions.logout': 'Logout',
+  'dashboard.audit.actionOptions.assign': 'Assign',
+  'dashboard.audit.actionOptions.validate': 'Validate',
+  'dashboard.audit.export': 'Export',
+  'dashboard.audit.exporting': 'Exporting...',
+  'dashboard.audit.clearFilters': 'Clear Filters',
+
+  // Dashboard - Custom Date Picker
+  'dashboard.customDatePicker.chooseDate': 'Choose date',
+  'dashboard.customDatePicker.days': 'Sun,Mon,Tue,Wed,Thu,Fri,Sat',
+  'dashboard.customDatePicker.months': 'January,February,March,April,May,June,July,August,September,October,November,December',
+  'dashboard.customDatePicker.nextMonth': 'Next month',
+  'dashboard.customDatePicker.placeholder': 'Select date',
+  'dashboard.customDatePicker.prevMonth': 'Previous month',
+
+  // Dashboard - Evaluation Card
+  'dashboard.evaluationCard.final': 'Final',
+  'dashboard.evaluationCard.midterm': 'Midterm',
+  'dashboard.evaluationCard.pendingSubtitle': 'Your evaluation is being prepared.',
+  'dashboard.evaluationCard.pendingTitle': 'Evaluation pending review.',
+  'dashboard.evaluationCard.releasedOn': 'Released on {{date}}',
+  'dashboard.evaluationCard.title': 'Evaluations',
+  'dashboard.evaluationCard.auto': 'Auto',
+  'dashboard.evaluationCard.comm': 'Comm',
+  'dashboard.evaluationCard.overall': 'Overall:',
+  'dashboard.evaluationCard.quality': 'Quality',
+  'dashboard.evaluationCard.tech': 'Tech',
+  'dashboard.evaluationCard.time': 'Time',
+
+  // Dashboard - Intern Dashboard
+  'dashboard.internDashboard.addJournalEntry': 'Add journal entry',
+  'dashboard.internDashboard.internshipStatus': 'Internship status: {{status}}',
+  'dashboard.internDashboard.journalReadOnly': 'New journal entries are currently disabled for this mission.',
+  'dashboard.internDashboard.overviewSubtitle': "Here's your internship overview",
+  'dashboard.internDashboard.readOnly': 'This dashboard is currently in read-only mode for your lifecycle state.',
+  'dashboard.internDashboard.retry': 'Retry',
+  'dashboard.internDashboard.unableLoadProfile': 'Unable to load your profile',
+  'dashboard.internDashboard.unableLoadStatus': 'Unable to load your status',
+  'dashboard.internDashboard.welcomeBack': 'Welcome back{{name}}!',
+
+  // Dashboard - Mission Feature Flags
+  'dashboard.missionFeatureFlags.backToInternships': 'Back to Internships',
+  'dashboard.missionFeatureFlags.card': 'Card',
+  'dashboard.missionFeatureFlags.changedAt': 'Changed At',
+  'dashboard.missionFeatureFlags.changedBy': 'Changed By',
+  'dashboard.missionFeatureFlags.field': 'Field',
+  'dashboard.missionFeatureFlags.interactive': 'Interactive',
+  'dashboard.missionFeatureFlags.invalidJson': 'Invalid JSON format.',
+  'dashboard.missionFeatureFlags.newValue': 'New Value',
+  'dashboard.missionFeatureFlags.noHistory': 'No feature-flag history available yet.',
+  'dashboard.missionFeatureFlags.oldValue': 'Old Value',
+  'dashboard.missionFeatureFlags.recentChanges': 'Recent Changes',
+  'dashboard.missionFeatureFlags.refreshHistory': 'Refresh History',
+  'dashboard.missionFeatureFlags.requirementConfig': 'Requirement JSON',
+  'dashboard.missionFeatureFlags.requirementObject': 'Requirement config must be a JSON object.',
+  'dashboard.missionFeatureFlags.title': 'Mission Feature Controls',
+  'dashboard.missionFeatureFlags.unsavedChanges': 'Unsaved changes',
+  'dashboard.missionFeatureFlags.unsavedPrompt': 'You have unsaved mission feature flag changes. Leave this page anyway?',
+  'dashboard.missionFeatureFlags.visible': 'Visible',
+
+  // Dashboard - Settings Panel (extended)
+  'dashboard.settings.addFirst': 'Add your first {{item}}',
+  'dashboard.settings.cancel': 'Cancel',
+  'dashboard.settings.deleteConfirm': 'Are you sure you want to delete this {{item}}?',
+  'dashboard.settings.deleteFailed': 'Failed to delete {{item}}',
+  'dashboard.settings.nameRequired': 'Name is required',
+  'dashboard.settings.noItems': 'No {{items}} configured yet.',
+  'dashboard.settings.operationFailed': 'Operation failed',
+  'dashboard.settings.reset': 'Reset',
+  'dashboard.settings.saveChanges': 'Save Changes',
+  'dashboard.settings.saving': 'Saving...',
+
+  // Dashboard - Sidebar
+  'dashboard.sidebar.brand': 'Dashboard',
+  'dashboard.sidebar.closeMenu': 'Close menu',
+  'dashboard.sidebar.collapseSidebar': 'Collapse sidebar',
+  'dashboard.sidebar.dashboardNav': 'Dashboard navigation',
+  'dashboard.sidebar.dashboardTabs': 'Dashboard tabs',
+  'dashboard.sidebar.expandSidebar': 'Expand sidebar',
+  'dashboard.sidebar.mainNav': 'Main navigation',
+  'dashboard.sidebar.managerNav': 'Manager navigation',
+  'dashboard.sidebar.openMenu': 'Open menu',
+  'dashboard.sidebar.superAdminNav': 'Super Admin navigation',
+
+  // Dashboard - Supervisor Journal Review
+  'dashboard.supervisorJournalReview.addComment': 'Add Comment',
+  'dashboard.supervisorJournalReview.backToDashboard': 'Back to Supervisor Dashboard',
+  'dashboard.supervisorJournalReview.commentContentRequired': 'Comment content is required.',
+  'dashboard.supervisorJournalReview.deleteComment': 'Delete',
+  'dashboard.supervisorJournalReview.deleteCommentConfirm': 'Delete this comment?',
+  'dashboard.supervisorJournalReview.entryFrom': 'Entry from',
+  'dashboard.supervisorJournalReview.entryId': 'Entry ID',
+  'dashboard.supervisorJournalReview.evaluationCriteria': 'Evaluation Criteria Links',
+  'dashboard.supervisorJournalReview.markReviewed': 'Mark Reviewed',
+  'dashboard.supervisorJournalReview.missingInternId': 'Intern id is missing in the current route.',
+  'dashboard.supervisorJournalReview.noComments': 'No comments on this entry.',
+  'dashboard.supervisorJournalReview.noEntriesDesc': 'This intern has not posted any journal entries.',
+  'dashboard.supervisorJournalReview.noEntriesTitle': 'No journal entries yet.',
+  'dashboard.supervisorJournalReview.notReviewed': 'Not reviewed',
+  'dashboard.supervisorJournalReview.refresh': 'Refresh',
+  'dashboard.supervisorJournalReview.reviewed': 'Reviewed',
+  'dashboard.supervisorJournalReview.saveCriteriaLinks': 'Save Criteria Links',
+  'dashboard.supervisorJournalReview.supervisorComments': 'Supervisor Comments',
+  'dashboard.supervisorJournalReview.title': 'Intern Journal Supervision',
+  'dashboard.supervisorJournalReview.writeCommentPlaceholder': 'Write a supervisor comment',
+
+  // Dashboard - Mission Feature Flags card labels
+  'dashboard.missionFeatureFlags.cardLabel.missionOverview': 'Mission Overview',
+  'dashboard.missionFeatureFlags.cardLabel.quickStats': 'Quick Stats',
+  'dashboard.missionFeatureFlags.cardLabel.tasks': 'Tasks',
+  'dashboard.missionFeatureFlags.cardLabel.deliverables': 'Deliverables',
+  'dashboard.missionFeatureFlags.cardLabel.evaluation': 'Evaluation',
+  'dashboard.missionFeatureFlags.cardLabel.journal': 'Journal',
+  'dashboard.missionFeatureFlags.cardLabel.meeting': 'Meeting',
+
+  // Dashboard - Settings Panel tabs
+  'dashboard.settings.tab.departments': 'Departments',
+  'dashboard.settings.tab.schools': 'Schools',
+  'dashboard.settings.tab.internshipTypes': 'Internship Types',
+  'dashboard.settings.tab.skills': 'Skills',
+  'dashboard.settings.tab.verificationStatuses': 'Verification Statuses',
+
+  // Dashboard - Super Admin Sidebar nav labels
+  'dashboard.superAdmin.nav.overview': 'Overview',
+  'dashboard.superAdmin.nav.userManagement': 'User Management',
+  'dashboard.superAdmin.nav.internships': 'Internships',
+  'dashboard.superAdmin.nav.internsManagement': 'Interns Management',
+  'dashboard.superAdmin.nav.evaluations': 'Evaluations',
+  'dashboard.superAdmin.nav.biPanel': 'BI Panel',
+  'dashboard.superAdmin.nav.settings': 'Settings',
+  'dashboard.superAdmin.nav.auditSecurity': 'Audit & Security',
+
+  // Dashboard - Manager Sidebar nav labels
+  'dashboard.manager.nav.overview': 'Overview',
+  'dashboard.manager.nav.interns': 'Interns',
+  'dashboard.manager.nav.supervisors': 'Supervisors',
+  'dashboard.manager.nav.departments': 'Departments',
+  'dashboard.manager.nav.biPanel': 'BI Panel',
+
+  // Dashboard - Intern card missing
+  'dashboard.intern.card.evaluations.overall': 'Overall:',
+  'dashboard.intern.card.journal.readOnlyHint': 'New journal entries are currently disabled.',
+  'dashboard.intern.card.journal.supervisorComment': 'supervisor comment',
+  'dashboard.intern.card.journal.supervisorComments': 'supervisor comments',
+
+  // Dashboard - Audit (alternate keys)
+  'dashboard.audit.searchActor': 'Search by actor...',
+  'dashboard.audit.noLogs': 'No audit logs found.',
+  'dashboard.audit.actor': 'Actor',
+  'dashboard.audit.action': 'Action',
+  'dashboard.audit.entity': 'Entity',
+  'dashboard.audit.timestamp': 'Timestamp',
+
+  // Dashboard - Settings aria
+  'dashboard.settings.aria.subNav': 'Settings sub-navigation',
 } as const

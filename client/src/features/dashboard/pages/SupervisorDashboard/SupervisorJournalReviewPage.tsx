@@ -4,6 +4,7 @@ import { DashboardButton } from '../../components/DashboardButton'
 import { ErrorState } from '../../components/ErrorState'
 import { Skeleton } from '../../components/Skeleton'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
+import { useI18n } from '@/locales/I18nContext'
 import { toDashboardErrorMessage } from '../../shared/utils/errorMessage'
 import styles from './SupervisorJournalReviewPage.module.css'
 
@@ -43,14 +44,6 @@ const criteriaOrder: JournalCriterion[] = [
   'DeadlineRespect',
   'DeliverableQuality',
 ]
-
-const criterionLabel: Record<JournalCriterion, string> = {
-  Technical: 'Technical',
-  Autonomy: 'Autonomy',
-  Communication: 'Communication',
-  DeadlineRespect: 'Deadline Respect',
-  DeliverableQuality: 'Deliverable Quality',
-}
 
 const criterionApiValue: Record<JournalCriterion, number> = {
   Technical: 0,
@@ -200,6 +193,15 @@ export function SupervisorJournalReviewPage() {
   const api = useDashboardApi()
   const navigate = useNavigate()
   const { internId } = useParams<{ internId?: string }>()
+  const { t } = useI18n()
+
+  const criterionLabel: Record<JournalCriterion, string> = {
+    Technical: t('dashboard.supervisorJournalReview.criterion.technical'),
+    Autonomy: t('dashboard.supervisorJournalReview.criterion.autonomy'),
+    Communication: t('dashboard.supervisorJournalReview.criterion.communication'),
+    DeadlineRespect: t('dashboard.supervisorJournalReview.criterion.deadlineRespect'),
+    DeliverableQuality: t('dashboard.supervisorJournalReview.criterion.deliverableQuality'),
+  }
 
   const [entries, setEntries] = useState<JournalEntryReview[]>([])
   const [criteriaByEntry, setCriteriaByEntry] = useState<CriteriaByEntry>({})
@@ -214,7 +216,7 @@ export function SupervisorJournalReviewPage() {
     if (!internId) {
       setEntries([])
       setIsLoading(false)
-      setError('Intern id is missing in the current route.')
+      setError(t('dashboard.supervisorJournalReview.missingInternId'))
       return
     }
 
@@ -244,7 +246,7 @@ export function SupervisorJournalReviewPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [api, internId])
+  }, [api, internId, t])
 
   useEffect(() => {
     void loadEntries()
@@ -277,7 +279,7 @@ export function SupervisorJournalReviewPage() {
     const content = (commentDraftByEntry[entryId] ?? '').trim()
 
     if (!content) {
-      setActionError('Comment content is required.')
+      setActionError(t('dashboard.supervisorJournalReview.commentContentRequired'))
       return
     }
 
@@ -296,7 +298,7 @@ export function SupervisorJournalReviewPage() {
   }
 
   const deleteComment = async (entryId: string, commentId: number) => {
-    if (!window.confirm('Delete this comment?')) {
+    if (!window.confirm(t('dashboard.supervisorJournalReview.deleteCommentConfirm'))) {
       return
     }
 
@@ -380,8 +382,8 @@ export function SupervisorJournalReviewPage() {
     <section className={styles.root}>
       <header className={styles.header}>
         <div>
-          <h2 className={styles.title}>Intern Journal Supervision</h2>
-          <p className={styles.subtitle}>Intern ID: {internId}</p>
+<h2 className={styles.title}>{t('dashboard.supervisorJournalReview.title')}</h2>
+        <p className={styles.subtitle}>{t('dashboard.supervisorJournalReview.entryId')}: {internId}</p>
         </div>
 
         <div className={styles.headerActions}>
@@ -392,10 +394,10 @@ export function SupervisorJournalReviewPage() {
               navigate('/dashboard')
             }}
           >
-            Back to Supervisor Dashboard
+            {t('dashboard.supervisorJournalReview.backToDashboard')}
           </DashboardButton>
           <DashboardButton variant="ghost" size="sm" onClick={() => { void loadEntries() }}>
-            Refresh
+            {t('dashboard.supervisorJournalReview.refresh')}
           </DashboardButton>
         </div>
       </header>
@@ -404,8 +406,8 @@ export function SupervisorJournalReviewPage() {
 
       {entries.length === 0 ? (
         <div className={styles.emptyState}>
-          <h3>No journal entries yet.</h3>
-          <p>This intern has not posted any journal entries.</p>
+<h3>{t('dashboard.supervisorJournalReview.noEntriesTitle')}</h3>
+        <p>{t('dashboard.supervisorJournalReview.noEntriesDesc')}</p>
         </div>
       ) : (
         <div className={styles.entriesList}>
@@ -417,13 +419,13 @@ export function SupervisorJournalReviewPage() {
               <article key={entry.id} className={styles.entryCard}>
                 <header className={styles.entryHeader}>
                   <div>
-                    <h3>Entry from {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : '-'}</h3>
-                    <p className={styles.entryId}>Entry ID: {entry.id}</p>
+                    <h3>{t('dashboard.supervisorJournalReview.entryFrom')} {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : '-'}</h3>
+                    <p className={styles.entryId}>{t('dashboard.supervisorJournalReview.entryId')}: {entry.id}</p>
                   </div>
 
                   <div className={styles.entryHeaderActions}>
                     <span className={`${styles.reviewBadge} ${entry.isReviewed ? styles.reviewed : styles.pending}`}>
-                      {entry.isReviewed ? 'Reviewed' : 'Not reviewed'}
+                      {entry.isReviewed ? t('dashboard.supervisorJournalReview.reviewed') : t('dashboard.supervisorJournalReview.notReviewed')}
                     </span>
                     <DashboardButton
                       variant="secondary"
@@ -433,7 +435,7 @@ export function SupervisorJournalReviewPage() {
                       }}
                       disabled={entry.isReviewed || isBusy}
                     >
-                      Mark Reviewed
+                      {t('dashboard.supervisorJournalReview.markReviewed')}
                     </DashboardButton>
                   </div>
                 </header>
@@ -441,7 +443,7 @@ export function SupervisorJournalReviewPage() {
                 <p className={styles.entryContent}>{entry.content || '-'}</p>
 
                 <section className={styles.block}>
-                  <h4>Evaluation Criteria Links</h4>
+                  <h4>{t('dashboard.supervisorJournalReview.evaluationCriteria')}</h4>
                   <div className={styles.criteriaGrid}>
                     {criteriaOrder.map((criterion) => (
                       <label key={criterion} className={styles.criteriaItem}>
@@ -466,16 +468,16 @@ export function SupervisorJournalReviewPage() {
                       disabled={!criteriaDirtyByEntry[entry.id] || isBusy}
                       loading={isBusy}
                     >
-                      Save Criteria Links
+                      {t('dashboard.supervisorJournalReview.saveCriteriaLinks')}
                     </DashboardButton>
                   </div>
                 </section>
 
                 <section className={styles.block}>
-                  <h4>Supervisor Comments</h4>
+                  <h4>{t('dashboard.supervisorJournalReview.supervisorComments')}</h4>
 
                   {entry.comments.length === 0 ? (
-                    <p className={styles.smallMuted}>No comments on this entry.</p>
+                    <p className={styles.smallMuted}>{t('dashboard.supervisorJournalReview.noComments')}</p>
                   ) : (
                     <ul className={styles.commentList}>
                       {entry.comments.map((comment) => (
@@ -494,7 +496,7 @@ export function SupervisorJournalReviewPage() {
                             }}
                             disabled={isBusy}
                           >
-                            Delete
+                            {t('dashboard.supervisorJournalReview.deleteComment')}
                           </DashboardButton>
                         </li>
                       ))}
@@ -505,7 +507,7 @@ export function SupervisorJournalReviewPage() {
                     <textarea
                       value={commentDraftByEntry[entry.id] ?? ''}
                       onChange={(event) => setCommentDraft(entry.id, event.target.value)}
-                      placeholder="Write a supervisor comment"
+                      placeholder={t('dashboard.supervisorJournalReview.writeCommentPlaceholder')}
                       rows={3}
                       disabled={isBusy}
                     />
@@ -518,7 +520,7 @@ export function SupervisorJournalReviewPage() {
                       disabled={isBusy}
                       loading={isBusy}
                     >
-                      Add Comment
+                      {t('dashboard.supervisorJournalReview.addComment')}
                     </DashboardButton>
                   </div>
                 </section>

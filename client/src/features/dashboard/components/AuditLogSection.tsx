@@ -6,17 +6,6 @@ import { ErrorState } from './ErrorState'
 import { Search, Filter, Download } from './IconComponents'
 import { Input } from '../../../components/ui/Input'
 
-const actionOptions = [
-  { value: '', label: 'All Actions' },
-  { value: 'CREATE', label: 'Create' },
-  { value: 'UPDATE', label: 'Update' },
-  { value: 'DELETE', label: 'Delete' },
-  { value: 'LOGIN', label: 'Login' },
-  { value: 'LOGOUT', label: 'Logout' },
-  { value: 'ASSIGN', label: 'Assign' },
-  { value: 'VALIDATE', label: 'Validate' },
-]
-
 const getActionBadgeClass = (action: string): string => {
   const classes: Record<string, string> = {
     CREATE: 'action-create',
@@ -32,6 +21,18 @@ const getActionBadgeClass = (action: string): string => {
 
 export function AuditLogSection() {
   const { t } = useI18n()
+
+  const actionOptions = [
+    { value: '', label: t('dashboard.audit.actionOptions.allActions') },
+    { value: 'CREATE', label: t('dashboard.audit.actionOptions.create') },
+    { value: 'UPDATE', label: t('dashboard.audit.actionOptions.update') },
+    { value: 'DELETE', label: t('dashboard.audit.actionOptions.delete') },
+    { value: 'LOGIN', label: t('dashboard.audit.actionOptions.login') },
+    { value: 'LOGOUT', label: t('dashboard.audit.actionOptions.logout') },
+    { value: 'ASSIGN', label: t('dashboard.audit.actionOptions.assign') },
+    { value: 'VALIDATE', label: t('dashboard.audit.actionOptions.validate') },
+  ]
+
   const {
     logs,
     loading,
@@ -62,7 +63,7 @@ export function AuditLogSection() {
           disabled={exporting}
         >
           <span className="btn-icon"><Download /></span>
-          <span>{exporting ? 'Exporting...' : 'Export'}</span>
+          <span>{exporting ? t('dashboard.audit.exporting') : t('dashboard.audit.export')}</span>
         </button>
       </header>
 
@@ -71,7 +72,7 @@ export function AuditLogSection() {
         <div className="filter-row">
           <Input
             leftIcon={<Search />}
-            placeholder="Search by actor..."
+            placeholder={t('dashboard.audit.searchActor')}
             value={actorInput}
             onChange={(e) => setActorInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && setFilter({ actor: actorInput })}
@@ -108,7 +109,7 @@ export function AuditLogSection() {
         <ErrorState message={error} onRetry={refresh} />
       ) : logs.length === 0 ? (
         <div className="dash-empty">
-          <p>No audit logs found.</p>
+          <p>{t('dashboard.audit.noLogs')}</p>
           {(filter.actor || filter.action) && (
             <button
               className="dash-btn dash-btn-secondary dash-btn-md audit-clear-filters-btn"
@@ -117,7 +118,7 @@ export function AuditLogSection() {
                 setFilter({ actor: '', action: '' })
               }}
             >
-              Clear Filters
+              {t('dashboard.audit.clearFilters')}
             </button>
           )}
         </div>
@@ -127,10 +128,10 @@ export function AuditLogSection() {
             <table className="dash-table audit-table">
               <thead>
                 <tr>
-                  <th>Actor</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Timestamp</th>
+<th>{t('dashboard.audit.actor')}</th>
+          <th>{t('dashboard.audit.action')}</th>
+          <th>{t('dashboard.audit.entity')}</th>
+          <th>{t('dashboard.audit.timestamp')}</th>
                 </tr>
               </thead>
               <tbody>

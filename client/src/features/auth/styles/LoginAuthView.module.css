@@ -291,9 +291,12 @@
 }
 
 .errorText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #dc2626;
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .relative {

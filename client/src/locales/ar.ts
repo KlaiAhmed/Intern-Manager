@@ -783,4 +783,171 @@ export const commonAr = {
 
   // Application Form
   'application.form.cv': 'السيرة الذاتية',
+
+  // Dashboard - Audit Log Section (extended)
+  'dashboard.audit.actionOptions.allActions': 'جميع الإجراءات',
+  'dashboard.audit.actionOptions.assign': 'تكليف',
+  'dashboard.audit.actionOptions.create': 'إنشاء',
+  'dashboard.audit.actionOptions.delete': 'حذف',
+  'dashboard.audit.actionOptions.login': 'تسجيل الدخول',
+  'dashboard.audit.actionOptions.logout': 'تسجيل الخروج',
+  'dashboard.audit.actionOptions.update': 'تحديث',
+  'dashboard.audit.actionOptions.validate': 'تحقق',
+  'dashboard.audit.clearFilters': 'مسح الفلاتر',
+  'dashboard.audit.export': 'تصدير',
+  'dashboard.audit.exporting': 'جاري التصدير...',
+
+  // Dashboard - Custom Date Picker
+  'dashboard.customDatePicker.chooseDate': 'اختر تاريخاً',
+  'dashboard.customDatePicker.days': 'الأحد,الإثنين,الثلاثاء,الأربعاء,الخميس,الجمعة,السبت',
+  'dashboard.customDatePicker.months': 'يناير,فبراير,مارس,أبريل,مايو,يونيو,يوليو,أغسطس,سبتمبر,أكتوبر,نوفمبر,ديسمبر',
+  'dashboard.customDatePicker.nextMonth': 'الشهر التالي',
+  'dashboard.customDatePicker.placeholder': 'اختر تاريخاً',
+  'dashboard.customDatePicker.prevMonth': 'الشهر السابق',
+
+  // Dashboard - Evaluation Card
+  'dashboard.evaluationCard.auto': 'استقلالية',
+  'dashboard.evaluationCard.comm': 'تواصل',
+  'dashboard.evaluationCard.final': 'نهائي',
+  'dashboard.evaluationCard.midterm': 'منتصف الفترة',
+  'dashboard.evaluationCard.overall': 'المعدل العام:',
+  'dashboard.evaluationCard.pendingSubtitle': 'تقييمك قيد الإعداد.',
+  'dashboard.evaluationCard.pendingTitle': 'تقييم قيد المراجعة.',
+  'dashboard.evaluationCard.quality': 'جودة',
+  'dashboard.evaluationCard.releasedOn': 'نُشر في {{date}}',
+  'dashboard.evaluationCard.tech': 'تقنية',
+  'dashboard.evaluationCard.time': 'وقت',
+  'dashboard.evaluationCard.title': 'التقييمات',
+
+  // Dashboard - Intern Dashboard
+  'dashboard.internDashboard.addJournalEntry': 'إضافة إدخال يوميات',
+  'dashboard.internDashboard.internshipStatus': 'حالة التدريب: {{status}}',
+  'dashboard.internDashboard.journalReadOnly': 'إدخالات اليوميات معطلة حالياً لهذه المهمة.',
+  'dashboard.internDashboard.overviewSubtitle': 'إليك نظرة على تدريبك',
+  'dashboard.internDashboard.readOnly': 'لوحة التحكم حالياً في وضع القراءة فقط لحالتك.',
+  'dashboard.internDashboard.retry': 'إعادة المحاولة',
+  'dashboard.internDashboard.unableLoadProfile': 'تعذر تحميل ملفك الشخصي',
+  'dashboard.internDashboard.unableLoadStatus': 'تعذر تحميل حالتك',
+  'dashboard.internDashboard.welcomeBack': 'مرحباً بعودتك{{name}}!',
+
+  // Dashboard - Mission Feature Flags
+  'dashboard.missionFeatureFlags.backToInternships': 'العودة للتدريبات',
+  'dashboard.missionFeatureFlags.card': 'البطاقة',
+  'dashboard.missionFeatureFlags.changedAt': 'تم التغيير في',
+  'dashboard.missionFeatureFlags.changedBy': 'تم التغيير بواسطة',
+  'dashboard.missionFeatureFlags.field': 'الحقل',
+  'dashboard.missionFeatureFlags.interactive': 'تفاعلي',
+  'dashboard.missionFeatureFlags.invalidJson': 'صيغة JSON غير صالحة.',
+  'dashboard.missionFeatureFlags.newValue': 'القيمة الجديدة',
+  'dashboard.missionFeatureFlags.noHistory': 'لا يوجد سجل ميزات متاح بعد.',
+  'dashboard.missionFeatureFlags.oldValue': 'القيمة القديمة',
+  'dashboard.missionFeatureFlags.recentChanges': 'التغييرات الأخيرة',
+  'dashboard.missionFeatureFlags.refreshHistory': 'تحديث السجل',
+  'dashboard.missionFeatureFlags.requirementConfig': 'JSON المتطلبات',
+  'dashboard.missionFeatureFlags.requirementObject': 'يجب أن يكون إعداد المتطلبات كائن JSON.',
+  'dashboard.missionFeatureFlags.title': 'التحكم في ميزات المهمة',
+  'dashboard.missionFeatureFlags.unsavedChanges': 'تغييرات غير محفوظة',
+  'dashboard.missionFeatureFlags.unsavedPrompt': 'لديك تغييرات غير محفوظة لميزات المهمة. مغادرة الصفحة على أي حال؟',
+  'dashboard.missionFeatureFlags.visible': 'مرئي',
+
+  // Dashboard - Settings Panel (extended)
+  'dashboard.settings.addFirst': 'أضف أول {{item}}',
+  'dashboard.settings.cancel': 'إلغاء',
+  'dashboard.settings.deleteConfirm': 'هل أنت متأكد من حذف هذا {{item}}؟',
+  'dashboard.settings.deleteFailed': 'فشل حذف {{item}}',
+  'dashboard.settings.nameRequired': 'الاسم مطلوب',
+  'dashboard.settings.noItems': 'لا يوجد {{items}} مكوّن بعد.',
+  'dashboard.settings.operationFailed': 'فشلت العملية',
+  'dashboard.settings.reset': 'إعادة تعيين',
+  'dashboard.settings.saveChanges': 'حفظ التغييرات',
+  'dashboard.settings.saving': 'جاري الحفظ...',
+
+  // Dashboard - Sidebar
+  'dashboard.sidebar.brand': 'لوحة التحكم',
+  'dashboard.sidebar.closeMenu': 'إغلاق القائمة',
+  'dashboard.sidebar.collapseSidebar': 'طي الشريط الجانبي',
+  'dashboard.sidebar.dashboardNav': 'تنقل لوحة التحكم',
+  'dashboard.sidebar.dashboardTabs': 'علامات لوحة التحكم',
+  'dashboard.sidebar.expandSidebar': 'توسيع الشريط الجانبي',
+  'dashboard.sidebar.mainNav': 'التنقل الرئيسي',
+  'dashboard.sidebar.managerNav': 'تنقل المدير',
+  'dashboard.sidebar.openMenu': 'فتح القائمة',
+  'dashboard.sidebar.superAdminNav': 'تنقل المدير الأعلى',
+
+  // Dashboard - Supervisor Journal Review
+  'dashboard.supervisorJournalReview.addComment': 'إضافة تعليق',
+  'dashboard.supervisorJournalReview.backToDashboard': 'العودة للوحة تحكم المشرف',
+  'dashboard.supervisorJournalReview.commentContentRequired': 'محتوى التعليق مطلوب.',
+  'dashboard.supervisorJournalReview.deleteComment': 'حذف',
+  'dashboard.supervisorJournalReview.deleteCommentConfirm': 'حذف هذا التعليق؟',
+  'dashboard.supervisorJournalReview.entryFrom': 'إدخال من',
+  'dashboard.supervisorJournalReview.entryId': 'معرّف الإدخال',
+  'dashboard.supervisorJournalReview.evaluationCriteria': 'روابط معايير التقييم',
+  'dashboard.supervisorJournalReview.markReviewed': 'تعليم كمراجع',
+  'dashboard.supervisorJournalReview.missingInternId': 'معرّف المتدرب مفقود في المسار الحالي.',
+  'dashboard.supervisorJournalReview.noComments': 'لا توجد تعليقات على هذا الإدخال.',
+  'dashboard.supervisorJournalReview.noEntriesDesc': 'لم ينشر هذا المتدرب أي إدخالات يوميات.',
+  'dashboard.supervisorJournalReview.noEntriesTitle': 'لا توجد إدخالات يوميات بعد.',
+  'dashboard.supervisorJournalReview.notReviewed': 'غير مراجع',
+  'dashboard.supervisorJournalReview.refresh': 'تحديث',
+  'dashboard.supervisorJournalReview.reviewed': 'مراجع',
+  'dashboard.supervisorJournalReview.saveCriteriaLinks': 'حفظ روابط المعايير',
+  'dashboard.supervisorJournalReview.supervisorComments': 'تعليقات المشرف',
+  'dashboard.supervisorJournalReview.title': 'إشراف يوميات المتدرب',
+  'dashboard.supervisorJournalReview.writeCommentPlaceholder': 'اكتب تعليق مشرف',
+
+  // Dashboard - Form (missing key in ar)
+  'dashboard.form.create': 'إنشاء',
+
+  // Dashboard - Mission Feature Flags card labels
+  'dashboard.missionFeatureFlags.cardLabel.missionOverview': 'نظرة عامة على المهمة',
+  'dashboard.missionFeatureFlags.cardLabel.quickStats': 'إحصائيات سريعة',
+  'dashboard.missionFeatureFlags.cardLabel.tasks': 'المهام',
+  'dashboard.missionFeatureFlags.cardLabel.deliverables': 'المخرجات',
+  'dashboard.missionFeatureFlags.cardLabel.evaluation': 'التقييم',
+  'dashboard.missionFeatureFlags.cardLabel.journal': 'اليومية',
+  'dashboard.missionFeatureFlags.cardLabel.meeting': 'الاجتماع',
+
+  // Dashboard - Settings Panel tabs
+  'dashboard.settings.tab.departments': 'الأقسام',
+  'dashboard.settings.tab.schools': 'المدارس',
+  'dashboard.settings.tab.internshipTypes': 'أنواع التدريب',
+  'dashboard.settings.tab.skills': 'المهارات',
+  'dashboard.settings.tab.verificationStatuses': 'حالات التحقق',
+
+  // Dashboard - Super Admin Sidebar nav labels
+  'dashboard.superAdmin.nav.overview': 'نظرة عامة',
+  'dashboard.superAdmin.nav.userManagement': 'إدارة المستخدمين',
+  'dashboard.superAdmin.nav.internships': 'التدريبات',
+  'dashboard.superAdmin.nav.internsManagement': 'إدارة المتدربين',
+  'dashboard.superAdmin.nav.evaluations': 'التقييمات',
+  'dashboard.superAdmin.nav.biPanel': 'لوحة التحليلات',
+  'dashboard.superAdmin.nav.settings': 'الإعدادات',
+  'dashboard.superAdmin.nav.auditSecurity': 'المراجعة والأمان',
+
+  // Dashboard - Manager Sidebar nav labels
+  'dashboard.manager.nav.overview': 'نظرة عامة',
+  'dashboard.manager.nav.interns': 'المتدربون',
+  'dashboard.manager.nav.supervisors': 'المشرفون',
+  'dashboard.manager.nav.departments': 'الأقسام',
+  'dashboard.manager.nav.biPanel': 'لوحة التحليلات',
+
+  // Dashboard - Intern card missing
+  'dashboard.intern.card.evaluations.overall': 'المعدل:',
+
+  // Dashboard - Journal card
+  'dashboard.intern.card.journal.readOnlyHint': 'إدخالات اليوميات الجديدة معطلة حالياً.',
+  'dashboard.intern.card.journal.supervisorComment': 'تعليق مشرف',
+  'dashboard.intern.card.journal.supervisorComments': 'تعليقات مشرفين',
+
+  // Dashboard - Audit (alternate keys)
+  'dashboard.audit.searchActor': 'البحث بالمشارك...',
+  'dashboard.audit.noLogs': 'لم يتم العثور على سجلات تدقيق.',
+  'dashboard.audit.actor': 'المشارك',
+  'dashboard.audit.action': 'الإجراء',
+  'dashboard.audit.entity': 'الكيان',
+  'dashboard.audit.timestamp': 'الوقت',
+
+  // Dashboard - Settings aria
+  'dashboard.settings.aria.subNav': 'تنقل فرعي للإعدادات',
 } as const

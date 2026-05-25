@@ -190,7 +190,7 @@ export function ManagerDashboard() {
   ])
 
   // Build nav items with proper icons for ManagerSidebar
-  const sidebarNavItems = getManagerNavItems()
+  const sidebarNavItems = getManagerNavItems(t)
 
   return (
     <div className="manager-dashboard-layout">
