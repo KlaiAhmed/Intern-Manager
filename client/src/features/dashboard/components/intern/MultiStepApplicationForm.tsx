@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, type FormEvent, type ChangeEvent, type Dr
 import { useI18n } from '../../../../locales/I18nContext'
 import { CustomSelect } from '../../../../components/ui'
 import { useSchoolsApi, type School } from '../../api/schoolsApi'
-import { useDashboardApi } from '../../hooks/useDashboardApi'
+import { isDashboardApiError, useDashboardApi } from '../../hooks/useDashboardApi'
 
 type WorkPreference = 'remote' | 'hybrid' | 'onsite'
 type StudyYear = 'licence' | 'master' | 'doctorat'
@@ -71,8 +71,8 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       }
     }
 
-void fetchSchools()
-}, [schoolsApi])
+    void fetchSchools()
+  }, [schoolsApi])
 
   // Select options
   const yearOptions = [
@@ -135,9 +135,9 @@ void fetchSchools()
       newErrors.workPreference = t('dashboard.intern.application.required')
     }
 
-  if (formData.phoneNumber.trim() && formData.phoneNumber.length !== PHONE_DIGITS_REQUIRED) {
-    newErrors.phoneNumber = t('dashboard.intern.application.error.phoneDigits').replace('{{count}}', String(PHONE_DIGITS_REQUIRED))
-  }
+    if (formData.phoneNumber.trim() && formData.phoneNumber.length !== PHONE_DIGITS_REQUIRED) {
+      newErrors.phoneNumber = t('dashboard.intern.application.error.phoneDigits').replace('{{count}}', String(PHONE_DIGITS_REQUIRED))
+    }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -229,7 +229,10 @@ void fetchSchools()
       multipartData.append('startDate', formData.startDate)
       multipartData.append('endDate', formData.endDate)
       multipartData.append('workPreference', formData.workPreference)
-      multipartData.append('phoneNumber', '+216' + formData.phoneNumber.trim())
+      const trimmedPhoneNumber = formData.phoneNumber.trim()
+      if (trimmedPhoneNumber) {
+        multipartData.append('phoneNumber', `+216${trimmedPhoneNumber}`)
+      }
       multipartData.append('cv', formData.cvFile)
 
       await api.postFormData('/api/interns/me/onboarding', multipartData)
@@ -237,7 +240,32 @@ void fetchSchools()
       onSubmitted('PENDING')
     } catch (error) {
       console.error('Failed to submit application:', error)
-      setErrors({ universityId: t('dashboard.intern.application.error.submitFailed') })
+
+      if (isDashboardApiError(error)) {
+        const mappedErrors: Partial<Record<keyof InternApplicationFormData | string, string>> = {}
+
+        for (const [field, message] of Object.entries(error.fieldErrors)) {
+          const normalizedField = field.charAt(0).toLowerCase() + field.slice(1)
+
+          if (normalizedField in formData) {
+            mappedErrors[normalizedField as keyof InternApplicationFormData] = message
+          } else if (field in formData) {
+            mappedErrors[field as keyof InternApplicationFormData] = message
+          } else {
+            mappedErrors[field] = message
+          }
+        }
+
+        if (Object.keys(mappedErrors).length > 0) {
+          setErrors(mappedErrors)
+        } else if (error.message.trim()) {
+          setErrors({ universityId: error.message })
+        } else {
+          setErrors({ universityId: t('dashboard.intern.application.error.submitFailed') })
+        }
+      } else {
+        setErrors({ universityId: t('dashboard.intern.application.error.submitFailed') })
+      }
     } finally {
       setIsSubmitting(false)
     }

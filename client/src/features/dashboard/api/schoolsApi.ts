@@ -1,3 +1,5 @@
+import { useCallback, useMemo } from 'react'
+
 import { useDashboardApi } from '../hooks/useDashboardApi'
 
 export interface School {
@@ -8,12 +10,15 @@ export interface School {
 export function useSchoolsApi() {
   const api = useDashboardApi()
 
-  const getSchools = async (): Promise<School[]> => {
+  const getSchools = useCallback(async (): Promise<School[]> => {
     const result = await api.get<School[]>('/api/intern/me/profile/schools')
     return result
-  }
+  }, [api])
 
-  return {
-    getSchools,
-  }
+  return useMemo(
+    () => ({
+      getSchools,
+    }),
+    [getSchools],
+  )
 }
