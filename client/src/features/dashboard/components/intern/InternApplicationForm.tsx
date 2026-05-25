@@ -1,17 +1,22 @@
 import { useState, useMemo, type FormEvent, type ChangeEvent } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
-import { CustomSelect, CustomRadio, CustomDatePicker } from '../../../../components/ui'
+import { CustomSelect, CustomRadio } from '../../../../components/ui'
+import {
+  getDefaultStudyYear,
+  getDegreeLevelOptions,
+  getStudyYearOptions,
+  isStudyYearValid,
+  type DegreeLevel,
+  type StudyYear,
+} from './academicYear'
 
 type WorkPreference = 'remote' | 'hybrid' | 'onsite'
-type StudyYear = 'licence' | 'master' | 'doctorat'
 
 interface InternApplicationFormData {
   university: string
   major: string
-  currentYear: StudyYear
-  expectedGraduation: string
-  availableStart: string
-  availableEnd: string
+  degreeLevel: DegreeLevel
+  studyYear: StudyYear
   workPreference: WorkPreference
 }
 
@@ -28,22 +33,14 @@ export function InternApplicationForm({ internId, onSubmitted }: InternApplicati
   const [formData, setFormData] = useState<InternApplicationFormData>({
     university: '',
     major: '',
-    currentYear: 'licence',
-    expectedGraduation: '',
-    availableStart: '',
-    availableEnd: '',
+    degreeLevel: 'licence',
+    studyYear: getDefaultStudyYear('licence'),
     workPreference: 'hybrid',
   })
 
-  // Set min date to today for date fields
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
-
   // Select options
-  const yearOptions = [
-    { value: 'licence', label: t('dashboard.intern.application.yearLicence') },
-    { value: 'master', label: t('dashboard.intern.application.yearMaster') },
-    { value: 'doctorat', label: t('dashboard.intern.application.yearDoctorate') },
-  ]
+  const degreeLevelOptions = useMemo(() => getDegreeLevelOptions(t), [t])
+  const studyYearOptions = useMemo(() => getStudyYearOptions(formData.degreeLevel, t), [formData.degreeLevel, t])
 
   const workPreferenceOptions = [
     { value: 'remote', label: t('dashboard.intern.application.remote') },

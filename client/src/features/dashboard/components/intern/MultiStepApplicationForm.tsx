@@ -4,17 +4,25 @@ import { useI18n } from '../../../../locales/I18nContext'
 import { CustomSelect } from '../../../../components/ui'
 import { useSchoolsApi, type School } from '../../api/schoolsApi'
 import { isDashboardApiError, useDashboardApi } from '../../hooks/useDashboardApi'
+import {
+  buildCurrentYearOfStudy,
+  getDefaultStudyYear,
+  getDegreeLevelLabel,
+  getDegreeLevelOptions,
+  getStudyYearLabel,
+  getStudyYearOptions,
+  isStudyYearValid,
+  type DegreeLevel,
+  type StudyYear,
+} from './academicYear'
 
 type WorkPreference = 'remote' | 'hybrid' | 'onsite'
-type StudyYear = 'licence' | 'master' | 'doctorat'
 
 interface InternApplicationFormData {
   universityId: string
   major: string
-  currentYearOfStudy: StudyYear
-  expectedGraduationDate: string
-  startDate: string
-  endDate: string
+  degreeLevel: DegreeLevel
+  studyYear: StudyYear
   workPreference: WorkPreference
   phoneNumber: string
   cvFile: File | null
@@ -42,19 +50,14 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
   const [formData, setFormData] = useState<InternApplicationFormData>({
     universityId: '',
     major: '',
-    currentYearOfStudy: 'licence',
-    expectedGraduationDate: '',
-    startDate: '',
-    endDate: '',
+    degreeLevel: 'licence',
+    studyYear: getDefaultStudyYear('licence'),
     workPreference: 'hybrid',
     phoneNumber: '',
     cvFile: null,
   })
 
   const [isDragging, setIsDragging] = useState(false)
-
-  // Set min date to today for date fields
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
   // Fetch schools on mount
   useEffect(() => {
@@ -75,11 +78,8 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
   }, [schoolsApi])
 
   // Select options
-  const yearOptions = [
-    { value: 'licence', label: t('dashboard.intern.application.yearLicence') },
-    { value: 'master', label: t('dashboard.intern.application.yearMaster') },
-    { value: 'doctorat', label: t('dashboard.intern.application.yearDoctorate') },
-  ]
+  const degreeLevelOptions = useMemo(() => getDegreeLevelOptions(t), [t])
+  const studyYearOptions = useMemo(() => getStudyYearOptions(formData.degreeLevel, t), [formData.degreeLevel, t])
 
   const workPreferenceOptions = [
     { value: 'remote', label: t('dashboard.intern.application.remote') },
@@ -105,30 +105,12 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       newErrors.major = t('dashboard.intern.application.error.majorMin')
     }
 
-    if (!formData.currentYearOfStudy) {
-      newErrors.currentYearOfStudy = t('dashboard.intern.application.required')
+    if (!formData.degreeLevel) {
+      newErrors.degreeLevel = t('dashboard.intern.application.required')
     }
 
-    if (!formData.expectedGraduationDate) {
-      newErrors.expectedGraduationDate = t('dashboard.intern.application.required')
-    } else if (formData.expectedGraduationDate < today) {
-      newErrors.expectedGraduationDate = t('dashboard.intern.application.error.graduationPast')
-    }
-
-    if (!formData.startDate) {
-      newErrors.startDate = t('dashboard.intern.application.required')
-    } else if (formData.startDate < today) {
-      newErrors.startDate = t('dashboard.intern.application.error.startPast')
-    }
-
-    if (!formData.endDate) {
-      newErrors.endDate = t('dashboard.intern.application.required')
-    } else if (formData.endDate < today) {
-      newErrors.endDate = t('dashboard.intern.application.error.endPast')
-    }
-
-    if (formData.startDate && formData.endDate && formData.endDate <= formData.startDate) {
-      newErrors.endDate = t('dashboard.intern.application.error.endAfterStart')
+    if (!formData.studyYear || !isStudyYearValid(formData.degreeLevel, formData.studyYear)) {
+      newErrors.studyYear = t('dashboard.intern.application.required')
     }
 
     if (!formData.workPreference) {
@@ -155,9 +137,43 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
+
+    if (name === 'degreeLevel') {
+      const nextDegreeLevel = value as DegreeLevel
+      setFormData((prev) => ({
+        ...prev,
+        degreeLevel: nextDegreeLevel,
+        studyYear: isStudyYearValid(nextDegreeLevel, prev.studyYear)
+          ? prev.studyYear
+          : getDefaultStudyYear(nextDegreeLevel),
+      }))
+
+      if (errors.degreeLevel || errors.studyYear) {
+        setErrors((prev) => ({ ...prev, degreeLevel: undefined, studyYear: undefined }))
+      }
+
+      return
+    }
+
+    if (name === 'studyYear') {
+      setFormData((prev) => ({ ...prev, studyYear: value as StudyYear }))
+      if (errors.studyYear) {
+        setErrors((prev) => ({ ...prev, studyYear: undefined }))
+      }
+      return
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors[name as keyof InternApplicationFormData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
+    }
+  }
+
+  const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, '')
+    setFormData((prev) => ({ ...prev, phoneNumber: digitsOnly }))
+    if (errors.phoneNumber) {
+      setErrors((prev) => ({ ...prev, phoneNumber: undefined }))
     }
   }
 
@@ -224,10 +240,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       const multipartData = new FormData()
       multipartData.append('universityId', formData.universityId)
       multipartData.append('major', formData.major)
-      multipartData.append('currentYearOfStudy', formData.currentYearOfStudy)
-      multipartData.append('expectedGraduationDate', formData.expectedGraduationDate)
-      multipartData.append('startDate', formData.startDate)
-      multipartData.append('endDate', formData.endDate)
+      multipartData.append('currentYearOfStudy', buildCurrentYearOfStudy(formData.degreeLevel, formData.studyYear))
       multipartData.append('workPreference', formData.workPreference)
       const trimmedPhoneNumber = formData.phoneNumber.trim()
       if (trimmedPhoneNumber) {
@@ -246,6 +259,12 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
 
         for (const [field, message] of Object.entries(error.fieldErrors)) {
           const normalizedField = field.charAt(0).toLowerCase() + field.slice(1)
+
+          if (normalizedField === 'currentYearOfStudy') {
+            mappedErrors.degreeLevel = message
+            mappedErrors.studyYear = message
+            continue
+          }
 
           if (normalizedField in formData) {
             mappedErrors[normalizedField as keyof InternApplicationFormData] = message
@@ -339,75 +358,38 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                 {errors.major && <span className="field-error">{errors.major}</span>}
               </div>
 
-              {/* Current Year of Study */}
+              {/* Degree Level */}
               <div className="form-field">
-                <label htmlFor="currentYearOfStudy" className="form-label">
-                  {t('dashboard.intern.application.currentYear')}
+                <label htmlFor="degreeLevel" className="form-label">
+                  {t('dashboard.intern.application.degreeLevel')}
                 </label>
                 <CustomSelect
-                  id="currentYearOfStudy"
-                  name="currentYearOfStudy"
-                  value={formData.currentYearOfStudy}
-                  options={yearOptions}
+                  id="degreeLevel"
+                  name="degreeLevel"
+                  value={formData.degreeLevel}
+                  options={degreeLevelOptions}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
-                  className={errors.currentYearOfStudy ? 'input-error' : ''}
+                  className={errors.degreeLevel ? 'input-error' : ''}
                 />
-                {errors.currentYearOfStudy && <span className="field-error">{errors.currentYearOfStudy}</span>}
+                {errors.degreeLevel && <span className="field-error">{errors.degreeLevel}</span>}
               </div>
 
-              {/* Expected Graduation Date */}
+              {/* Study Year */}
               <div className="form-field">
-                <label htmlFor="expectedGraduationDate" className="form-label">
-                  {t('dashboard.intern.application.expectedGraduation')}
+                <label htmlFor="studyYear" className="form-label">
+                  {t('dashboard.intern.application.studyYear')}
                 </label>
-                <input
-                  id="expectedGraduationDate"
-                  type="date"
-                  name="expectedGraduationDate"
-                  value={formData.expectedGraduationDate}
+                <CustomSelect
+                  id="studyYear"
+                  name="studyYear"
+                  value={formData.studyYear}
+                  options={studyYearOptions}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
-                  min={today}
-                  className={`form-input ${errors.expectedGraduationDate ? 'input-error' : ''}`}
+                  className={errors.studyYear ? 'input-error' : ''}
                 />
-                {errors.expectedGraduationDate && <span className="field-error">{errors.expectedGraduationDate}</span>}
-              </div>
-
-              {/* Available Start Date */}
-              <div className="form-field">
-                <label htmlFor="startDate" className="form-label">
-                  {t('dashboard.intern.application.availableStart')}
-                </label>
-                <input
-                  id="startDate"
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  min={today}
-                  className={`form-input ${errors.startDate ? 'input-error' : ''}`}
-                />
-                {errors.startDate && <span className="field-error">{errors.startDate}</span>}
-              </div>
-
-              {/* Available End Date */}
-              <div className="form-field">
-                <label htmlFor="endDate" className="form-label">
-                  {t('dashboard.intern.application.availableEnd')}
-                </label>
-                <input
-                  id="endDate"
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  min={today}
-                  className={`form-input ${errors.endDate ? 'input-error' : ''}`}
-                />
-                {errors.endDate && <span className="field-error">{errors.endDate}</span>}
+                {errors.studyYear && <span className="field-error">{errors.studyYear}</span>}
               </div>
 
               {/* Work Preference */}
@@ -429,16 +411,32 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                 <label htmlFor="phoneNumber" className="form-label">
                   {t('dashboard.intern.application.phoneNumber')}
                 </label>
-                <input
-                  id="phoneNumber"
-                  type="tel"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  className={`form-input ${errors.phoneNumber ? 'input-error' : ''}`}
-                  placeholder={t('dashboard.intern.application.placeholder.phoneNumber')}
-                />
+                <div className={`phone-input-wrapper ${errors.phoneNumber ? 'has-error' : ''}`}>
+                  <span
+                    className="phone-prefix"
+                    aria-label={t('dashboard.intern.application.countryCode')}
+                    title={t('dashboard.intern.application.countryCode')}
+                  >
+                    +216
+                  </span>
+                  <input
+                    id="phoneNumber"
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handlePhoneChange}
+                    disabled={isSubmitting}
+                    className="phone-input"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={PHONE_DIGITS_REQUIRED}
+                    placeholder={t('dashboard.intern.application.placeholder.phoneNumber')}
+                  />
+                </div>
+                <div className={`phone-helper ${formData.phoneNumber.length === PHONE_DIGITS_REQUIRED ? 'valid' : ''}`}>
+                  <span>{t('dashboard.intern.application.phoneDigitsHint')}</span>
+                  <span className="phone-digit-count">{formData.phoneNumber.length}/{PHONE_DIGITS_REQUIRED}</span>
+                </div>
                 {errors.phoneNumber && <span className="field-error">{errors.phoneNumber}</span>}
               </div>
 
@@ -536,22 +534,16 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                   <span className="review-value">{formData.major}</span>
                 </div>
                 <div className="review-item">
-                  <span className="review-label">{t('dashboard.intern.application.currentYear')}</span>
+                  <span className="review-label">{t('dashboard.intern.application.degreeLevel')}</span>
                   <span className="review-value">
-                    {yearOptions.find((opt) => opt.value === formData.currentYearOfStudy)?.label}
+                    {getDegreeLevelLabel(formData.degreeLevel, t) ?? formData.degreeLevel}
                   </span>
                 </div>
                 <div className="review-item">
-                  <span className="review-label">{t('dashboard.intern.application.expectedGraduation')}</span>
-                  <span className="review-value">{formData.expectedGraduationDate}</span>
-                </div>
-                <div className="review-item">
-                  <span className="review-label">{t('dashboard.intern.application.availableStart')}</span>
-                  <span className="review-value">{formData.startDate}</span>
-                </div>
-                <div className="review-item">
-                  <span className="review-label">{t('dashboard.intern.application.availableEnd')}</span>
-                  <span className="review-value">{formData.endDate}</span>
+                  <span className="review-label">{t('dashboard.intern.application.studyYear')}</span>
+                  <span className="review-value">
+                    {getStudyYearLabel(formData.studyYear, t) ?? formData.studyYear}
+                  </span>
                 </div>
                 <div className="review-item">
                   <span className="review-label">{t('dashboard.intern.application.workPreference')}</span>
@@ -561,7 +553,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                 </div>
                 <div className="review-item">
                   <span className="review-label">{t('dashboard.intern.application.phoneNumber')}</span>
-                  <span className="review-value">{formData.phoneNumber.trim() || '—'}</span>
+                  <span className="review-value">{formData.phoneNumber.trim() ? `+216${formData.phoneNumber.trim()}` : '—'}</span>
                 </div>
                 <div className="review-item">
                   <span className="review-label">CV</span>
