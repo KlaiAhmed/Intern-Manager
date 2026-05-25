@@ -5,12 +5,12 @@ import { ErrorState } from '../components/ErrorState'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import type { SuperAdminSection } from '../components/SuperAdminSidebar'
 import {
+  BiDashboardSection,
   DashboardShell,
   OperationalEvaluationsSection,
   OperationalInternshipsSection,
   OperationalInternsSection,
 } from '../shared/components'
-import { AdminOverviewSection } from './AdminDashboard/AdminOverviewSection'
 import { MissionFeatureFlagsSection } from './AdminDashboard/MissionFeatureFlagsSection'
 import { AdminUserManagementSection } from './AdminDashboard/AdminUserManagementSection'
 import { resolveAdminView, sectionByView, sectionPathMap } from '../shared/types/adminViews'
@@ -50,7 +50,7 @@ export function AdminDashboard() {
   const renderView = () => {
     switch (activeView) {
       case 'overview':
-        return <AdminOverviewSection />
+        return <BiDashboardSection />
       case 'users':
         return <AdminUserManagementSection />
       case 'interns':
@@ -89,7 +89,7 @@ export function AdminDashboard() {
       case 'audit':
         return <AuditLogSection />
       default:
-        return <AdminOverviewSection />
+        return <BiDashboardSection />
     }
   }
 

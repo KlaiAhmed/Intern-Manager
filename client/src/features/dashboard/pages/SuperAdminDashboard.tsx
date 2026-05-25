@@ -68,6 +68,7 @@ import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
 import { MissionFeatureFlagsSection } from './AdminDashboard/MissionFeatureFlagsSection'
 import {
+  BiDashboardSection,
   DashboardShell,
   OperationalEvaluationsSection,
   OperationalInternshipsSection,
@@ -142,7 +143,7 @@ function ChartFallback() {
 }
 
 // Overview Section with KPI cards and charts
-function OverviewSection() {
+export function OverviewSection() {
   const { t } = useI18n()
   const { stats, charts, loading, errors, refreshKpis, refreshCharts } = useSuperAdminStats()
 
@@ -339,7 +340,7 @@ export function SuperAdminDashboard() {
 
     switch (activeSection) {
       case 'overview':
-        return <OverviewSection />
+        return <BiDashboardSection />
       case 'users':
         return <UserManagementSection />
       case 'internships':
@@ -358,7 +359,7 @@ export function SuperAdminDashboard() {
       case 'audit':
         return <AuditLogSection />
       default:
-        return <OverviewSection />
+        return <BiDashboardSection />
     }
   }, [activeSection, activeSettingsSubSection, featureFlagsRoute, missionId, navigate])
 

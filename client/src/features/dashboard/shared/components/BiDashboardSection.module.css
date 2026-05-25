@@ -1,0 +1,67 @@
+.root {
+  display: grid;
+  gap: 1rem;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text-primary, var(--color-text));
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sectionCard {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--color-background-secondary, var(--color-surface));
+  border: 1px solid var(--color-border-tertiary, var(--color-border));
+  border-radius: var(--border-radius-md, var(--radius-md));
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-text-primary, var(--color-text));
+}
+
+.sectionNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--border-radius-md, var(--radius-sm));
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border-tertiary, var(--color-border));
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.sectionTitle {
+  color: var(--color-text-primary, var(--color-text));
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.sectionState {
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 640px) {
+  .topBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
