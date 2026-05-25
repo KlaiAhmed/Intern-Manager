@@ -22,7 +22,7 @@ export type SuperAdminSection =
   | 'settings'
   | 'audit'
 
-export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
+export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills'
 
 interface NavItem {
   id: SuperAdminSection

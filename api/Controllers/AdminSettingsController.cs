@@ -504,69 +504,6 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
         return DeleteReferentialItemAsync(dbContext.Skills, id, cancellationToken);
     }
 
-    [HttpGet("verification-statuses", Name = "ListVerificationStatuses")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<IActionResult> GetVerificationStatuses(CancellationToken cancellationToken)
-    {
-        return GetReferentialItemsAsync(dbContext.UserVerificationStatusReferences, cancellationToken);
-    }
-
-    [HttpGet("verification-statuses/{id:guid}", Name = "GetVerificationStatusById")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(typeof(ReferentialResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public Task<IActionResult> GetVerificationStatusById(Guid id, CancellationToken cancellationToken)
-    {
-        return GetReferentialItemByIdAsync(dbContext.UserVerificationStatusReferences, id, cancellationToken);
-    }
-
-    [HttpPost("verification-statuses", Name = "CreateVerificationStatus")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> CreateVerificationStatus([FromBody] UpsertReferentialRequest request, CancellationToken cancellationToken)
-    {
-        return CreateReferentialItemAsync(dbContext.UserVerificationStatusReferences, request, nameof(GetVerificationStatusById), cancellationToken);
-    }
-
-    [HttpPatch("verification-statuses/{id:guid}", Name = "UpdateVerificationStatus")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> UpdateVerificationStatus(Guid id, [FromBody] UpdateReferentialRequest request, CancellationToken cancellationToken)
-    {
-        return UpdateReferentialItemAsync(dbContext.UserVerificationStatusReferences, id, request, cancellationToken);
-    }
-
-    [HttpDelete("verification-statuses/{id:guid}", Name = "DeleteVerificationStatus")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [EnableRateLimiting("delete-operations")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> DeleteVerificationStatus(Guid id, CancellationToken cancellationToken)
-    {
-        return DeleteReferentialItemAsync(dbContext.UserVerificationStatusReferences, id, cancellationToken);
-    }
-
     private static string? NormalizeName(string? rawName)
     {
         if (string.IsNullOrWhiteSpace(rawName))

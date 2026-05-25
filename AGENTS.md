@@ -6,41 +6,45 @@
 ```bash
 dotnet restore
 dotnet build InternManager.Api.csproj
-dotnet run --project InternManager.Api.csproj
-dotnet watch run --project InternManager.Api.csproj
+dotnet run --project InternManager.Api.csproj           # http://localhost:5184, /swagger
+dotnet watch run --project InternManager.Api.csproj      # hot reload
 dotnet ef migrations add <Name> --project InternManager.Api.csproj
 dotnet ef database update --project InternManager.Api.csproj
+dotnet test tests\InternManager.Api.Tests\InternManager.Api.Tests.csproj   # xunit tests
 ```
 
 ### Client (`client/`)
 ```bash
 npm install
-npm run dev         # Vite dev server (port 5173)
-npm run build       # tsconfig build check + Vite build
-npm run lint
-npm run preview     # serve production build
-npm run test        # vitest run
+npm run dev           # Vite dev server (port 5173)
+npm run build         # tsc -b + Vite build
+npm run lint          # ESLint
+npm run test          # vitest run
+npm run preview       # serve production build
 ```
 
-**Verify order**: `npm run lint` → `npm run build` (build includes `tsc -b` typecheck)
+**Verify order**: `npm run lint` → `npm run build`
 
 ## Repo Structure
 
-- `api/` — ASP.NET Core 10, SQL Server (requires `SQL Server (SQLEXPRESS)` running on Windows), EF Core 10
-- `client/` — React 19, TypeScript 5.9, Vite 8, React Router 7
-- API auto-creates and seeds the database on first run. No manual migration step needed initially.
-- `opencode.json` does not exist; instructions live in `CLAUDE.md`.
+- `api/` — ASP.NET Core 10, SQL Server (SQLEXPRESS), EF Core 10, xunit tests in `api/tests/`
+- `client/` — React 19, TypeScript 5.9, Vite 8, React Router 7, Vitest
+- Solution file: `Intern Manager.sln` at repo root
+- API auto-creates DB via `MigrateAsync()` on startup + seeds SuperAdmin. No manual migration step needed initially.
+- `opencode.json` does not exist; instructions live in `AGENTS.md` (referenced by `CLAUDE.md`).
 
-## Key Gotchas
+## Gotchas
 
-- **API tests excluded from build**: `InternManager.Api.csproj` has `<Compile Remove="tests\**\*.cs" />` — tests are compiled only when running `dotnet test`, not during normal builds.
-- **JWT issuer/audience**: Must match exactly — `AxiaInternManager` (issuer) and `AxiaInternManagerClient` (audience). DotNetEnv loads `api/.env` automatically; no manual `Load()` call needed.
-- **Dev auth bypass**: When `ASPNETCORE_ENVIRONMENT=Development`, add `?role=<Role>` to any URL to get a bypass token (e.g., `http://localhost:5184/?role=Supervisor`). Useful for testing without credentials.
-- **Rate limit policies**: `auth` (10/min), `upload` (5/min), `write-heavy` (20/min). Apply via `[EnableRateLimiting("policyName")]`.
-- **CSRF**: API uses cookie-based JWT auth with `X-CSRF-Token` header matching JWT `csrf` claim. Client `apiClient.ts` handles this automatically.
-- **CSS**: Dashboard components use global CSS imported via `dashboard.css` entry point. Layout/shared components use CSS modules (`.module.css`). Never mix the two approaches in the same component.
-- **i18n**: Wrap all user-facing strings with `const { t } = useI18n()` from `src/locales/`. Add keys to `ar.ts`, `en.ts`, `fr.ts`.
-- **CSS token bridge**: Use `--color-*` (global), `--dash-*` (dashboard) design tokens. Prefer these over hardcoded values.
-- **Client .env variable naming**: All client env vars must be prefixed `VITE_` (e.g., `VITE_API_BASE_URL`). Non-prefixed vars are silently ignored by Vite.
-- **File upload allowed extensions**: `.pdf`, `.doc`, `.docx`, `.zip` only, max 10MB.
-- **API project name**: `InternManager.Api.csproj` — not `InternManager.Api`.
+- **Dev auth bypass (Development only)**: `DevelopmentLazyAuthBypassMiddleware` auto-detects the required role from endpoint `[Authorize(Roles = "...")]` metadata and injects a matching dev user (e.g., `dev.supervisor@axia.local`). No query param needed — just hit any protected route.
+- **API tests excluded from build**: `<Compile Remove="tests\**\*.cs" />` — tests compile only via `dotnet test`, not during normal builds.
+- **JWT issuer/audience**: Must match exactly — `AxiaInternManager` / `AxiaInternManagerClient`. DotNetEnv loads `api/.env` automatically; no manual `Load()` call needed.
+- **Rate limit policies**: `auth` (5/min), `auth-refresh` (10/min), `upload` (5/min), `write-heavy` (20/min), `write-operations` (30/min), `read-frequent` (100/min), `delete-operations` (15/min). Apply via `[EnableRateLimiting("policyName")]`.
+- **CSRF**: API compares `X-CSRF-Token` header to JWT `csrf` claim. Client `apiClient.ts` reads CSRF token from `csrf_token` cookie — but only when the caller includes the `X-CSRF-Token` key in the request `headers`. Not automatic on every request.
+- **CSS**: Dashboard components use global CSS via `dashboard.css` entry point. Layout/shared components use CSS modules (`.module.css`). Never mix both in one component.
+- **`@` path alias**: `@` maps to `client/src/` (Vite resolve alias). Used in some imports alongside relative paths.
+- **i18n**: Wrap user-facing strings with `const { t } = useI18n()` from `src/locales/I18nContext`. Add keys to `ar.ts`, `en.ts`, `fr.ts`.
+- **CSS tokens**: `--color-*` (global `index.css`), `--dash-*` (dashboard) design tokens. Prefer over hardcoded values.
+- **Client env vars**: Must be prefixed `VITE_` (e.g., `VITE_API_BASE_URL`). Non-prefixed vars are silently ignored.
+- **File upload**: `.pdf`, `.doc`, `.docx`, `.zip` only, max 10MB.
+- **API project name**: `InternManager.Api.csproj` (not `InternManager.Api`).
+- **.env files**: `api/.env` and `client/.env` are gitignored. Use `.env.example` files as templates.

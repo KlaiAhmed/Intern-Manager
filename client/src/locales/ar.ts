@@ -928,12 +928,19 @@ export const commonAr = {
   'dashboard.missionFeatureFlags.cardLabel.journal': 'اليومية',
   'dashboard.missionFeatureFlags.cardLabel.meeting': 'الاجتماع',
 
+  'dashboard.form.add': 'إضافة',
+
   // Dashboard - Settings Panel tabs
   'dashboard.settings.tab.departments': 'الأقسام',
   'dashboard.settings.tab.schools': 'المدارس',
   'dashboard.settings.tab.internshipTypes': 'أنواع التدريب',
   'dashboard.settings.tab.skills': 'المهارات',
   'dashboard.settings.tab.verificationStatuses': 'حالات التحقق',
+  'dashboard.settings.tab.departments.singular': 'قسم',
+  'dashboard.settings.tab.schools.singular': 'مدرسة',
+  'dashboard.settings.tab.internshipTypes.singular': 'نوع التدريب',
+  'dashboard.settings.tab.skills.singular': 'مهارة',
+  'dashboard.settings.tab.verificationStatuses.singular': 'حالة التحقق',
 
   // Dashboard - Super Admin Sidebar nav labels
   'dashboard.superAdmin.nav.overview': 'نظرة عامة',

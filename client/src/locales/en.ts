@@ -925,12 +925,19 @@ export const commonEn = {
   'dashboard.missionFeatureFlags.cardLabel.journal': 'Journal',
   'dashboard.missionFeatureFlags.cardLabel.meeting': 'Meeting',
 
+  'dashboard.form.add': 'Add',
+
   // Dashboard - Settings Panel tabs
   'dashboard.settings.tab.departments': 'Departments',
   'dashboard.settings.tab.schools': 'Schools',
   'dashboard.settings.tab.internshipTypes': 'Internship Types',
   'dashboard.settings.tab.skills': 'Skills',
   'dashboard.settings.tab.verificationStatuses': 'Verification Statuses',
+  'dashboard.settings.tab.departments.singular': 'Department',
+  'dashboard.settings.tab.schools.singular': 'School',
+  'dashboard.settings.tab.internshipTypes.singular': 'Internship Type',
+  'dashboard.settings.tab.skills.singular': 'Skill',
+  'dashboard.settings.tab.verificationStatuses.singular': 'Verification Status',
 
   // Dashboard - Super Admin Sidebar nav labels
   'dashboard.superAdmin.nav.overview': 'Overview',

@@ -6,7 +6,6 @@ export type SettingsTab =
   | 'schools'
   | 'internship-types'
   | 'skills'
-  | 'verification-statuses'
 
 export interface CountResponse {
   count?: number

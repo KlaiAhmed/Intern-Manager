@@ -6,7 +6,7 @@ import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
 import { useI18n } from '../../../locales/I18nContext'
 
-export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
+export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills'
 
 interface SettingsItem {
   id: string
@@ -23,7 +23,6 @@ const tabs: { id: SettingsSubSection; label: string; endpoint: string }[] = [
   { id: 'schools', label: 'dashboard.settings.tab.schools', endpoint: 'schools' },
   { id: 'types', label: 'dashboard.settings.tab.internshipTypes', endpoint: 'internship-types' },
   { id: 'skills', label: 'dashboard.settings.tab.skills', endpoint: 'skills' },
-  { id: 'verification-statuses', label: 'dashboard.settings.tab.verificationStatuses', endpoint: 'verification-statuses' },
 ]
 
 function parseSettingsItems(payload: unknown): SettingsItem[] {
@@ -170,7 +169,7 @@ export function SettingsPanel({
           }}
         >
           <span className="btn-icon"><Plus /></span>
-          <span>{t('dashboard.form.add')} {t(activeTab.label).slice(0, -1)}</span>
+          <span>{t('dashboard.form.add')} {t(`${activeTab.label}.singular`)}</span>
         </button>
       </div>
 
@@ -227,7 +226,7 @@ export function SettingsPanel({
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingItem ? `${t('dashboard.settings.edit')} ${t(activeTab.label).slice(0, -1)}` : `${t('dashboard.form.add')} ${t(activeTab.label).slice(0, -1)}`}
+        title={editingItem ? `${t('dashboard.settings.edit')} ${t(`${activeTab.label}.singular`)}` : `${t('dashboard.form.add')} ${t(`${activeTab.label}.singular`)}`}
       >
         <form
           className="modal-form"

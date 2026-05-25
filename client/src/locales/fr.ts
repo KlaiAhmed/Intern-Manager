@@ -918,12 +918,19 @@ export const commonFr = {
   'dashboard.missionFeatureFlags.cardLabel.journal': 'Journal',
   'dashboard.missionFeatureFlags.cardLabel.meeting': 'R\u00e9union',
 
+  'dashboard.form.add': 'Ajouter',
+
   // Dashboard - Settings Panel tabs
   'dashboard.settings.tab.departments': 'D\u00e9partements',
   'dashboard.settings.tab.schools': '\u00c9coles',
   'dashboard.settings.tab.internshipTypes': 'Types de stage',
   'dashboard.settings.tab.skills': 'Comp\u00e9tences',
   'dashboard.settings.tab.verificationStatuses': 'Statuts de v\u00e9rification',
+  'dashboard.settings.tab.departments.singular': 'D\u00e9partement',
+  'dashboard.settings.tab.schools.singular': '\u00c9cole',
+  'dashboard.settings.tab.internshipTypes.singular': 'Type de stage',
+  'dashboard.settings.tab.skills.singular': 'Comp\u00e9tence',
+  'dashboard.settings.tab.verificationStatuses.singular': 'Statut de v\u00e9rification',
 
   // Dashboard - Super Admin Sidebar nav labels
   'dashboard.superAdmin.nav.overview': 'Vue d\u2019ensemble',
