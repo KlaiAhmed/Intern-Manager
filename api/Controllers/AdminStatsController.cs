@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace InternManager.Api.Controllers;
 
@@ -16,10 +17,30 @@ namespace InternManager.Api.Controllers;
 [ApiController]
 [Route("api/stats")]
 [Authorize]
-public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBase
+public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache cache) : ControllerBase
 {
     private const string AdminRole = "Admin,SuperAdmin";
     private const string DashboardReadRole = "Admin,SuperAdmin,Manager";
+    private static readonly TimeSpan StatsCacheTtl = TimeSpan.FromSeconds(60);
+    private const string InternsByDepartmentCacheKey = "stats:interns-by-department";
+    private const string InternshipsByStatusCacheKey = "stats:internships-by-status";
+    private const string InternshipsByTypeCacheKey = "stats:internships-by-type";
+
+    private sealed record StatSeriesItem(string Name, int Value);
+
+    private async Task<List<StatSeriesItem>> GetOrCreateSeriesAsync(
+        string cacheKey,
+        Func<Task<List<StatSeriesItem>>> factory)
+    {
+        if (cache.TryGetValue(cacheKey, out List<StatSeriesItem>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var fresh = await factory();
+        cache.Set(cacheKey, fresh, StatsCacheTtl);
+        return fresh;
+    }
 
 /// <summary>
 /// Récupère le nombre total de stagiaires.
@@ -197,89 +218,88 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternsByDepartment(CancellationToken cancellationToken)
     {
-        var activeInterns = await dbContext.Users
-            .AsNoTracking()
-            .Where(user => user.Role == UserRole.Intern &&
-                           user.VerificationStatus == InternVerificationStatus.ACTIVE)
-            .Select(user => new
-            {
-                user.Id,
-                UserDepartmentName = user.Department != null ? user.Department.Name : null
-            })
-            .ToListAsync(cancellationToken);
-
-        if (activeInterns.Count == 0)
+        var data = await GetOrCreateSeriesAsync(InternsByDepartmentCacheKey, async () =>
         {
-            return Ok(new { data = Array.Empty<object>() });
-        }
-
-        var activeInternIds = activeInterns
-            .Select(item => item.Id)
-            .ToList();
-
-        var assignedMissions = await (
-                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
-                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
-                where activeInternIds.Contains(assignment.InternId)
-                select new
+            var activeInterns = await dbContext.Users
+                .AsNoTracking()
+                .Where(user => user.Role == UserRole.Intern &&
+                               user.VerificationStatus == InternVerificationStatus.ACTIVE)
+                .Select(user => new
                 {
-                    mission.Id,
-                    InternId = assignment.InternId,
-                    mission.Status,
-                    mission.CreatedAt
+                    user.Id,
+                    UserDepartmentName = user.Department != null ? user.Department.Name : null
                 })
-            .Union(
-                dbContext.Missions
-                    .AsNoTracking()
-                    .Where(mission => mission.InternId.HasValue && activeInternIds.Contains(mission.InternId.Value))
-                    .Select(mission => new
+                .ToListAsync(cancellationToken);
+
+            if (activeInterns.Count == 0)
+            {
+                return [];
+            }
+
+            var activeInternIds = activeInterns
+                .Select(item => item.Id)
+                .ToList();
+
+            var assignedMissions = await (
+                    from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                    join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                    where activeInternIds.Contains(assignment.InternId)
+                    select new
                     {
                         mission.Id,
-                        InternId = mission.InternId!.Value,
+                        InternId = assignment.InternId,
                         mission.Status,
                         mission.CreatedAt
-                    }))
-            .ToListAsync(cancellationToken);
+                    })
+                .Union(
+                    dbContext.Missions
+                        .AsNoTracking()
+                        .Where(mission => mission.InternId.HasValue && activeInternIds.Contains(mission.InternId.Value))
+                        .Select(mission => new
+                        {
+                            mission.Id,
+                            InternId = mission.InternId!.Value,
+                            mission.Status,
+                            mission.CreatedAt
+                        }))
+                .ToListAsync(cancellationToken);
 
-        var missionDepartmentById = await LoadLatestMissionFieldValuesAsync(
-            assignedMissions.Select(item => item.Id).ToList(),
-            "department",
-            cancellationToken);
+            var missionDepartmentById = await LoadLatestMissionFieldValuesAsync(
+                assignedMissions.Select(item => item.Id).ToList(),
+                "department",
+                cancellationToken);
 
-        var preferredMissionByInternId = assignedMissions
-            .GroupBy(item => item.InternId)
-            .ToDictionary(
-                group => group.Key,
-                group => group
-                    .OrderByDescending(item => string.Equals(item.Status, DomainStatuses.Mission.Active, StringComparison.OrdinalIgnoreCase))
-                    .ThenByDescending(item => item.CreatedAt)
-                    .First());
+            var preferredMissionByInternId = assignedMissions
+                .GroupBy(item => item.InternId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .OrderByDescending(item => string.Equals(item.Status, DomainStatuses.Mission.Active, StringComparison.OrdinalIgnoreCase))
+                        .ThenByDescending(item => item.CreatedAt)
+                        .First());
 
-        var data = activeInterns
-            .Select(intern =>
-            {
-                preferredMissionByInternId.TryGetValue(intern.Id, out var preferredMission);
-
-                var departmentFromUser = NormalizeLabel(intern.UserDepartmentName);
-                string? departmentFromMission = null;
-
-                if (preferredMission is not null &&
-                    missionDepartmentById.TryGetValue(preferredMission.Id, out var missionDepartmentValue))
+            return activeInterns
+                .Select(intern =>
                 {
-                    departmentFromMission = NormalizeLabel(missionDepartmentValue);
-                }
+                    preferredMissionByInternId.TryGetValue(intern.Id, out var preferredMission);
 
-                return ResolveLabelOrFallback(departmentFromUser, departmentFromMission, "Unassigned");
-            })
-            .GroupBy(label => label, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new
-            {
-                name = group.Key,
-                value = group.Count()
-            })
-            .OrderByDescending(item => item.value)
-            .ThenBy(item => item.name)
-            .ToList();
+                    var departmentFromUser = NormalizeLabel(intern.UserDepartmentName);
+                    string? departmentFromMission = null;
+
+                    if (preferredMission is not null &&
+                        missionDepartmentById.TryGetValue(preferredMission.Id, out var missionDepartmentValue))
+                    {
+                        departmentFromMission = NormalizeLabel(missionDepartmentValue);
+                    }
+
+                    return ResolveLabelOrFallback(departmentFromUser, departmentFromMission, "Unassigned");
+                })
+                .GroupBy(label => label, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new StatSeriesItem(group.Key, group.Count()))
+                .OrderByDescending(item => item.Value)
+                .ThenBy(item => item.Name)
+                .ToList();
+        });
 
         return Ok(new { data });
     }
@@ -496,26 +516,25 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternshipsByStatus(CancellationToken cancellationToken)
     {
-        var raw = await dbContext.Users
-            .AsNoTracking()
-            .Where(user => user.Role == UserRole.Intern)
-            .GroupBy(user => user.VerificationStatus)
-            .Select(group => new
-            {
-                status = group.Key,
-                value = group.Count()
-            })
-            .ToListAsync(cancellationToken);
+        var data = await GetOrCreateSeriesAsync(InternshipsByStatusCacheKey, async () =>
+        {
+            var raw = await dbContext.Users
+                .AsNoTracking()
+                .Where(user => user.Role == UserRole.Intern)
+                .GroupBy(user => user.VerificationStatus)
+                .Select(group => new
+                {
+                    status = group.Key,
+                    value = group.Count()
+                })
+                .ToListAsync(cancellationToken);
 
-        var data = raw
-            .Select(item => new
-            {
-                name = item.status.ToString(),
-                item.value
-            })
-            .OrderByDescending(item => item.value)
-            .ThenBy(item => item.name)
-            .ToList();
+            return raw
+                .Select(item => new StatSeriesItem(item.status.ToString(), item.value))
+                .OrderByDescending(item => item.Value)
+                .ThenBy(item => item.Name)
+                .ToList();
+        });
 
         return Ok(new { data });
     }
@@ -541,79 +560,78 @@ public sealed class AdminStatsController(AppDbContext dbContext) : ControllerBas
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetInternshipsByType(CancellationToken cancellationToken)
     {
-        var configuredTypeNames = await dbContext.InternshipTypes
-            .AsNoTracking()
-            .OrderBy(type => type.Name)
-            .Select(type => type.Name)
-            .ToListAsync(cancellationToken);
+        var data = await GetOrCreateSeriesAsync(InternshipsByTypeCacheKey, async () =>
+        {
+            var configuredTypeNames = await dbContext.InternshipTypes
+                .AsNoTracking()
+                .OrderBy(type => type.Name)
+                .Select(type => type.Name)
+                .ToListAsync(cancellationToken);
 
-        var canonicalTypeNames = configuredTypeNames
-            .ToDictionary(name => name, name => name, StringComparer.OrdinalIgnoreCase);
+            var canonicalTypeNames = configuredTypeNames
+                .ToDictionary(name => name, name => name, StringComparer.OrdinalIgnoreCase);
 
-        var assignedMissions = await (
-                from assignment in dbContext.MissionInternAssignments.AsNoTracking()
-                join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
-                select new
-                {
-                    mission.Id,
-                    InternId = assignment.InternId,
-                    TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
-                    mission.Level
-                })
-            .Union(
-                dbContext.Missions
-                    .AsNoTracking()
-                    .Where(mission => mission.InternId.HasValue)
-                    .Select(mission => new
+            var assignedMissions = await (
+                    from assignment in dbContext.MissionInternAssignments.AsNoTracking()
+                    join mission in dbContext.Missions.AsNoTracking() on assignment.MissionId equals mission.Id
+                    select new
                     {
                         mission.Id,
-                        InternId = mission.InternId!.Value,
+                        InternId = assignment.InternId,
                         TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
                         mission.Level
-                    }))
-            .ToListAsync(cancellationToken);
+                    })
+                .Union(
+                    dbContext.Missions
+                        .AsNoTracking()
+                        .Where(mission => mission.InternId.HasValue)
+                        .Select(mission => new
+                        {
+                            mission.Id,
+                            InternId = mission.InternId!.Value,
+                            TypeName = mission.InternshipType != null ? mission.InternshipType.Name : null,
+                            mission.Level
+                        }))
+                .ToListAsync(cancellationToken);
 
-        var missionTypeById = await LoadLatestMissionFieldValuesAsync(
-            assignedMissions.Select(item => item.Id).ToList(),
-            "type",
-            cancellationToken);
+            var missionTypeById = await LoadLatestMissionFieldValuesAsync(
+                assignedMissions.Select(item => item.Id).ToList(),
+                "type",
+                cancellationToken);
 
-        var countsByType = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var countsByType = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var mission in assignedMissions)
-        {
-            missionTypeById.TryGetValue(mission.Id, out var typeFromHistory);
-
-            var resolvedType = NormalizeLabel(typeFromHistory)
-                ?? NormalizeLabel(mission.TypeName)
-                ?? NormalizeLabel(mission.Level)
-                ?? "Unassigned";
-
-            if (canonicalTypeNames.TryGetValue(resolvedType, out var canonicalTypeName))
+            foreach (var mission in assignedMissions)
             {
-                resolvedType = canonicalTypeName;
+                missionTypeById.TryGetValue(mission.Id, out var typeFromHistory);
+
+                var resolvedType = NormalizeLabel(typeFromHistory)
+                    ?? NormalizeLabel(mission.TypeName)
+                    ?? NormalizeLabel(mission.Level)
+                    ?? "Unassigned";
+
+                if (canonicalTypeNames.TryGetValue(resolvedType, out var canonicalTypeName))
+                {
+                    resolvedType = canonicalTypeName;
+                }
+
+                if (!countsByType.TryAdd(resolvedType, 1))
+                {
+                    countsByType[resolvedType]++;
+                }
             }
 
-            if (!countsByType.TryAdd(resolvedType, 1))
+            foreach (var configuredTypeName in configuredTypeNames)
             {
-                countsByType[resolvedType]++;
+                countsByType.TryAdd(configuredTypeName, 0);
             }
-        }
 
-        foreach (var configuredTypeName in configuredTypeNames)
-        {
-            countsByType.TryAdd(configuredTypeName, 0);
-        }
-
-        var data = countsByType
-            .Select(item => new
-            {
-                name = item.Key,
-                value = item.Value
-            })
-            .OrderByDescending(item => item.value)
-            .ThenBy(item => item.name)
-            .ToList();
+            return countsByType
+                .Select(item => new StatSeriesItem(item.Key, item.Value))
+                .OrderByDescending(item => item.Value)
+                .ThenBy(item => item.Name)
+                .ToList();
+        });
 
         return Ok(new { data });
     }
