@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
 import type { AdminOverviewStats, CountResponse } from '../types/operations'
 import { readCount } from '../utils/operations'
@@ -102,21 +102,39 @@ export function useAdminOverviewStats(): UseAdminOverviewStatsResult {
   const [stats, setStats] = useState<AdminOverviewStats>(initialStats)
   const [charts, setCharts] = useState<ChartData>(initialCharts)
 
+  const internshipsByStatusRequestRef = useRef<Promise<ChartDatum[]> | null>(null)
+
+  const loadInternshipsByStatus = useCallback(async () => {
+    if (internshipsByStatusRequestRef.current) {
+      return internshipsByStatusRequestRef.current
+    }
+
+    const request = api
+      .get<{ data?: unknown }>('/api/stats/internships-by-status')
+      .then((response) => chartSeriesFromUnknown(response.data))
+      .finally(() => {
+        internshipsByStatusRequestRef.current = null
+      })
+
+    internshipsByStatusRequestRef.current = request
+    return request
+  }, [api])
+
   const refreshKpis = useCallback(async () => {
     setLoading((current) => ({ ...current, kpis: true }))
     setErrors((current) => ({ ...current, kpis: null }))
 
     try {
-      const [activeInternsResponse, activeSupervisorsResponse, totalMissionsResponse, activeAdminsResponse, pendingDeliverablesResponse, internshipsByStatusResponse] = await Promise.all([
+      const [activeInternsResponse, activeSupervisorsResponse, totalMissionsResponse, activeAdminsResponse, pendingDeliverablesResponse, internshipsByStatusSeries] = await Promise.all([
         api.get<CountResponse>('/api/stats/interns/count'),
         api.get<CountResponse>('/api/stats/supervisors/count'),
         api.get<CountResponse>('/api/stats/missions'),
         api.get<CountResponse>('/api/stats/admins'),
         api.get<CountResponse>('/api/stats/deliverables/pending'),
-        api.get<{ data?: unknown }>('/api/stats/internships-by-status'),
+        loadInternshipsByStatus(),
       ])
 
-      const internshipStatusSeries = chartSeriesFromUnknown(internshipsByStatusResponse.data)
+      const internshipStatusSeries = internshipsByStatusSeries
       const totalInterns = internshipStatusSeries.reduce((sum, item) => sum + item.value, 0)
       const activeInternships = internshipStatusSeries
         .filter((item) => activeInternshipStatusKeys.has(normalizeStatusKey(item.name)))
@@ -147,15 +165,15 @@ export function useAdminOverviewStats(): UseAdminOverviewStatsResult {
     setErrors((current) => ({ ...current, charts: null }))
 
     try {
-      const [internsByDepartmentResponse, internshipsByStatusResponse, internshipsByTypeResponse] = await Promise.all([
+      const [internsByDepartmentResponse, internshipsByStatusSeries, internshipsByTypeResponse] = await Promise.all([
         api.get<{ data?: unknown }>('/api/stats/interns-by-department'),
-        api.get<{ data?: unknown }>('/api/stats/internships-by-status'),
+        loadInternshipsByStatus(),
         api.get<{ data?: unknown }>('/api/stats/internships-by-type'),
       ])
 
       setCharts({
         internsByDepartment: chartSeriesFromUnknown(internsByDepartmentResponse.data),
-        internshipsByStatus: chartSeriesFromUnknown(internshipsByStatusResponse.data),
+        internshipsByStatus: internshipsByStatusSeries,
         internshipsByType: chartSeriesFromUnknown(internshipsByTypeResponse.data),
       })
     } catch (requestError) {
