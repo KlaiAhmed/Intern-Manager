@@ -9,7 +9,7 @@ import {
   type Notification,
 } from '../types/notification'
 
-const pollingIntervalMs = 30_000
+const pollingIntervalMs = 60_000
 
 interface UseNotificationsResult {
   notifications: Notification[]
