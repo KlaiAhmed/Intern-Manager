@@ -52,28 +52,7 @@ public sealed class AuthController(
             return Unauthorized();
         }
 
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-        var user = await dbContext.Users
-            .FirstOrDefaultAsync(
-                current => EF.Functions.Collate(current.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
-                cancellationToken);
-
-        if (user is not null)
-        {
-            user.LastLoginAt = DateTime.UtcNow;
-
-            dbContext.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = user.Id,
-                Actor = user.Email,
-                Action = "auth.login",
-                Entity = $"user:{user.Id}",
-                Timestamp = DateTime.UtcNow
-            });
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-
+        // FIX H7: login audit + LastLoginAt are saved inside AuthService in the same unit of work.
         AppendAuthCookies(Response, session);
         return Ok();
     }
@@ -349,7 +328,17 @@ public sealed class AuthController(
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies["refresh_token"];
-        var session = await authService.RefreshAsync(refreshToken ?? string.Empty, cancellationToken);
+        AuthSessionTokens? session;
+        try
+        {
+            session = await authService.RefreshAsync(refreshToken ?? string.Empty, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            // FIX L21: concurrency revocation should surface as 401, not 500.
+            ClearAuthCookies(Response);
+            return Unauthorized();
+        }
 
         if (session is null)
         {

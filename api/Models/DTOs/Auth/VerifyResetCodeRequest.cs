@@ -9,6 +9,7 @@ public sealed class VerifyResetCodeRequest
     public string Email { get; init; } = string.Empty;
 
     [Required]
-    [RegularExpression("^\\d{6}$")]
+    // FIX C1: require an 8-digit numeric reset code.
+    [RegularExpression("^\\d{8}$")]
     public string Code { get; init; } = string.Empty;
 }

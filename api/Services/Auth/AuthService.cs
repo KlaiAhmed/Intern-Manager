@@ -58,7 +58,7 @@ public sealed class AuthService(
 
         var now = DateTime.UtcNow;
         await CleanupExpiredTokensAsync(now, cancellationToken);
-        return await IssueNewSessionAsync(user, now, rememberMe, cancellationToken);
+        return await IssueNewSessionAsync(user, now, rememberMe, trackLogin: true, cancellationToken);
     }
 
     /// <summary>
@@ -79,8 +79,10 @@ public sealed class AuthService(
 
         var now = DateTime.UtcNow;
 
+        // FIX H6: query by hash, not raw value (plaintext tokens will no longer match).
+        var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
         var existingToken = await dbContext.RefreshTokens
-            .FirstOrDefaultAsync(token => token.Token == refreshToken, cancellationToken);
+            .FirstOrDefaultAsync(token => token.Token == tokenHash, cancellationToken);
 
         if (existingToken is null)
         {
@@ -96,14 +98,32 @@ public sealed class AuthService(
         if (user is null)
         {
             existingToken.RevokedAt = now;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            // FIX L21: atomic revocation so only one refresh request succeeds.
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new InvalidOperationException("Refresh token already used.");
+            }
             return null;
         }
 
         existingToken.RevokedAt = now;
 
+        // FIX L21: atomic revocation so only one refresh request succeeds.
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new InvalidOperationException("Refresh token already used.");
+        }
+
         var rememberMe = (existingToken.ExpiresAt - existingToken.CreatedAt) > TimeSpan.FromDays(1.5);
-        return await IssueNewSessionAsync(user, now, rememberMe, cancellationToken);
+        return await IssueNewSessionAsync(user, now, rememberMe, trackLogin: false, cancellationToken);
     }
 
     /// <summary>
@@ -135,8 +155,10 @@ public sealed class AuthService(
 
         if (!string.IsNullOrWhiteSpace(refreshToken))
         {
+            // FIX H6: query by hash, not raw value.
+            var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
             var token = await dbContext.RefreshTokens
-                .FirstOrDefaultAsync(current => current.Token == refreshToken, cancellationToken);
+                .FirstOrDefaultAsync(current => current.Token == tokenHash, cancellationToken);
 
             if (token is not null && token.RevokedAt == null)
             {
@@ -157,14 +179,37 @@ public sealed class AuthService(
     /// <param name="user">Utilisateur authentifié pour lequel créer la session.</param>
     /// <param name="now">Date UTC de référence utilisée pour calculer les expirations.</param>
     /// <param name="rememberMe">Indique si la session doit être persistante (7 jours) ou éphémère (1 jour).</param>
+    /// <param name="trackLogin">Indique si la connexion doit mettre à jour le dernier accès et créer un audit.</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération asynchrone.</param>
     /// <returns>Un objet <see cref="AuthSessionTokens"/> contenant les nouvelles valeurs de session.</returns>
     private async Task<AuthSessionTokens> IssueNewSessionAsync(
         AuthUserRecord user,
         DateTime now,
         bool rememberMe,
+        bool trackLogin,
         CancellationToken cancellationToken)
     {
+        if (trackLogin)
+        {
+            // FIX H7: persist LastLoginAt + AuditLog in the same unit of work as refresh token.
+            var trackedUser = await dbContext.Users
+                .FirstOrDefaultAsync(current => current.Id == user.UserId, cancellationToken);
+
+            if (trackedUser is not null)
+            {
+                trackedUser.LastLoginAt = now;
+
+                dbContext.AuditLogs.Add(new AuditLog
+                {
+                    ActorUserId = trackedUser.Id,
+                    Actor = trackedUser.Email,
+                    Action = "auth.login",
+                    Entity = $"user:{trackedUser.Id}",
+                    Timestamp = now
+                });
+            }
+        }
+
         var accessTokenExpiresAtUtc = now.AddMinutes(_jwtOptions.AccessTokenMinutes);
         // Si rememberMe est false, la session dure 1 jour, sinon elle dure selon la configuration (7 jours par défaut).
         var refreshTokenDays = rememberMe ? _jwtOptions.RefreshTokenDays : 1;
@@ -173,10 +218,13 @@ public sealed class AuthService(
 
         var accessToken = GenerateAccessToken(user, csrfToken, accessTokenExpiresAtUtc, now);
         var refreshToken = GenerateOpaqueToken(64);
+        // FIX H6: store hash, never raw token.
+        var refreshTokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
 
         dbContext.RefreshTokens.Add(new RefreshToken
         {
-            Token = refreshToken,
+            // FIX H6: persist hash (not the raw token) so DB compromise does not leak usable tokens.
+            Token = refreshTokenHash,
             UserId = user.UserId,
             ExpiresAt = refreshTokenExpiresAtUtc,
             RevokedAt = null,

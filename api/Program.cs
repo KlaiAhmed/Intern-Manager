@@ -94,6 +94,31 @@ builder.Services.AddProblemDetails();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, cancellationToken) =>
+    {
+        var httpContext = context.HttpContext;
+        var logger = httpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("RateLimiting");
+        var endpoint = httpContext.GetEndpoint();
+        var policyName = endpoint?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName ?? "unknown";
+        var userId = httpContext.User?.FindFirst("userId")?.Value;
+        var partitionKey = userId ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+        var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfterValue)
+            ? retryAfterValue.ToString("c")
+            : "n/a";
+
+        logger.LogWarning(
+            "Rate limit rejected {Method} {Path} policy={PolicyName} userId={UserId} partition={PartitionKey} retryAfter={RetryAfter}",
+            httpContext.Request.Method,
+            httpContext.Request.Path,
+            policyName,
+            userId ?? "anonymous",
+            partitionKey,
+            retryAfter);
+
+        return ValueTask.CompletedTask;
+    };
 
 options.AddPolicy("auth", context =>
  {
@@ -276,6 +301,21 @@ app.UseStatusCodePages(async statusCodeContext =>
 });
 app.UseCors(clientCorsPolicyName);
 app.UseHttpsRedirection();
+// FIX L23: security headers at app layer (belt-and-suspenders behind reverse proxy).
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    // TODO: add Content-Security-Policy once SPA origin is confirmed.
+    if (context.Request.IsHttps)
+    {
+        context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    }
+
+    await next();
+});
 app.UseAuthentication();
 
 if (app.Environment.IsDevelopment())

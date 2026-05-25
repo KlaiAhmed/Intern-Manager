@@ -4,13 +4,14 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Logging;
 
 namespace InternManager.Api.Middleware;
 
 /// <summary>
 /// Filtre MVC qui applique une vérification Double Submit Token entre l en-tête `X-CSRF-Token` et le claim `csrf`.
 /// </summary>
-public sealed class CsrfValidationFilter : IAsyncActionFilter
+public sealed class CsrfValidationFilter(ILogger<CsrfValidationFilter> logger) : IAsyncActionFilter
 {
     /// <summary>
     /// Liste des verbes HTTP considérés comme modifiant l état serveur.
@@ -32,6 +33,16 @@ public sealed class CsrfValidationFilter : IAsyncActionFilter
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var request = context.HttpContext.Request;
+        var isStateChanging = StateChangingMethods.Contains(request.Method);
+
+        if (context.Result != null && isStateChanging)
+        {
+            // FIX C3: do not silently skip CSRF if a prior filter short-circuited.
+            logger.LogWarning(
+                "CsrfValidationFilter: context.Result already set for {Method} {Path}. CSRF check proceeding anyway.",
+                context.HttpContext.Request.Method,
+                context.HttpContext.Request.Path);
+        }
 
         if (DevelopmentLazyAuthBypassMiddleware.IsLazyBypassActive(context.HttpContext))
         {
@@ -39,7 +50,7 @@ public sealed class CsrfValidationFilter : IAsyncActionFilter
             return;
         }
 
-        if (!StateChangingMethods.Contains(request.Method))
+        if (!isStateChanging)
         {
             await next();
             return;
