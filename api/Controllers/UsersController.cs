@@ -17,6 +17,7 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur de gestion des utilisateurs (liste, création, mise à jour).
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour manipuler les utilisateurs.</param>
+/// <param name="deletionService">Service chargé de valider et d exécuter les suppressions utilisateur.</param>
 [ApiController]
 [Route("api/users")]
 [Authorize]

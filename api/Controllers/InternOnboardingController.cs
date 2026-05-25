@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace InternManager.Api.Controllers;
 
@@ -65,10 +66,15 @@ public sealed class InternOnboardingController(
         {
             uploadedCvFileUrl = await cvStorageService.UploadAsync(payload.Cv, intern.Id, cancellationToken);
 
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            IDbContextTransaction? transaction = null;
 
             try
             {
+                if (dbContext.Database.IsRelational())
+                {
+                    transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                }
+
                 var profile = await dbContext.InternProfiles
                     .FirstOrDefaultAsync(item => item.InternId == intern.Id, cancellationToken);
 
@@ -104,11 +110,17 @@ public sealed class InternOnboardingController(
                 });
 
                 await dbContext.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
             }
             catch (Exception transactionException)
             {
-                await transaction.RollbackAsync(cancellationToken);
+                if (transaction is not null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
 
                 if (!string.IsNullOrWhiteSpace(uploadedCvFileUrl))
                 {
@@ -117,6 +129,13 @@ public sealed class InternOnboardingController(
 
                 logger.LogError(transactionException, "Onboarding transaction failed for intern {InternId}.", intern.Id);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An unexpected error occurred while submitting onboarding." });
+            }
+            finally
+            {
+                if (transaction is not null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
         }
         catch (Exception uploadOrRollbackException)
