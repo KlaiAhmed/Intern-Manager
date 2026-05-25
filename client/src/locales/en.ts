@@ -515,6 +515,7 @@ export const commonEn = {
   'dashboard.intern.statusGate.pending.keywords': 'Keywords',
   'dashboard.intern.statusGate.pending.noKeywords': 'No keywords provided',
   'dashboard.intern.statusGate.pending.notProvided': 'Not provided',
+  'dashboard.intern.statusGate.pending.phone': 'Phone Number',
   'dashboard.intern.statusGate.pending.notUploaded': 'Not uploaded',
 
   // Dashboard - Manager

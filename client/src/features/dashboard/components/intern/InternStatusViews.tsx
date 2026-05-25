@@ -2,20 +2,8 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { buildApiUrl } from '../../../../lib/apiClient'
 import { uploadInternCvWithProgress } from '../../api/internCvApi'
+import { parseCurrentYearOfStudy, getDegreeLevelLabel, getStudyYearLabel } from './academicYear'
 import type { InternLifecycleStatus, InternProfileReadOnly } from '../../types/internDashboard'
-
-function formatPendingDate(value: string | null | undefined, locale: string): string | null {
-  if (!value?.trim()) {
-    return null
-  }
-
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.valueOf())) {
-    return value.trim()
-  }
-
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(parsedDate)
-}
 
 function extractFileName(fileUrl: string | null | undefined): string | null {
   if (!fileUrl?.trim()) {
@@ -202,27 +190,8 @@ export function PendingStatusView({
   notificationMessage: string
   profile: InternProfileReadOnly | null
 }) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [showProfile, setShowProfile] = useState(true)
-
-  const formatCurrentYearOfStudy = (value: string | null | undefined) => {
-    const normalizedValue = value?.trim().toLowerCase()
-
-    if (!normalizedValue) {
-      return null
-    }
-
-    switch (normalizedValue) {
-      case 'licence':
-        return t('dashboard.intern.application.yearLicence')
-      case 'master':
-        return t('dashboard.intern.application.yearMaster')
-      case 'doctorat':
-        return t('dashboard.intern.application.yearDoctorate')
-      default:
-        return value?.trim() ?? null
-    }
-  }
 
   const formatWorkPreference = (value: string | null | undefined) => {
     const normalizedValue = value?.trim().toLowerCase()
@@ -246,10 +215,9 @@ export function PendingStatusView({
   const universityValue = profile?.universityName?.trim() || profile?.universityId?.trim() || null
   const majorValue = profile?.major?.trim() || null
   const phoneNumberValue = profile?.phoneNumber?.trim() || null
-  const currentYearValue = formatCurrentYearOfStudy(profile?.currentYearOfStudy)
-  const expectedGraduationValue = formatPendingDate(profile?.expectedGraduationDate, locale)
-  const startDateValue = formatPendingDate(profile?.startDate, locale)
-  const endDateValue = formatPendingDate(profile?.endDate, locale)
+  const parsedStudyInfo = parseCurrentYearOfStudy(profile?.currentYearOfStudy)
+  const degreeLevelValue = parsedStudyInfo ? getDegreeLevelLabel(parsedStudyInfo.degreeLevel, t) : null
+  const studyYearValue = parsedStudyInfo?.studyYear ? getStudyYearLabel(parsedStudyInfo.studyYear, t) : null
   const workPreferenceValue = formatWorkPreference(profile?.workPreference)
   const cvFileName = extractFileName(profile?.cvFileUrl)
   const cvFileUrl = resolveUploadedCvUrl(profile?.cvFileUrl)
@@ -302,7 +270,7 @@ export function PendingStatusView({
                 </div>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.application.phoneNumber')}</span>
+                <span className="pending-profile-label">{t('dashboard.intern.statusGate.pending.phone')}</span>
                 <div className="pending-profile-value">
                   {phoneNumberValue ? (
                     <span>{phoneNumberValue}</span>
@@ -312,45 +280,23 @@ export function PendingStatusView({
                 </div>
               </div>
               <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.application.currentYear')}</span>
+                <span className="pending-profile-label">{t('dashboard.intern.application.degreeLevel')}</span>
                 <div className="pending-profile-value">
-                  {currentYearValue ? (
-                    <span>{currentYearValue}</span>
+                  {degreeLevelValue ? (
+                    <span>{degreeLevelValue}</span>
                   ) : (
                     <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
                   )}
                 </div>
               </div>
-              <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.application.expectedGraduation')}</span>
-                <div className="pending-profile-value">
-                  {expectedGraduationValue ? (
-                    <span>{expectedGraduationValue}</span>
-                  ) : (
-                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
-                  )}
+              {studyYearValue && (
+                <div className="pending-profile-row">
+                  <span className="pending-profile-label">{t('dashboard.intern.application.studyYear')}</span>
+                  <div className="pending-profile-value">
+                    <span>{studyYearValue}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.application.availableStart')}</span>
-                <div className="pending-profile-value">
-                  {startDateValue ? (
-                    <span>{startDateValue}</span>
-                  ) : (
-                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
-                  )}
-                </div>
-              </div>
-              <div className="pending-profile-row">
-                <span className="pending-profile-label">{t('dashboard.intern.application.availableEnd')}</span>
-                <div className="pending-profile-value">
-                  {endDateValue ? (
-                    <span>{endDateValue}</span>
-                  ) : (
-                    <span className="pending-profile-value-empty">{t('dashboard.intern.statusGate.pending.notProvided')}</span>
-                  )}
-                </div>
-              </div>
+              )}
               <div className="pending-profile-row">
                 <span className="pending-profile-label">{t('dashboard.intern.application.workPreference')}</span>
                 <div className="pending-profile-value">

@@ -88,9 +88,6 @@ public sealed class InternOnboardingController(
                 profile.UniversityId = payload.UniversityId;
                 profile.Major = payload.Major;
                 profile.CurrentYearOfStudy = payload.CurrentYearOfStudy;
-                profile.ExpectedGraduationDate = payload.ExpectedGraduationDate;
-                profile.StartDate = payload.StartDate;
-                profile.EndDate = payload.EndDate;
                 profile.WorkPreference = payload.WorkPreference;
                 profile.PhoneNumber = payload.PhoneNumber;
                 profile.CvFileUrl = uploadedCvFileUrl;

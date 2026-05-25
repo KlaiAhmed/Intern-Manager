@@ -515,6 +515,7 @@ export const commonAr = {
   'dashboard.intern.statusGate.pending.keywords': 'الكلمات المفتاحية',
   'dashboard.intern.statusGate.pending.noKeywords': 'لا توجد كلمات مفتاحية',
   'dashboard.intern.statusGate.pending.notProvided': 'غير مقدم',
+  'dashboard.intern.statusGate.pending.phone': 'رقم الهاتف',
   'dashboard.intern.statusGate.pending.notUploaded': 'غير مرفوع',
 
   // Dashboard - Manager

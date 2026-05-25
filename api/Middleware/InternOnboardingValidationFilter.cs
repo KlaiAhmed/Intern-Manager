@@ -5,7 +5,6 @@ using InternManager.Api.Models.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace InternManager.Api.Middleware;
@@ -107,30 +106,6 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
             AddFieldError(errors, "currentYearOfStudy", "Current year of study is required.");
         }
 
-        if (!TryParseIsoDate(form.ExpectedGraduationDate, out var expectedGraduationDate))
-        {
-            AddFieldError(errors, "expectedGraduationDate", "Expected graduation date must be a valid ISO 8601 date.");
-        }
-        else if (expectedGraduationDate.Date <= DateTime.UtcNow.Date)
-        {
-            AddFieldError(errors, "expectedGraduationDate", "Expected graduation date must be in the future.");
-        }
-
-        if (!TryParseIsoDate(form.StartDate, out var startDate))
-        {
-            AddFieldError(errors, "startDate", "Start date must be a valid ISO 8601 date.");
-        }
-
-        if (!TryParseIsoDate(form.EndDate, out var endDate))
-        {
-            AddFieldError(errors, "endDate", "End date must be a valid ISO 8601 date.");
-        }
-
-        if (TryParseIsoDate(form.StartDate, out startDate) && TryParseIsoDate(form.EndDate, out endDate) && endDate <= startDate)
-        {
-            AddFieldError(errors, "endDate", "End date must be strictly after start date.");
-        }
-
         if (!TryParseWorkPreference(form.WorkPreference, out var workPreference))
         {
             AddFieldError(errors, "workPreference", "Work preference must be one of: remote, hybrid, onsite.");
@@ -186,38 +161,11 @@ public sealed class InternOnboardingValidationFilter(AppDbContext dbContext) : I
             universityId,
             major,
             currentYearOfStudy,
-            expectedGraduationDate,
-            startDate,
-            endDate,
             workPreference,
             phoneNumber,
             form.Cv!);
 
         await next();
-    }
-
-    private static bool TryParseIsoDate(string? raw, out DateTime value)
-    {
-        value = default;
-
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return false;
-        }
-
-        if (!DateTime.TryParse(raw.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out value))
-        {
-            return false;
-        }
-
-        value = value.Kind switch
-        {
-            DateTimeKind.Utc => value,
-            DateTimeKind.Unspecified => DateTime.SpecifyKind(value, DateTimeKind.Utc),
-            _ => value.ToUniversalTime()
-        };
-
-        return true;
     }
 
     private static bool TryParseWorkPreference(string? raw, out WorkPreference preference)

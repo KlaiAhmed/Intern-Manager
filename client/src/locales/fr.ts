@@ -516,6 +516,7 @@ export const commonFr = {
   'dashboard.intern.statusGate.pending.keywords': 'Mots-cles',
   'dashboard.intern.statusGate.pending.noKeywords': 'Aucun mot-cle renseigne',
   'dashboard.intern.statusGate.pending.notProvided': 'Non renseigne',
+  'dashboard.intern.statusGate.pending.phone': 'Numéro de téléphone',
   'dashboard.intern.statusGate.pending.notUploaded': 'Non telecharge',
 
   // Dashboard - Manager
