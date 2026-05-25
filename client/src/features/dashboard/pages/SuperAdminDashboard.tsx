@@ -64,7 +64,6 @@ import { SuperAdminStatCard } from '../components/SuperAdminStatCard'
 import { UserManagementSection } from '../components/UserManagementSection'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import { AuditLogSection } from '../components/AuditLogSection'
-import { BIPanelSection } from '../components/BIPanelSection'
 import { Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
 import { MissionFeatureFlagsSection } from './AdminDashboard/MissionFeatureFlagsSection'
@@ -127,7 +126,6 @@ const superAdminSections: SuperAdminSection[] = [
   'evaluations',
   'settings',
   'audit',
-  'biPanel',
 ]
 
 function isMissionFeatureFlagsRoute(pathname: string): boolean {
@@ -328,8 +326,6 @@ export function SuperAdminDashboard() {
         return 'Referential Settings'
       case 'audit':
         return 'Audit & Security'
-      case 'biPanel':
-        return 'BI Panel'
       default:
         return t('dashboard.superAdmin.title')
     }
@@ -387,8 +383,6 @@ export function SuperAdminDashboard() {
         )
       case 'audit':
         return <AuditLogSection />
-      case 'biPanel':
-        return <BIPanelSection />
       default:
         return <OverviewSection />
     }

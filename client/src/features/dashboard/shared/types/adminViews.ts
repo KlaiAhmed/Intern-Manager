@@ -9,7 +9,6 @@ export type AdminView =
   | 'evaluations'
   | 'settings'
   | 'audit'
-  | 'biPanel'
 
 export const sectionPathMap: Record<SuperAdminSection, string> = {
   overview: '/dashboard/admin',
@@ -19,7 +18,6 @@ export const sectionPathMap: Record<SuperAdminSection, string> = {
   evaluations: '/dashboard/admin/evaluations',
   settings: '/dashboard/admin/settings',
   audit: '/dashboard/admin/audit',
-  biPanel: '/dashboard/admin/bi-panel',
 }
 
 export const sectionByView: Record<AdminView, SuperAdminSection> = {
@@ -31,7 +29,6 @@ export const sectionByView: Record<AdminView, SuperAdminSection> = {
   evaluations: 'evaluations',
   settings: 'settings',
   audit: 'audit',
-  biPanel: 'biPanel',
 }
 
 export function resolveAdminView(pathname: string): AdminView {
@@ -61,10 +58,6 @@ export function resolveAdminView(pathname: string): AdminView {
 
   if (pathname.startsWith('/dashboard/admin/audit')) {
     return 'audit'
-  }
-
-  if (pathname.startsWith('/dashboard/admin/bi-panel')) {
-    return 'biPanel'
   }
 
   return 'settings'

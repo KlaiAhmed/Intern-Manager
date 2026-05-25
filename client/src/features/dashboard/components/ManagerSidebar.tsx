@@ -6,7 +6,7 @@ import {
   Menu,
 } from './IconComponents'
 
-export type ManagerSection = 'overview' | 'interns' | 'supervisors' | 'departments' | 'biPanel'
+export type ManagerSection = 'overview' | 'interns' | 'supervisors' | 'departments'
 
 interface NavItem {
   id: ManagerSection
@@ -178,17 +178,10 @@ export const ManagerIcons = {
       <rect x="14" y="14" width="6" height="6" rx="1" />
     </svg>
   ),
-  BarChart: () => (
-    <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="20" x2="12" y2="10" />
-      <line x1="18" y1="20" x2="18" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  ),
 }
 
 // Export individual icon components
-export const { Overview: ManagerOverview, Interns, Supervisors, Departments, BarChart: ManagerBarChart } = ManagerIcons
+export const { Overview: ManagerOverview, Interns, Supervisors, Departments } = ManagerIcons
 
 // Helper to get default nav items
 export function getManagerNavItems(t: (key: string) => string): NavItem[] {
@@ -197,6 +190,5 @@ export function getManagerNavItems(t: (key: string) => string): NavItem[] {
     { id: 'interns', label: t('dashboard.manager.nav.interns'), icon: <Interns /> },
     { id: 'supervisors', label: t('dashboard.manager.nav.supervisors'), icon: <Supervisors /> },
     { id: 'departments', label: t('dashboard.manager.nav.departments'), icon: <Departments /> },
-    { id: 'biPanel', label: t('dashboard.manager.nav.biPanel'), icon: <ManagerBarChart /> },
   ]
 }

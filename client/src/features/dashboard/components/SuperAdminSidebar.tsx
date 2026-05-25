@@ -2,7 +2,6 @@ import { useState, useEffect, type ReactNode, useCallback } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
 import {
   BarChart,
-  Overview,
   Users,
   Briefcase,
   BookOpen,
@@ -22,7 +21,6 @@ export type SuperAdminSection =
   | 'evaluations'
   | 'settings'
   | 'audit'
-  | 'biPanel'
 
 export type SettingsSubSection = 'departments' | 'schools' | 'types' | 'skills' | 'verification-statuses'
 
@@ -53,12 +51,11 @@ export function SuperAdminSidebar({
   const [isTablet, setIsTablet] = useState(false)
 
   const navItems: NavItem[] = [
-    { id: 'overview', label: t('dashboard.superAdmin.nav.overview'), icon: <Overview /> },
+    { id: 'overview', label: t('dashboard.superAdmin.nav.overview'), icon: <BarChart /> },
     { id: 'users', label: t('dashboard.superAdmin.nav.userManagement'), icon: <Users /> },
     { id: 'internships', label: t('dashboard.superAdmin.nav.internships'), icon: <Briefcase /> },
     { id: 'missions', label: t('dashboard.superAdmin.nav.internsManagement'), icon: <BookOpen /> },
     { id: 'evaluations', label: t('dashboard.superAdmin.nav.evaluations'), icon: <ClipboardCheck /> },
-    { id: 'biPanel', label: t('dashboard.superAdmin.nav.biPanel'), icon: <BarChart /> },
   ]
 
   useEffect(() => {

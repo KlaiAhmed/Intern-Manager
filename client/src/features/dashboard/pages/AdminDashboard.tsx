@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuditLogSection } from '../components/AuditLogSection'
-import { BIPanelSection } from '../components/BIPanelSection'
 import { ErrorState } from '../components/ErrorState'
 import { SettingsPanel, type SettingsSubSection } from '../components/SettingsPanel'
 import type { SuperAdminSection } from '../components/SuperAdminSidebar'
@@ -52,8 +51,6 @@ export function AdminDashboard() {
         return 'Referential Settings'
       case 'audit':
         return 'Audit Log'
-      case 'biPanel':
-        return 'BI Panel'
       default:
         return 'Admin Dashboard'
     }
@@ -114,8 +111,6 @@ export function AdminDashboard() {
         )
       case 'audit':
         return <AuditLogSection />
-      case 'biPanel':
-        return <BIPanelSection />
       default:
         return <AdminOverviewSection />
     }

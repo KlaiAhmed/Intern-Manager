@@ -256,10 +256,6 @@ export const commonFr = {
   'dashboard.section.inDevelopment': 'En Developpement',
   'dashboard.action.comingSoon': 'Bientot Disponible',
 
-  // Dashboard - BI Panel
-  'dashboard.biPanel.title': 'Tableau de Bord BI',
-  'dashboard.biPanel.subtitle': 'Tableau de Bord Business Intelligence et Analytics',
-
   // Dashboard - Admin
   'dashboard.admin.title': 'Tableau de Bord Admin',
   'dashboard.admin.userAccounts': 'Gestion des Comptes Utilisateurs',
@@ -911,7 +907,6 @@ export const commonFr = {
   'dashboard.superAdmin.nav.internships': 'Stages',
   'dashboard.superAdmin.nav.internsManagement': 'Gestion des stagiaires',
   'dashboard.superAdmin.nav.evaluations': '\u00c9valuations',
-  'dashboard.superAdmin.nav.biPanel': 'Tableau de bord BI',
   'dashboard.superAdmin.nav.settings': 'Param\u00e8tres',
   'dashboard.superAdmin.nav.auditSecurity': 'Audit et s\u00e9curit\u00e9',
 
@@ -920,7 +915,6 @@ export const commonFr = {
   'dashboard.manager.nav.interns': 'Stagiaires',
   'dashboard.manager.nav.supervisors': 'Encadrants',
   'dashboard.manager.nav.departments': 'D\u00e9partements',
-  'dashboard.manager.nav.biPanel': 'Tableau de bord BI',
 
   // Dashboard - Intern card missing
   'dashboard.intern.card.evaluations.overall': 'Moyenne :',
