@@ -459,8 +459,8 @@ export const commonAr = {
   'dashboard.intern.application.step2.uploadCV': 'يرجى رفع سيرتك الذاتية',
 
   // Dashboard - Intern Application Form - Step 3 (Confirmation)
-  'dashboard.intern.application.step3.title': 'تم تقديم الطلب!',
-  'dashboard.intern.application.step3.subtitle': 'طلبك قيد المراجعة الآن',
+  'dashboard.intern.application.step3.title': 'مراجعة الطلب',
+  'dashboard.intern.application.step3.subtitle': 'سيتم مراجعة طلبك بعد التقديم',
   'dashboard.intern.application.step3.complete': 'اكتمال الطلب!',
   'dashboard.intern.application.step3.message': 'تم تقديم طلبك وهو قيد المراجعة الآن. سيتم إعلامك بمجرد معالجته.',
   'dashboard.intern.application.step3.summary': 'الملخص',
@@ -488,7 +488,7 @@ export const commonAr = {
   // Dashboard - Intern Application Form - Buttons & Navigation
   'dashboard.intern.application.next': 'التالي',
   'dashboard.intern.application.back': 'الرجوع',
-  'dashboard.intern.application.submit': 'تقديم الطلب',
+  'dashboard.intern.application.submit': 'تقديم',
 
   // Dashboard - Intern Application Form - Placeholders
   'dashboard.intern.application.placeholder.university': 'مثال، جامعة التكنولوجيا',

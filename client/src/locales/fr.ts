@@ -460,8 +460,8 @@ export const commonFr = {
   'dashboard.intern.application.step2.uploadCV': 'Veuillez telecharger votre CV',
 
   // Dashboard - Intern Application Form - Step 3 (Confirmation)
-  'dashboard.intern.application.step3.title': 'Candidature Soumise!',
-  'dashboard.intern.application.step3.subtitle': 'Votre candidature est en cours de verification',
+  'dashboard.intern.application.step3.title': 'Révision de la Candidature',
+  'dashboard.intern.application.step3.subtitle': 'Votre candidature sera révisée après soumission',
   'dashboard.intern.application.step3.complete': 'Candidature Terminee!',
   'dashboard.intern.application.step3.message': 'Votre candidature a ete soumise et est en cours de verification. Vous serez informe une fois qu\'elle sera traitee.',
   'dashboard.intern.application.step3.summary': 'Resume',
@@ -489,7 +489,7 @@ export const commonFr = {
   // Dashboard - Intern Application Form - Buttons & Navigation
   'dashboard.intern.application.next': 'Suivant',
   'dashboard.intern.application.back': 'Retour',
-  'dashboard.intern.application.submit': 'Soumettre la Candidature',
+  'dashboard.intern.application.submit': 'Soumettre',
 
   // Dashboard - Intern Application Form - Placeholders
   'dashboard.intern.application.placeholder.university': 'ex., Universite de Technologie',

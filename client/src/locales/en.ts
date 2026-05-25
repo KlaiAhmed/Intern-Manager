@@ -459,8 +459,8 @@ export const commonEn = {
   'dashboard.intern.application.step2.uploadCV': 'Please upload your CV',
 
   // Dashboard - Intern Application Form - Step 3 (Confirmation)
-  'dashboard.intern.application.step3.title': 'Application Submitted!',
-  'dashboard.intern.application.step3.subtitle': 'Your application is now under review',
+  'dashboard.intern.application.step3.title': 'Application Review',
+  'dashboard.intern.application.step3.subtitle': 'Your application will be reviewed once submitted',
   'dashboard.intern.application.step3.complete': 'Application Complete!',
   'dashboard.intern.application.step3.message': 'Your application has been submitted and is now under review. You will be notified once it\'s processed.',
   'dashboard.intern.application.step3.summary': 'Summary',
@@ -488,7 +488,7 @@ export const commonEn = {
   // Dashboard - Intern Application Form - Buttons & Navigation
   'dashboard.intern.application.next': 'Next',
   'dashboard.intern.application.back': 'Back',
-  'dashboard.intern.application.submit': 'Submit Application',
+  'dashboard.intern.application.submit': 'Submit',
 
   // Dashboard - Intern Application Form - Placeholders
   'dashboard.intern.application.placeholder.university': 'e.g., University of Technology',

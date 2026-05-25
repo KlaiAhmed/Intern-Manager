@@ -83,98 +83,47 @@ Modern view:
 
 ```text
 intern-manager/
-├── client/                    # React frontend application
-│   ├── src/                  # Main frontend source code
-│   │   ├── app/             # App shell, providers, and routing
-│   │   │   ├── App.tsx      # App wrapper used by routing
-│   │   │   └── providers/   # Root providers for auth, theme, and i18n
-│   │   ├── assets/          # Imported images, icons, and media
-│   │   ├── components/      # Reusable UI components
-│   │   │   ├── layout/     # AppShell, Header, Footer
-│   │   │   └── ui/         # Badge, Button, Card, Section, ThemeSwitcher
-│   │   ├── config/          # App configuration and constants
-│   │   ├── features/        # Feature-based screens and logic
-│   │   │   ├── auth/       # Login, signup, and session flows
-│   │   │   │   ├── api/    # Auth API calls
-│   │   │   │   ├── components/ # AuthScreen, LoginView, SignUpView
-│   │   │   │   ├── hooks/  # useAuthScreenLogic
-│   │   │   │   ├── locales/ # ar, en, fr translations
-│   │   │   │   ├── types/  # Auth-specific types
-│   │   │   │   └── styles/ # Auth-specific styles
-│   │   │   ├── dashboard/   # Role-based dashboard pages
-│   │   │   │   ├── api/    # Dashboard API calls
-│   │   │   │   ├── components/ # Charts, cards, tables
-│   │   │   │   │   └── intern/ # Intern-specific dashboard cards
-│   │   │   │   ├── hooks/  # Dashboard data hooks
-│   │   │   │   ├── locales/ # Dashboard translations
-│   │   │   │   ├── pages/  # Manager, Supervisor dashboards
-│   │   │   │   ├── styles/ # Dashboard CSS
-│   │   │   │   └── types/  # Dashboard types
-│   │   │   ├── home/       # Public landing page content
-│   │   │   │   ├── locales/ # Home translations
-│   │   │   │   └── sections/ # Hero, Benefits, Lifecycle
-│   │   │   └── notifications/ # Notification components
-│   │   │       ├── api/    # Notification API
-│   │   │       ├── components/ # NotificationBell
-│   │   │       ├── hooks/  # useNotifications
-│   │   │       └── locales/ # Notification translations
-│   │   ├── hooks/           # Shared React hooks
-│   │   ├── lib/             # Helper functions and library wrappers
-│   │   │   ├── apiClient.ts # Axios instance and helpers
-│   │   │   └── authApi.ts   # Auth API functions
-│   │   ├── locales/         # Global i18n translations
-│   │   │   ├── I18nContext.tsx # I18n provider
-│   │   │   ├── ar.ts, en.ts, fr.ts
-│   │   │   └── index.ts     # Translation aggregator
-│   │   ├── pages/           # Page components (routing targets)
-│   │   │   ├── DashboardPage/
-│   │   │   ├── HomePage/
-│   │   │   ├── LoginPage/
-│   │   │   ├── SignUpPage/
-│   │   │   ├── ErrorPage/
-│   │   │   └── NotFoundPage/
-│   │   ├── routes/          # Routing configuration
-│   │   │   ├── AppRouter.tsx # Main router
-│   │   │   ├── guards/      # ProtectedRoute
-│   │   │   ├── lazyPages.ts # Lazy-loaded pages
-│   │   │   └── routeConfig.ts # Route definitions
-│   │   ├── shared/          # Cross-cutting concerns
-│   │   │   └── errors/      # ErrorPage, NotFoundPage
-│   │   ├── stores/          # Global state management
-│   │   │   ├── AuthContext.tsx # Auth state provider
-│   │   │   ├── RolePreferenceContext.tsx # Role selection
-│   │   │   └── ThemeContext.tsx # Theme state provider
-│   │   ├── styles/          # Global styles
-│   │   │   ├── index.css    # Main stylesheet
-│   │   │   └── partials/    # CSS partials
-│   │   ├── types/           # Frontend-wide TypeScript types
-│   │   │   └── role.ts      # Role types
-│   │   ├── utils/           # General-purpose utility helpers
-│   │   │   └── classNames.ts # Class name helper
-│   │   ├── main.tsx         # Frontend entry point
-│   │   └── vite-env.d.ts    # Vite TypeScript declarations
-│   ├── public/              # Static files served by Vite
-│   ├── package.json         # Frontend scripts and dependencies
-│   ├── tsconfig.json        # TypeScript config
-│   ├── vite.config.ts       # Vite build configuration
-│   └── .env                 # Frontend environment variables
-│
-├── api/                     # ASP.NET Core backend
-│   ├── Controllers/         # API endpoints grouped by feature
-│   ├── Data/                # DbContext, migrations, and seeding
-│   ├── Models/              # Entities, DTOs, requests, and responses
-│   ├── Services/            # Business logic and workflows
-│   ├── Common/              # Shared enums, options, and helpers
-│   ├── Extensions/          # Dependency injection and startup helpers
-│   ├── Middleware/          # Custom request pipeline components
-│   ├── Properties/          # Launch profiles and project metadata
-│   ├── Program.cs           # Backend entry point
-│   ├── appsettings.json     # Base configuration
-│   ├── appsettings.Development.json # Development configuration overrides
-│   ├── uploads/             # Stored uploaded files
-│   └── .env                 # Backend environment variables
-│
-└── README.md                # Quick start and overview
+├── client/                          # React + Vite frontend
+│   ├── src/         
+│   │   ├── app/                     # App shell, providers, and routing setup
+│   │   ├── assets/                  # Static assets imported in the app
+│   │   ├── components/              # Shared reusable UI components
+│   │   ├── features/                # Feature-based modules (auth, dashboard, home, notifications)
+│   │   ├── hooks/                   # Shared custom hooks
+│   │   ├── lib/                     # API clients and utility wrappers
+│   │   ├── locales/                 # Global translations and i18n setup
+│   │   ├── pages/                   # Route-level page components
+│   │   ├── routes/                  # Router configuration and guards
+│   │   ├── stores/                  # Global state and context providers
+│   │   ├── styles/                  # Global styles
+│   │   ├── types/                   # Shared TypeScript types
+│   │   ├── utils/                   # General utility helpers
+│   │   ├── main.tsx                 # Frontend entry point
+│   │   └── vite-env.d.ts            # Vite type declarations
+│   ├── public/                      # Static files served directly
+│   ├── package.json                 # Frontend dependencies and scripts
+│   ├── tsconfig.json                # TypeScript configuration
+│   ├── vite.config.ts               # Vite configuration
+│   └── .env                         # Frontend environment variables
+│        
+├── api/                             # ASP.NET Core backend
+│   ├── Controllers/                 # API endpoints
+│   ├── Data/                        # DbContext, migrations, and seeding
+│   ├── Models/                      # Entities, DTOs, and request/response models
+│   ├── Services/                    # Business logic
+│   ├── Common/                      # Shared enums, options, and helpers
+│   ├── Extensions/                  # Startup and DI extensions
+│   ├── Middleware/                  # Custom middleware
+│   ├── Properties/                  # Launch settings and metadata
+│   ├── Program.cs                   # Backend entry point
+│   ├── appsettings.json             # Base configuration
+│   ├── appsettings.Development.json # Development overrides
+│   ├── uploads/                     # Uploaded files
+│   └── .env                         # Backend environment variables
+│        
+├── AGENTS.md                        # Instructions for agents
+├── .gitignore                       # Git ignored files and folders
+└── README.md                        # Project overview and setup guide
 ```
 
 ## Client Architecture Highlights
