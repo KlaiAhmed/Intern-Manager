@@ -62,38 +62,40 @@
 .intern-application-form {
   display: flex;
   flex-direction: column;
-  gap: var(--dash-space-lg);
+  gap: 1.5rem;
 }
 
 /* Form Field */
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: var(--dash-space-xs);
+  gap: 6px;
 }
 
-/* Label */
+/* Label — small (13px), medium weight, muted color */
 .form-label {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--color-text);
-  margin-bottom: var(--dash-space-xs);
+  color: var(--dash-text-muted);
 }
 
-/* Input Base */
+/* Input Base — 48px height, 16px text, 8px radius */
 .form-input,
 .form-select {
   appearance: none;
+  height: 48px;
   border: 1px solid var(--dash-border);
   background: var(--dash-bg-primary);
-  color: var(--color-text);
+  color: var(--dash-text);
   font-family: var(--dash-font-body);
-  font-size: 0.9375rem;
-  padding: var(--dash-space-md) var(--dash-space-lg);
-  border-radius: var(--dash-radius-md);
+  font-size: 1rem;
+  font-weight: 400;
+  padding: 0 var(--dash-space-lg);
+  border-radius: var(--dash-radius-sm, 8px);
   transition: border-color var(--dash-duration-fast) var(--dash-ease),
               box-shadow var(--dash-duration-fast) var(--dash-ease);
   width: 100%;
+  box-sizing: border-box;
 }
 
 .form-input:hover,
@@ -123,9 +125,9 @@
   cursor: not-allowed;
 }
 
-/* Select Dropdown */
+/* Select Dropdown — subtle gray chevron */
 .form-select {
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 1rem center;
   background-size: 12px;
@@ -135,14 +137,14 @@
 
 /* Date Input Styling */
 .form-input[type="date"] {
-  min-height: 2.75rem;
+  min-height: 48px;
 }
 
-/* Error Message */
+/* Error Message — 12px, red */
 .field-error {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--dash-error);
-  margin-top: var(--dash-space-xs);
+  margin-top: 4px;
   display: flex;
   align-items: center;
   gap: var(--dash-space-xs);

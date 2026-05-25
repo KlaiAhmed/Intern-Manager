@@ -330,8 +330,17 @@ export const commonAr = {
 'dashboard.intern.application.hybrid': 'هجين',
 'dashboard.intern.application.onsite': 'في الموقع',
 'dashboard.intern.application.apply': 'تقديم',
+'dashboard.intern.application.degreeLevel': 'المستوى الدراسي',
+'dashboard.intern.application.degreeLevel.licence': 'إجازة',
+'dashboard.intern.application.degreeLevel.master': 'ماجستير',
+'dashboard.intern.application.degreeLevel.doctorat': 'دكتوراه',
+'dashboard.intern.application.studyYear': 'السنة الدراسية',
+'dashboard.intern.application.studyYear.year1': 'السنة الأولى',
+'dashboard.intern.application.studyYear.year2': 'السنة الثانية',
+'dashboard.intern.application.studyYear.year3': 'السنة الثالثة',
 'dashboard.intern.application.required': 'هذا الحقل مطلوب',
 'dashboard.intern.application.submitting': 'جاري التقديم...',
+'dashboard.intern.application.countryCode': 'رمز البلد +216',
 
   // Dashboard - Table headers
   'dashboard.table.name': 'الاسم',
@@ -484,7 +493,7 @@ export const commonAr = {
   // Dashboard - Intern Application Form - Placeholders
   'dashboard.intern.application.placeholder.university': 'مثال، جامعة التكنولوجيا',
   'dashboard.intern.application.placeholder.major': 'مثال، علوم الحاسوب',
-  'dashboard.intern.application.placeholder.phoneNumber': 'مثال: +216 12 345 678',
+  'dashboard.intern.application.placeholder.phoneNumber': '12 345 678',
 
   // Dashboard - Status Gate Card
   'dashboard.intern.statusGate.loading': 'جاري تحميل حالة تدريبك...',

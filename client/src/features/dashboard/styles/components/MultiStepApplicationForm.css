@@ -101,21 +101,24 @@
    PHONE INPUT - Specialized Combined Field
    ================================================ */
 
+/* Phone Input — unified 48px block, single border container */
+/* Wrapper owns the border + radius; overflow hidden clips prefix & input to match */
 .phone-input-wrapper {
   display: flex;
-  align-items: stretch;
-  border: 1px solid var(--dash-border);
-  border-radius: 8px;
+  height: 48px;
+  border: 1.5px solid var(--dash-border);
+  border-radius: var(--dash-radius-sm, 8px);
   background: var(--dash-bg-primary);
   overflow: hidden;
-  transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
-  box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 150ms ease,
+              box-shadow 150ms ease;
 }
 
 .phone-input-wrapper:hover {
   border-color: var(--dash-border-hover);
 }
 
+/* Focus ring lives only on the wrapper — never on the input itself */
 .phone-input-wrapper:focus-within {
   border-color: var(--dash-accent);
   box-shadow: 0 0 0 3px var(--dash-accent-subtle);
@@ -137,44 +140,53 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dash-success) 25%, transparent);
 }
 
-/* Phone prefix (non-editable) */
+/* Phone prefix — no border-radius (wrapper clips it), inner separator on the right */
 .phone-prefix {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 1rem;
-  background: color-mix(in srgb, var(--dash-text) 5%, var(--dash-bg-secondary));
-  color: var(--dash-text-secondary);
+  padding: 0 14px;
+  flex-shrink: 0;
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text);
   font-family: var(--dash-font-body);
   font-size: 0.9375rem;
   font-weight: 500;
   border-right: 1px solid var(--dash-border);
-  white-space: nowrap;
   user-select: none;
 }
 
-/* Phone input field */
-.phone-input {
+/* Digit input — NO border, outline, or box-shadow; wrapper owns all of them */
+/* Specificity .form-field .phone-digit-input (0,2,0) beats .form-field input (0,1,1) from UserManagementSection.css */
+.form-field .phone-digit-input {
   flex: 1;
-  padding: 0.75rem 1rem;
+  height: 100%;
+  padding: 0 14px;
   border: none;
+  outline: none;
+  box-shadow: none;
   background: transparent;
   color: var(--dash-text);
   font-family: var(--dash-font-body);
   font-size: 0.9375rem;
-  outline: none;
+  font-weight: 400;
   min-width: 0;
+  border-radius: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-/* Remove number input spinners */
-.phone-input::-webkit-outer-spin-button,
-.phone-input::-webkit-inner-spin-button {
+.form-field .phone-digit-input:focus,
+.form-field .phone-digit-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.form-field .phone-digit-input::-webkit-outer-spin-button,
+.form-field .phone-digit-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-.phone-input[type="number"] {
-  -moz-appearance: textfield;
 }
 
 /* Phone validation indicator */

@@ -330,8 +330,17 @@ export const commonEn = {
 'dashboard.intern.application.hybrid': 'Hybrid',
 'dashboard.intern.application.onsite': 'On-site',
 'dashboard.intern.application.apply': 'Apply',
+'dashboard.intern.application.degreeLevel': 'Degree Level',
+'dashboard.intern.application.degreeLevel.licence': 'Licence',
+'dashboard.intern.application.degreeLevel.master': 'Master',
+'dashboard.intern.application.degreeLevel.doctorat': 'Doctorat',
+'dashboard.intern.application.studyYear': 'Study Year',
+'dashboard.intern.application.studyYear.year1': 'Year 1',
+'dashboard.intern.application.studyYear.year2': 'Year 2',
+'dashboard.intern.application.studyYear.year3': 'Year 3',
 'dashboard.intern.application.required': 'This field is required',
 'dashboard.intern.application.submitting': 'Submitting...',
+'dashboard.intern.application.countryCode': 'Country code +216',
 
   // Dashboard - Table headers
   'dashboard.table.name': 'Name',
@@ -484,7 +493,7 @@ export const commonEn = {
   // Dashboard - Intern Application Form - Placeholders
   'dashboard.intern.application.placeholder.university': 'e.g., University of Technology',
   'dashboard.intern.application.placeholder.major': 'e.g., Computer Science',
-  'dashboard.intern.application.placeholder.phoneNumber': 'e.g., +216 12 345 678',
+  'dashboard.intern.application.placeholder.phoneNumber': '12 345 678',
 
   // Dashboard - Status Gate Card
   'dashboard.intern.statusGate.loading': 'Loading your internship status...',

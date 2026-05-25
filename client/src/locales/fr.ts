@@ -330,8 +330,17 @@ export const commonFr = {
 'dashboard.intern.application.hybrid': 'Hybride',
 'dashboard.intern.application.onsite': 'Sur site',
 'dashboard.intern.application.apply': 'Postuler',
+'dashboard.intern.application.degreeLevel': "Niveau d'étude",
+'dashboard.intern.application.degreeLevel.licence': 'Licence',
+'dashboard.intern.application.degreeLevel.master': 'Master',
+'dashboard.intern.application.degreeLevel.doctorat': 'Doctorat',
+'dashboard.intern.application.studyYear': "Année d'étude",
+'dashboard.intern.application.studyYear.year1': '1ère année',
+'dashboard.intern.application.studyYear.year2': '2ème année',
+'dashboard.intern.application.studyYear.year3': '3ème année',
 'dashboard.intern.application.required': 'Ce champ est obligatoire',
 'dashboard.intern.application.submitting': 'Soumission en cours...',
+'dashboard.intern.application.countryCode': 'Indicatif +216',
 
   // Dashboard - Table headers
   'dashboard.table.name': 'Nom',
@@ -485,7 +494,7 @@ export const commonFr = {
   // Dashboard - Intern Application Form - Placeholders
   'dashboard.intern.application.placeholder.university': 'ex., Universite de Technologie',
   'dashboard.intern.application.placeholder.major': 'ex., Informatique',
-  'dashboard.intern.application.placeholder.phoneNumber': 'ex., +216 12 345 678',
+  'dashboard.intern.application.placeholder.phoneNumber': '12 345 678',
 
   // Dashboard - Status Gate Card
   'dashboard.intern.statusGate.loading': 'Chargement de votre statut de stage...',

@@ -411,6 +411,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                 <label htmlFor="phoneNumber" className="form-label">
                   {t('dashboard.intern.application.phoneNumber')}
                 </label>
+                {/* Single wrapper owns the border + radius; overflow hidden clips children to match */}
                 <div className={`phone-input-wrapper ${errors.phoneNumber ? 'has-error' : ''}`}>
                   <span
                     className="phone-prefix"
@@ -426,7 +427,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
                     value={formData.phoneNumber}
                     onChange={handlePhoneChange}
                     disabled={isSubmitting}
-                    className="phone-input"
+                    className="phone-digit-input"
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={PHONE_DIGITS_REQUIRED}
