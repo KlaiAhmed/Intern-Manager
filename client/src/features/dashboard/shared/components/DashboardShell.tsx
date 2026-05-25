@@ -13,7 +13,6 @@ interface DashboardShellProps {
   hideAdminManagement?: boolean
   brandLabel?: string
   shellClassName?: string
-  pageTitle: string
   contentKey: string
   children: ReactNode
 }
@@ -25,7 +24,6 @@ export function DashboardShell({
   hideAdminManagement,
   brandLabel,
   shellClassName,
-  pageTitle,
   contentKey,
   children,
 }: DashboardShellProps) {
@@ -41,7 +39,6 @@ export function DashboardShell({
 
       <main className="super-admin-main" id="main-content">
         <div className="super-admin-content-wrapper">
-          <h1 className="page-title">{pageTitle}</h1>
           <div className="content-fade-in" key={contentKey}>{children}</div>
         </div>
       </main>

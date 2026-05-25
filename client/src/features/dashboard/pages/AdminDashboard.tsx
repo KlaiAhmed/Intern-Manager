@@ -33,29 +33,6 @@ export function AdminDashboard() {
   const activeView = useMemo(() => resolveAdminView(location.pathname), [location.pathname])
   const activeSection = sectionByView[activeView]
 
-  const pageTitle = useMemo(() => {
-    switch (activeView) {
-      case 'overview':
-        return 'Admin Dashboard'
-      case 'users':
-        return 'User Management'
-      case 'interns':
-        return 'Interns'
-      case 'internships':
-        return 'Internships'
-      case 'missionFeatureFlags':
-        return 'Mission Feature Controls'
-      case 'evaluations':
-        return 'Evaluations'
-      case 'settings':
-        return 'Referential Settings'
-      case 'audit':
-        return 'Audit Log'
-      default:
-        return 'Admin Dashboard'
-    }
-  }, [activeView])
-
   const handleSectionChange = useCallback((section: SuperAdminSection) => {
     if (section === 'internships') {
       navigate('/dashboard/admin/internships')
@@ -124,7 +101,6 @@ export function AdminDashboard() {
       hideAdminManagement={false}
       brandLabel="Admin"
       shellClassName="admin-dashboard"
-      pageTitle={pageTitle}
       contentKey={location.pathname}
     >
       {renderView()}

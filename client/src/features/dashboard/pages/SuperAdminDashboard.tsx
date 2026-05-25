@@ -55,7 +55,7 @@
 */
 
 import type { ReactNode } from 'react'
-import { Suspense, lazy, useState, useCallback, useMemo } from 'react'
+import { Suspense, lazy, useState, useCallback } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useI18n } from '../../../locales/I18nContext'
 import { useSuperAdminStats } from '../hooks/useSuperAdminStats'
@@ -285,7 +285,6 @@ function OverviewSection() {
 
 // Main Dashboard Component
 export function SuperAdminDashboard() {
-  const { t } = useI18n()
   const location = useLocation()
   const navigate = useNavigate()
   const { missionId } = useParams<{ missionId?: string }>()
@@ -305,31 +304,6 @@ export function SuperAdminDashboard() {
   const [activeSettingsSubSection, setActiveSettingsSubSection] = useState<SettingsSubSection>('departments')
 
   const resolvedActiveSection = featureFlagsRoute ? 'internships' : activeSection
-
-  const pageTitle = useMemo(() => {
-    if (featureFlagsRoute) {
-      return 'Mission Feature Controls'
-    }
-
-    switch (activeSection) {
-      case 'overview':
-        return t('dashboard.superAdmin.title')
-      case 'users':
-        return 'User Management'
-      case 'internships':
-        return 'Internships'
-      case 'missions':
-        return 'Interns Management'
-      case 'evaluations':
-        return 'Evaluations'
-      case 'settings':
-        return 'Referential Settings'
-      case 'audit':
-        return 'Audit & Security'
-      default:
-        return t('dashboard.superAdmin.title')
-    }
-  }, [activeSection, featureFlagsRoute, t])
 
   const handleSectionChange = useCallback((nextSection: SuperAdminSection) => {
     setActiveSection(nextSection)
@@ -393,7 +367,6 @@ export function SuperAdminDashboard() {
       activeSection={resolvedActiveSection}
       onSectionChange={handleSectionChange}
       onSettingsSubSectionChange={setActiveSettingsSubSection}
-      pageTitle={pageTitle}
       contentKey={featureFlagsRoute ? location.pathname : activeSection}
     >
       {renderContent()}
