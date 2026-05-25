@@ -1,0 +1,7 @@
+.claude/
+Intern Manager.sln
+.claude
+.env
+api/.env
+client/.env
+docs/
