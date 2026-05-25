@@ -7,12 +7,22 @@ type JsonRecord = Record<string, unknown>
 class DashboardApiError extends Error {
   status: number
   fieldErrors: Record<string, string>
+  code?: string
+  blockers?: Record<string, number>
 
-  constructor(message: string, status: number, fieldErrors: Record<string, string> = {}) {
+  constructor(
+    message: string,
+    status: number,
+    fieldErrors: Record<string, string> = {},
+    code?: string,
+    blockers?: Record<string, number>,
+  ) {
     super(message)
     this.name = 'DashboardApiError'
     this.status = status
     this.fieldErrors = fieldErrors
+    this.code = code
+    this.blockers = blockers
   }
 }
 
@@ -39,7 +49,7 @@ function parseFlatFieldErrors(payload: unknown): Record<string, string> {
     return result
   }
   for (const [key, value] of Object.entries(payload)) {
-    if (key === 'message' || key === 'title' || key === 'error' || key === 'detail' || key === 'errors') {
+    if (key === 'message' || key === 'title' || key === 'error' || key === 'detail' || key === 'errors' || key === 'code' || key === 'blockers') {
       continue
     }
     if (typeof value === 'string' && value.trim()) {
@@ -47,6 +57,22 @@ function parseFlatFieldErrors(payload: unknown): Record<string, string> {
     }
   }
   return result
+}
+
+function parseBlockers(payload: JsonRecord): Record<string, number> | null {
+  const blockers = payload.blockers
+  if (!isJsonRecord(blockers)) {
+    return null
+  }
+
+  const parsed: Record<string, number> = {}
+  for (const [key, value] of Object.entries(blockers)) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      parsed[key] = value
+    }
+  }
+
+  return Object.keys(parsed).length > 0 ? parsed : null
 }
 
 async function ensureSuccess(response: Response): Promise<void> {
@@ -57,6 +83,8 @@ async function ensureSuccess(response: Response): Promise<void> {
   const contentType = response.headers.get('content-type') ?? ''
   let fieldErrors: Record<string, string> = {}
   let apiMessage: string | null = null
+  let apiCode: string | null = null
+  let apiBlockers: Record<string, number> | null = null
 
   if (contentType.includes('application/json') || contentType.includes('text/json') || contentType.includes('+json')) {
     try {
@@ -65,6 +93,13 @@ async function ensureSuccess(response: Response): Promise<void> {
       if (typeof payload === 'string' && payload.trim()) {
         apiMessage = payload
       } else if (isJsonRecord(payload)) {
+        const directCode = payload.code
+        if (typeof directCode === 'string' && directCode.trim()) {
+          apiCode = directCode.trim()
+        }
+
+        apiBlockers = parseBlockers(payload)
+
         const directMessage = payload.message
         if (typeof directMessage === 'string' && directMessage.trim()) {
           apiMessage = directMessage
@@ -112,7 +147,11 @@ async function ensureSuccess(response: Response): Promise<void> {
   }
 
   const fallbackMessage = response.statusText || 'Unexpected API error.'
-  throw new DashboardApiError(apiMessage ?? fallbackMessage, response.status, fieldErrors)
+  throw new DashboardApiError(apiMessage ?? fallbackMessage, response.status, fieldErrors, apiCode ?? undefined, apiBlockers ?? undefined)
+}
+
+export function isDashboardApiError(error: unknown): error is DashboardApiError {
+  return error instanceof DashboardApiError
 }
 
 async function parseJsonBody<T>(response: Response): Promise<T> {

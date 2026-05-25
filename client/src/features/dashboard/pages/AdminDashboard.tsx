@@ -101,7 +101,7 @@ export function AdminDashboard() {
       hideAdminManagement={false}
       brandLabel="Admin"
       shellClassName="admin-dashboard"
-      contentKey={location.pathname}
+      contentKey={activeView === 'missionFeatureFlags' ? location.pathname : activeView}
     >
       {renderView()}
     </DashboardShell>

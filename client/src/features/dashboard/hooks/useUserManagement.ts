@@ -16,6 +16,15 @@ export interface DepartmentOption {
   name: string
 }
 
+export interface UserDeletionBlockers {
+  missionsAsSupervisor?: number
+  deliverablesAsSupervisor?: number
+  evaluations?: number
+  meetings?: number
+  journalComments?: number
+  journalEvaluationLinks?: number
+}
+
 type UserUpsertPayload = Omit<User, 'id' | 'created'> & {
   password?: string
 }
@@ -204,9 +213,19 @@ export function useUserManagement(): UseUserManagementReturn {
   }, [patch, refresh])
 
   const deleteUser = useCallback(async (id: string) => {
+    const shouldMoveBack = users.length === 1 && page > 1
+    const nextPage = shouldMoveBack ? page - 1 : page
+
     await del(`/api/users/${id}`)
-    await refresh()
-  }, [del, refresh])
+
+    if (shouldMoveBack) {
+      setPage(nextPage)
+      await fetchUsers(nextPage, filters)
+      return
+    }
+
+    await fetchUsers(page, filters)
+  }, [del, fetchUsers, filters, page, users.length])
 
   useEffect(() => {
     void fetchDepartments()

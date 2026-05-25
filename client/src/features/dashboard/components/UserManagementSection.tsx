@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useI18n } from '../../../locales/I18nContext'
-import { useUserManagement, type User } from '../hooks/useUserManagement'
+import { isDashboardApiError } from '../hooks/useDashboardApi'
+import { useUserManagement, type User, type UserDeletionBlockers } from '../hooks/useUserManagement'
 import { Skeleton } from './Skeleton'
 import { ErrorState } from './ErrorState'
 import { Modal } from './Modal'
-import { Plus, Edit, Archive, Search } from './IconComponents'
+import { Plus, Edit, Archive, Search, Trash2 } from './IconComponents'
 import { Input } from '../../../components/ui/Input'
 import { getConfirmPasswordErrorKey, getPasswordPolicyErrorKey } from '../../../utils/passwordValidation'
 
@@ -24,6 +25,7 @@ export function UserManagementSection() {
     createUser,
     updateUser,
     archiveUser,
+    deleteUser,
   } = useUserManagement()
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -39,6 +41,14 @@ export function UserManagementSection() {
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [archiveTarget, setArchiveTarget] = useState<User | null>(null)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteBlockers, setDeleteBlockers] = useState<UserDeletionBlockers | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const roles = [
     { value: 'admin', label: t('role.admin') },
@@ -51,6 +61,12 @@ export function UserManagementSection() {
     { value: 'active', label: t('dashboard.admin.statusActive') },
     { value: 'archived', label: t('dashboard.admin.statusArchived') },
   ]
+
+  useEffect(() => {
+    if (!successMessage) return
+    const timeoutId = window.setTimeout(() => setSuccessMessage(null), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [successMessage])
 
   const getRoleBadgeClass = (role: string) => {
     const classes: Record<string, string> = {
@@ -150,14 +166,114 @@ const { confirmPassword, ...userData } = formData
     setIsCreateModalOpen(true)
   }
 
-  const handleArchive = async (userId: string) => {
-    if (confirm('Are you sure you want to archive this user?')) {
-      await archiveUser(userId)
+  const openArchiveModal = (user: User) => {
+    setArchiveTarget(user)
+    setArchiveError(null)
+  }
+
+  const closeArchiveModal = () => {
+    if (isArchiving) return
+    setArchiveTarget(null)
+    setArchiveError(null)
+  }
+
+  const handleArchiveConfirm = async () => {
+    if (!archiveTarget || isArchiving) return
+
+    setIsArchiving(true)
+    setArchiveError(null)
+
+    try {
+      await archiveUser(archiveTarget.id)
+      setArchiveTarget(null)
+      setSuccessMessage(t('dashboard.table.archiveSuccess'))
+    } catch {
+      setArchiveError(t('dashboard.table.archiveFailed'))
+    } finally {
+      setIsArchiving(false)
     }
+  }
+
+  const openDeleteModal = (user: User) => {
+    setDeleteTarget(user)
+    setDeleteError(null)
+    setDeleteBlockers(null)
+  }
+
+  const closeDeleteModal = () => {
+    if (isDeleting) return
+    setDeleteTarget(null)
+    setDeleteError(null)
+    setDeleteBlockers(null)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget || isDeleting) return
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      await deleteUser(deleteTarget.id)
+      setDeleteTarget(null)
+      setDeleteBlockers(null)
+      setSuccessMessage(t('dashboard.table.deleteSuccess'))
+    } catch (err) {
+      if (isDashboardApiError(err) && err.code) {
+        const codeToKey: Record<string, string> = {
+          USER_NOT_FOUND: 'dashboard.userDeletion.notFound',
+          USER_NOT_ARCHIVED: 'dashboard.userDeletion.notArchived',
+          USER_DELETE_FORBIDDEN: 'dashboard.userDeletion.forbidden',
+          USER_DELETE_BLOCKED: 'dashboard.userDeletion.blocked',
+        }
+        const key = codeToKey[err.code] ?? 'dashboard.table.deleteFailed'
+        setDeleteError(t(key))
+        setDeleteBlockers((err.blockers ?? null) as UserDeletionBlockers | null)
+      } else {
+        setDeleteError(t('dashboard.table.deleteFailed'))
+      }
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const isDeleteModalOpen = Boolean(deleteTarget)
+  const isArchiveModalOpen = Boolean(archiveTarget)
+
+  const renderDeleteBlockers = () => {
+    if (!deleteBlockers) return null
+
+    const blockerEntries: Array<{ key: keyof UserDeletionBlockers; label: string }> = [
+      { key: 'missionsAsSupervisor', label: t('dashboard.userDeletion.blockers.missionsAsSupervisor') },
+      { key: 'deliverablesAsSupervisor', label: t('dashboard.userDeletion.blockers.deliverablesAsSupervisor') },
+      { key: 'evaluations', label: t('dashboard.userDeletion.blockers.evaluations') },
+      { key: 'meetings', label: t('dashboard.userDeletion.blockers.meetings') },
+      { key: 'journalComments', label: t('dashboard.userDeletion.blockers.journalComments') },
+      { key: 'journalEvaluationLinks', label: t('dashboard.userDeletion.blockers.journalEvaluationLinks') },
+    ]
+
+    const activeEntries = blockerEntries.filter(({ key }) => (deleteBlockers[key] ?? 0) > 0)
+    if (activeEntries.length === 0) return null
+
+    return (
+      <div className="form-field">
+        <label>{t('dashboard.userDeletion.blockersTitle')}</label>
+        {activeEntries.map(({ key, label }) => (
+          <div key={String(key)} className="field-helper">
+            {t('dashboard.userDeletion.blockerCount', { label, count: deleteBlockers[key] ?? 0 })}
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (
     <section className="super-admin-section user-management-section">
+      {successMessage && (
+        <div className="supervisor-success-toast" role="status" aria-live="polite">
+          {successMessage}
+        </div>
+      )}
       {/* Header with title and create button */}
       <header className="section-header-row">
         <div className="section-header-text">
@@ -291,14 +407,38 @@ const { confirmPassword, ...userData } = formData
                         >
                           <Edit />
                         </button>
-                        <button
-                          className="action-btn action-btn-archive"
-                          onClick={() => handleArchive(user.id)}
-                          aria-label={t('dashboard.table.archive')}
-                          title={t('dashboard.table.archive')}
+                        <span title={user.status === 'archived' ? t('dashboard.table.archiveDisabled') : t('dashboard.table.archive')}>
+                          <button
+                            className="action-btn action-btn-archive"
+                            onClick={() => {
+                              if (user.status === 'archived') return
+                              openArchiveModal(user)
+                            }}
+                            aria-label={t('dashboard.table.archive')}
+                            disabled={user.status === 'archived'}
+                          >
+                            <Archive />
+                          </button>
+                        </span>
+                        <span
+                          title={
+                            user.status === 'archived'
+                              ? t('dashboard.table.delete')
+                              : t('dashboard.table.archiveRequired')
+                          }
                         >
-                          <Archive />
-                        </button>
+                          <button
+                            className="action-btn action-btn-delete"
+                            onClick={() => {
+                              if (user.status !== 'archived') return
+                              openDeleteModal(user)
+                            }}
+                            aria-label={t('dashboard.table.delete')}
+                            disabled={user.status !== 'archived'}
+                          >
+                            <Trash2 />
+                          </button>
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -331,6 +471,85 @@ const { confirmPassword, ...userData } = formData
           )}
         </>
       )}
+
+      {/* Archive Confirmation Modal */}
+      <Modal
+        isOpen={isArchiveModalOpen}
+        onClose={closeArchiveModal}
+        title={t('dashboard.table.archive')}
+      >
+        <div className="modal-form">
+          <p>{t('dashboard.table.archiveConfirm')}</p>
+          <div className="form-field">
+            <label>{t('dashboard.table.name')}</label>
+            <div>{archiveTarget?.name}</div>
+          </div>
+          <div className="form-field">
+            <label>{t('dashboard.table.email')}</label>
+            <div>{archiveTarget?.email}</div>
+          </div>
+          {archiveError && <p className="form-error">{archiveError}</p>}
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="dash-btn dash-btn-secondary dash-btn-md"
+              onClick={closeArchiveModal}
+              disabled={isArchiving}
+            >
+              {t('dashboard.form.cancel')}
+            </button>
+            <button
+              type="button"
+              className="dash-btn dash-btn-primary dash-btn-md"
+              onClick={() => void handleArchiveConfirm()}
+              disabled={isArchiving}
+            >
+              {t('dashboard.table.archive')}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        title={t('dashboard.table.delete')}
+      >
+        <div className="modal-form">
+          <p>{t('dashboard.table.deleteConfirm')}</p>
+          <p className="field-helper">{t('dashboard.table.deletePermanentWarning')}</p>
+          <p className="field-helper">{t('dashboard.table.deleteCleanupHint')}</p>
+          <div className="form-field">
+            <label>{t('dashboard.table.name')}</label>
+            <div>{deleteTarget?.name}</div>
+          </div>
+          <div className="form-field">
+            <label>{t('dashboard.table.email')}</label>
+            <div>{deleteTarget?.email}</div>
+          </div>
+          {renderDeleteBlockers()}
+          {deleteError && <p className="form-error">{deleteError}</p>}
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="dash-btn dash-btn-secondary dash-btn-md"
+              onClick={closeDeleteModal}
+              disabled={isDeleting}
+            >
+              {t('dashboard.form.cancel')}
+            </button>
+            <button
+              type="button"
+              className="dash-btn dash-btn-primary dash-btn-md"
+              onClick={() => void handleDelete()}
+              disabled={isDeleting}
+            >
+              {t('dashboard.table.delete')}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Create/Edit Modal */}
       <Modal
