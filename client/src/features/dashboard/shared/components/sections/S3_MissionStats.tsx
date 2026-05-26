@@ -37,7 +37,7 @@ export function S3_MissionStats({ data }: Props) {
 
   if (data.loading) {
     return (
-      <div className={`${styles.sectionGrid} ${styles.grid3}`} aria-busy="true">
+      <div className={`${styles.sectionGrid} ${styles.grid2}`} aria-busy="true">
         {skeletonItems.map((item) => (
           <Skeleton key={item} height="280px" />
         ))}
@@ -63,7 +63,7 @@ export function S3_MissionStats({ data }: Props) {
 
   return (
     <div className={styles.stack}>
-      <div className={`${styles.sectionGrid} ${styles.grid3}`}>
+      <div className={`${styles.sectionGrid} ${styles.grid2}`}>
         <article className={styles.chartPanel}>
           <h3 className={styles.panelTitle}>{t('dashboard.bi.missions.timeline')}</h3>
           <ResponsiveContainer width="100%" height={280}>

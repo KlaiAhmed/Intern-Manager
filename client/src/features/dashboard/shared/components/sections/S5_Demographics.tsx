@@ -43,7 +43,7 @@ export function S5_Demographics({ data }: Props) {
 
   if (data.loading) {
     return (
-      <div className={`${styles.sectionGrid} ${styles.grid3}`} aria-busy="true">
+      <div className={`${styles.sectionGrid} ${styles.grid2}`} aria-busy="true">
         {skeletonItems.map((item) => (
           <Skeleton key={item} height="280px" />
         ))}
@@ -70,7 +70,7 @@ export function S5_Demographics({ data }: Props) {
   const byMajor = groupSmallMajorSegments(data.data.byMajor, t('dashboard.bi.demographics.other'))
 
   return (
-    <div className={`${styles.sectionGrid} ${styles.grid3}`}>
+    <div className={`${styles.sectionGrid} ${styles.grid2}`}>
       <article className={styles.chartPanel}>
         <h3 className={styles.panelTitle}>{t('dashboard.bi.demographics.byUniversity')}</h3>
         <ResponsiveContainer width="100%" height={280}>
