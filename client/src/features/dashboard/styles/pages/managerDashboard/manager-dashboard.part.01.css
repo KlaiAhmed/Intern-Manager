@@ -218,7 +218,7 @@
   display: flex;
   align-items: center;
   gap: var(--dash-space-sm);
-  max-width: 120px;
+  max-width: 160px;
 }
 
 .table-progress .dash-progress {

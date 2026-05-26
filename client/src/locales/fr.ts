@@ -572,6 +572,7 @@ export const commonFr = {
   'dashboard.manager.internDetails.label.accountStatus': 'Statut du compte',
   'dashboard.manager.internDetails.label.verificationStatus': 'Statut de verification',
   'dashboard.manager.internDetails.label.cvUrl': 'URL du CV',
+  'dashboard.manager.internDetails.label.cv': 'CV',
   'dashboard.manager.internDetails.label.mission': 'Mission',
   'dashboard.manager.internDetails.label.supervisor': 'Encadrant',
   'dashboard.manager.internDetails.label.internId': 'ID Stagiaire',

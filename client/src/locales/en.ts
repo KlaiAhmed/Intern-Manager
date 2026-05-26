@@ -571,6 +571,7 @@ export const commonEn = {
   'dashboard.manager.internDetails.label.accountStatus': 'Account Status',
   'dashboard.manager.internDetails.label.verificationStatus': 'Verification Status',
   'dashboard.manager.internDetails.label.cvUrl': 'CV URL',
+  'dashboard.manager.internDetails.label.cv': 'CV',
   'dashboard.manager.internDetails.label.mission': 'Mission',
   'dashboard.manager.internDetails.label.supervisor': 'Supervisor',
   'dashboard.manager.internDetails.label.internId': 'Intern ID',

@@ -6,12 +6,13 @@ interface ModalProps {
   isOpen: boolean
   onClose: () => void
   title: string
+  hideHeader?: boolean
 }
 
 /**
  * Modal/dialog réutilisable avec gestion du focus et de l'accessibilité.
  */
-export function Modal({ isOpen, onClose, title, children }: PropsWithChildren<ModalProps>) {
+export function Modal({ isOpen, onClose, title, hideHeader, children }: PropsWithChildren<ModalProps>) {
   const { t } = useI18n()
   const overlayRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -60,17 +61,19 @@ export function Modal({ isOpen, onClose, title, children }: PropsWithChildren<Mo
         className="modal-content"
         tabIndex={-1}
       >
-        <div className="modal-header">
-          <h2 id="modal-title" className="modal-title">{title}</h2>
-          <button
-            type="button"
-            className="modal-close-button"
-            onClick={onClose}
-            aria-label={t('dashboard.form.close')}
-          >
-            ✕
-          </button>
-        </div>
+        {!hideHeader && (
+          <div className="modal-header">
+            <h2 id="modal-title" className="modal-title">{title}</h2>
+            <button
+              type="button"
+              className="modal-close-button"
+              onClick={onClose}
+              aria-label={t('dashboard.form.close')}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="modal-body">
           {children}
         </div>

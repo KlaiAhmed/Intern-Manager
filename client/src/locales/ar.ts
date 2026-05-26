@@ -571,6 +571,7 @@ export const commonAr = {
   'dashboard.manager.internDetails.label.accountStatus': 'حالة الحساب',
   'dashboard.manager.internDetails.label.verificationStatus': 'حالة التحقق',
   'dashboard.manager.internDetails.label.cvUrl': 'رابط السيرة الذاتية',
+  'dashboard.manager.internDetails.label.cv': 'السيرة الذاتية',
   'dashboard.manager.internDetails.label.mission': 'المهمة',
   'dashboard.manager.internDetails.label.supervisor': 'المشرف',
   'dashboard.manager.internDetails.label.internId': 'معرّف المتدرب',

@@ -77,7 +77,7 @@
 .dash-btn-ghost {
   background: transparent;
   color: var(--dash-text-secondary);
-  border: 1px solid transparent;
+  border: 1px solid var(--dash-border);
 }
 
 .dash-btn-ghost:hover:not(:disabled) {

@@ -48,6 +48,11 @@ function toVerificationTone(rawValue: string): 'neutral' | 'info' | 'success' | 
   return 'info'
 }
 
+function isVerificationActive(rawValue: string | undefined): boolean {
+  const normalized = (rawValue ?? '').trim().toLowerCase().replace(/[_-]/g, ' ')
+  return normalized.includes('active') || normalized.includes('verified') || normalized.includes('approved')
+}
+
 export function InternsTab({
   loadingInterns,
   internsError,
@@ -152,15 +157,17 @@ export function InternsTab({
                     <td data-label={t('dashboard.manager.interns.table.mission')}>{intern.missionTitle || '-'}</td>
                     <td data-label={t('dashboard.manager.interns.table.supervisor')}>{intern.supervisorName || '-'}</td>
                     <td data-label={t('dashboard.manager.interns.table.progress')}>
-                      <div className="table-progress">
-                        <div className="dash-progress">
-                          <div
-                            className={`dash-progress-fill ${intern.status === 'completed' ? 'dash-progress-fill-success' : ''}`}
-                            style={{ width: `${intern.progress}%` }}
-                          />
+                      {isVerificationActive(intern.verificationStatus) ? (
+                        <div className="table-progress">
+                          <div className="dash-progress">
+                            <div
+                              className={`dash-progress-fill ${intern.status === 'completed' ? 'dash-progress-fill-success' : ''}`}
+                              style={{ width: `${intern.progress}%` }}
+                            />
+                          </div>
+                          <span>{intern.progress}%</span>
                         </div>
-                        <span>{intern.progress}%</span>
-                      </div>
+                      ) : '-'}
                     </td>
                     <td data-label={t('dashboard.manager.interns.table.status')}>
                       <span className={`dash-status-badge dash-status-badge-${intern.status}`}>{intern.status}</span>

@@ -145,6 +145,10 @@
   border-bottom: 1px solid var(--dash-border);
 }
 
+.intern-modal-header .modal-close-button {
+  margin-left: auto;
+}
+
 .intern-modal-avatar {
   width: 3.5rem;
   height: 3.5rem;

@@ -550,7 +550,7 @@ export function InternDetailsModal({
   const verificationStatusValue = asNonEmptyString(internDetails?.verificationStatus) || asNonEmptyString(intern?.verificationStatus) || 'Unknown'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={internDisplayName || t('dashboard.manager.internDetails.title')}>
+    <Modal isOpen={isOpen} onClose={onClose} title={internDisplayName || t('dashboard.manager.internDetails.title')} hideHeader>
       {!intern ? null : detailsLoading ? (
         <Skeleton height="320px" />
       ) : detailsError ? (
@@ -570,19 +570,19 @@ export function InternDetailsModal({
               <h3>{internDisplayName || '-'}</h3>
               <p className="intern-modal-email">{asNonEmptyString(internDetails?.email) || intern.email || '-'}</p>
             </div>
+            <button
+              type="button"
+              className="modal-close-button"
+              onClick={onClose}
+              aria-label={t('dashboard.form.close')}
+            >
+              ✕
+            </button>
           </div>
 
           <div className="intern-modal-block">
             <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.personalInfo')}</h4>
             <div className="admin-modal-details-grid">
-              <div>
-                <h3>{t('dashboard.manager.internDetails.label.name')}</h3>
-                <p>{internDisplayName || '—'}</p>
-              </div>
-              <div>
-                <h3>{t('dashboard.manager.internDetails.label.email')}</h3>
-                <p>{asNonEmptyString(internDetails?.email) || intern.email || '—'}</p>
-              </div>
               <div>
                 <h3>{t('dashboard.manager.internDetails.label.phone')}</h3>
                 <p>{asNonEmptyString(internDetails?.phone) || '—'}</p>
@@ -598,14 +598,6 @@ export function InternDetailsModal({
               <div>
                 <h3>{t('dashboard.manager.internDetails.label.level')}</h3>
                 <p>{asNonEmptyString(internDetails?.level) || '—'}</p>
-              </div>
-              <div>
-                <h3>{t('dashboard.manager.internDetails.label.firstName')}</h3>
-                <p>{asNonEmptyString(internDetails?.firstName) || '—'}</p>
-              </div>
-              <div>
-                <h3>{t('dashboard.manager.internDetails.label.lastName')}</h3>
-                <p>{asNonEmptyString(internDetails?.lastName) || '—'}</p>
               </div>
             </div>
           </div>
@@ -650,8 +642,24 @@ export function InternDetailsModal({
                 />
               </div>
               <div>
-                <h3>{t('dashboard.manager.internDetails.label.cvUrl')}</h3>
-                <p>{asNonEmptyString(internDetails?.cvFileUrl) || '—'}</p>
+                <h3>{t('dashboard.manager.internDetails.label.cv')}</h3>
+                <DashboardButton
+                  variant="ghost"
+                  size="sm"
+                  loading={cvLoading}
+                  disabled={!hasCv || cvLoading}
+                  title={!hasCv ? t('dashboard.manager.internDetails.noCvUploaded') : undefined}
+                  onClick={() => void handleViewCv()}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                  {t('dashboard.manager.internDetails.viewCv')}
+                </DashboardButton>
               </div>
             </div>
           </div>
@@ -681,20 +689,6 @@ export function InternDetailsModal({
               <div>
                 <h3>{t('dashboard.manager.internDetails.label.supervisor')}</h3>
                 <p>{asNonEmptyString(internDetails?.currentInternship?.supervisor?.name) || t('dashboard.manager.internDetails.notAssigned')}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="intern-modal-block">
-            <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.additionalFields')}</h4>
-            <div className="admin-modal-details-grid">
-              <div>
-                <h3>{t('dashboard.manager.internDetails.label.internId')}</h3>
-                <p>{targetInternId || '-'}</p>
-              </div>
-              <div>
-                <h3>{t('dashboard.manager.internDetails.label.progress')}</h3>
-                <p>{intern.progress}%</p>
               </div>
             </div>
           </div>
