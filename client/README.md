@@ -1,211 +1,160 @@
-# Axia Intern Manager - Client
+# Intern Manager Client
 
-Frontend web du projet Axia Intern Manager, construit avec React, TypeScript et Vite.
+The client is a React 19 single-page app for Axia Smart Intern Manager. It provides the public home page, login/signup, password reset, protected dashboards, role-specific workflows, notifications, language switching, and theme switching.
 
-## Apercu
+## Quick Start
 
-Le client fournit:
-- une landing page produit,
-- un parcours d'authentification (`/login`, `/signin`),
-- un socle transverse (theme, i18n, role preference, layout, composants UI reutilisables).
+Create `client/.env`:
 
-## Stack technique
-
-- React 19
-- TypeScript 5.9
-- Vite 8
-- React Router 7
-- ESLint 9
-
-## Demarrage rapide
-
-### Prerequis
-
-- Node.js 20+
-- npm 10+
-
-### Installation
-
-```bash
-npm install
+```powershell
+Copy-Item .env.example .env
 ```
 
-### Lancer en developpement
+Install and run:
 
-```bash
+```powershell
+npm install
 npm run dev
 ```
 
-### Build production
+Default local URL:
 
-```bash
+- `http://localhost:5173`
+
+`VITE_API_BASE_URL` must point to the API, usually `http://localhost:5184`.
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run lint` | Run ESLint |
+| `npm run build` | Run TypeScript build, then Vite build |
+| `npm run test` | Run Vitest once |
+| `npm run preview` | Serve the production build locally |
+
+Use this order before handing off client changes:
+
+```powershell
+npm run lint
 npm run build
 ```
 
-### Preview du build
-
-```bash
-npm run preview
-```
-
-### Lint
-
-```bash
-npm run lint
-```
-
-## Scripts disponibles
-
-- `npm run dev`: lance le serveur Vite en mode developpement
-- `npm run build`: verification TypeScript (`tsc -b`) puis build Vite
-- `npm run preview`: sert localement le build de production
-- `npm run lint`: execute ESLint sur le projet
-
-## Structure du projet
+## App Structure
 
 ```text
 client/
-├── public/                    # Static files served by Vite
-├── src/
-│   ├── app/                   # App shell and providers
-│   │   ├── App.tsx           # Root component
-│   │   └── providers/        # RootProviders, theme, i18n, auth contexts
-│   ├── assets/                # Imported images, icons, and media
-│   ├── components/            # Reusable shared components
-│   │   ├── layout/           # AppShell, Header, Footer
-│   │   └── ui/               # Badge, Button, Card, Section, switches
-│   ├── config/                # App configuration and constants
-│   ├── features/              # Feature-based modules
-│   │   ├── auth/             # Authentication screens and logic
-│   │   │   ├── api/          # Auth API calls
-│   │   │   ├── components/   # AuthScreen, LoginView, SignUpView
-│   │   │   ├── hooks/        # useAuthScreenLogic
-│   │   │   ├── locales/      # ar, en, fr translations
-│   │   │   ├── types/        # Auth-specific types
-│   │   │   └── styles/       # Auth-specific styles
-│   │   ├── dashboard/        # Role-based dashboards
-│   │   │   ├── api/          # Dashboard API calls
-│   │   │   ├── components/   # Charts, cards, tables
-│   │   │   │   └── intern/   # Intern-specific dashboard cards
-│   │   │   ├── hooks/        # Dashboard data hooks
-│   │   │   ├── locales/      # Dashboard translations
-│   │   │   ├── pages/        # Manager, Supervisor dashboards
-│   │   │   ├── styles/       # Dashboard CSS
-│   │   │   └── types/        # Dashboard types
-│   │   ├── home/             # Landing page sections
-│   │   │   ├── locales/      # Home translations
-│   │   │   └── sections/     # Hero, Benefits, Lifecycle, etc.
-│   │   └── notifications/    # Notification components
-│   │       ├── api/          # Notification API
-│   │       ├── components/   # NotificationBell
-│   │       ├── hooks/        # useNotifications
-│   │       └── locales/      # Notification translations
-│   ├── hooks/                 # Shared custom hooks
-│   ├── lib/                   # Third-party library wrappers
-│   │   ├── apiClient.ts      # Axios instance and helpers
-│   │   └── authApi.ts        # Auth API functions
-│   ├── locales/               # Global i18n translations
-│   │   ├── I18nContext.tsx   # I18n provider
-│   │   ├── ar.ts, en.ts, fr.ts
-│   │   └── index.ts          # Translation aggregator
-│   ├── pages/                 # Page components (routing targets)
-│   │   ├── DashboardPage/
-│   │   ├── HomePage/
-│   │   ├── LoginPage/
-│   │   ├── SignUpPage/
-│   │   ├── ErrorPage/
-│   │   └── NotFoundPage/
-│   ├── routes/                # Routing configuration
-│   │   ├── AppRouter.tsx     # Main router
-│   │   ├── guards/           # ProtectedRoute
-│   │   ├── lazyPages.ts      # Lazy-loaded pages
-│   │   └── routeConfig.ts    # Route definitions
-│   ├── shared/                # Cross-cutting concerns
-│   │   └── errors/           # ErrorPage, NotFoundPage
-│   ├── stores/                # Global state management
-│   │   ├── AuthContext.tsx   # Auth state provider
-│   │   ├── RolePreferenceContext.tsx
-│   │   └── ThemeContext.tsx  # Theme state provider
-│   ├── styles/                # Global styles
-│   │   ├── index.css         # Main stylesheet
-│   │   └── partials/         # CSS partials
-│   ├── types/                 # Global TypeScript types
-│   │   └── role.ts           # Role types
-│   ├── utils/                 # Utility functions
-│   │   └── classNames.ts     # Class name helper
-│   ├── main.tsx               # App entry point
-│   └── vite-env.d.ts          # Vite TypeScript declarations
-├── package.json               # Dependencies and scripts
-├── tsconfig.json              # TypeScript config
-├── tsconfig.app.json          # App TypeScript config
-├── tsconfig.node.json         # Node TypeScript config
-├── vite.config.ts             # Vite configuration
-├── eslint.config.js           # ESLint configuration
-└── .env                       # Environment variables
+|-- public/              Static files served by Vite
+|-- src/
+|   |-- app/             Root app component and providers
+|   |-- assets/          Imported images and media
+|   |-- components/      Shared layout and UI components
+|   |-- config/          Client constants
+|   |-- features/        Auth, dashboard, home, notifications
+|   |-- hooks/           Shared hooks
+|   |-- lib/             API client and auth helpers
+|   |-- locales/         Global i18n setup and translations
+|   |-- pages/           Route-level page wrappers
+|   |-- routes/          Router, lazy pages, guards, route config
+|   |-- shared/          Shared error pages and error boundary
+|   |-- stores/          Auth, theme, and role preference contexts
+|   |-- styles/          Global CSS
+|   |-- test/            Vitest setup
+|   |-- types/           Shared TypeScript types
+|   `-- utils/           Small utilities
+|-- package.json
+|-- vite.config.ts
+`-- eslint.config.js
 ```
 
-## Routage
+The `@` import alias points to `client/src`.
 
-Routes principales:
-- `/`: homepage (dans le shell applicatif)
-- `/login`: connexion
-- `/signin`: inscription
-- `/dashboard`: tableau de bord (protege par role)
-- `/404`: page non trouvee
+## Routes
 
-## Providers globaux
+Routes are defined in `src/routes/routeConfig.ts`.
 
-L'application est montee avec les providers suivants (ordre stable):
-1. Theme provider
-2. I18n provider
-3. Role preference provider
-4. Browser router
+| Route | Purpose |
+| --- | --- |
+| `/` | Public home page |
+| `/login` | Guest-only login |
+| `/signup` | Guest-only signup |
+| `/forgot-password` | Guest-only password reset flow |
+| `/dashboard` | Protected dashboard entry point |
+| `/dashboard/admin/*` | Admin dashboard sections |
+| `/dashboard/admin/missions/:missionId/feature-flags` | Mission dashboard card settings |
+| `/dashboard/supervisor/interns/:internId/journal` | Supervisor journal review |
+| `/404`, `/error` | Error pages |
 
-Ce montage est defini dans `src/app/providers/RootProviders.tsx`.
+`ProtectedRoute` sends unauthenticated users to `/login`. If a signed-in user lacks the required role, it sends them back to `/dashboard`. `GuestRoute` sends signed-in users away from login/signup/reset pages.
 
-## Architecture Feature-First
+## Providers
 
-Le projet suit une architecture feature-first:
-- **`src/features/`**: Contient le code metier organise par fonctionnalite
-- **`src/components/`**: Composants UI partagés reutilisables
-- **`src/stores/`**: State management global (Auth, Theme, RolePreference)
-- **`src/lib/`**: Wrappers et helpers pour bibliotheques tierces
-- **`src/locales/`**: Traductions centralisees
-- **`src/pages/`**: Pages utilisees par le routeur
-- **`src/routes/`**: Configuration du routage et gardes
+`src/app/providers/RootProviders.tsx` mounts providers in this order:
 
-Chaque feature (`auth`, `dashboard`, `home`, `notifications`) est autonome avec:
-- `api/` - Appels API specifiques
-- `components/` - Composants UI de la feature
-- `hooks/` - Hooks React specifiques
-- `locales/` - Traductions de la feature
-- `types/` - Types TypeScript specifiques
-- `styles/` - Styles CSS de la feature
+1. Theme
+2. I18n
+3. Auth
+4. Role preference
+5. Browser router
 
-## Bonnes pratiques de contribution
+`AuthContext` exposes login, signup, logout, current user refresh, loading state, and the current user.
 
-- Garder une architecture feature-first (`src/features`) pour le metier.
-- Centraliser le code transversal dans `src/components`, `src/stores`, `src/lib`.
-- Maintenir les composants UI atomiques et reutilisables.
-- Eviter la logique metier dans les composants de presentation.
-- Toujours ajouter des etats UX explicites pour les actions asynchrones (loading/erreur/succes).
-- Preserver l'accessibilite (focus visible, labels, navigation clavier).
-- Ajouter les traductions pour les nouvelles fonctionnalites (ar, en, fr).
+## API Access
 
-## Qualite et validation attendues
+`src/lib/apiClient.ts` is the shared fetch wrapper.
 
-Avant de proposer un changement:
-1. `npm run lint`
-2. `npm run build`
-3. verification manuelle rapide des routes impactees
+It:
 
-## Depannage rapide
+- Reads `VITE_API_BASE_URL`.
+- Sends `credentials: 'include'` for cookie auth.
+- Adds `Accept: application/json` by default.
+- Retries one time after a `401` by calling `/auth/refresh`.
+- Redirects to `/login` when refresh fails.
+- Copies the CSRF cookie into `X-CSRF-Token` only when the request headers already include an `X-CSRF-Token` key.
 
-- Erreurs de typage: verifier `tsconfig.app.json` et `tsconfig.node.json`, puis relancer `npm run build`.
-- Styles non appliques: verifier les imports CSS dans les composants/pages concernes.
-- Route inaccessible: controler `src/routes/AppRouter.tsx`.
-- Traductions manquantes: ajouter les cles dans `src/locales/` et `src/features/*/locales/`.
+Feature code should use existing API helpers when available. For upload progress, the dashboard uses `XMLHttpRequest` in `features/dashboard/api/internCvApi.ts`.
 
-## License
+## Features
 
-Projet interne Axia. Usage reserve a l'equipe produit/developpement.
+| Feature | Location | Notes |
+| --- | --- | --- |
+| Auth | `src/features/auth` | Login, signup, forgot password, form logic, auth translations |
+| Dashboard | `src/features/dashboard` | Admin, SuperAdmin, Manager, Supervisor, and Intern dashboards |
+| Home | `src/features/home` | Public landing sections and home stats |
+| Notifications | `src/features/notifications` | Notification bell, API calls, hooks, translations |
+
+Dashboard intern cards are gated by mission feature flags. The matching API and dashboard reporting live behind backend role checks.
+
+## Styling
+
+- Shared layout and UI components use CSS modules.
+- Dashboard components use global CSS through `src/features/dashboard/styles/dashboard.css`.
+- Reuse global `--color-*` tokens and dashboard `--dash-*` tokens.
+- Keep user-facing text in translations instead of hardcoding it in components.
+
+## Internationalization
+
+Use `useI18n()` from `src/locales/I18nContext`.
+
+When adding visible text, update:
+
+- `src/locales/ar.ts`
+- `src/locales/en.ts`
+- `src/locales/fr.ts`
+
+Feature-level translations live under each feature's `locales/` folder.
+
+## Tests
+
+Run all client tests:
+
+```powershell
+npm run test
+```
+
+Current test files cover:
+
+- Notification bell behavior
+- Settings panel behavior
+- Intern dashboard feature gates
+- Intern multi-step application form

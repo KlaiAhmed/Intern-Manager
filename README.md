@@ -1,233 +1,140 @@
 # Axia Intern Manager
 
-An internship management platform built with ASP.NET Core 10 and React/TypeScript.
+Axia Intern Manager is a full-stack application for running an internship program. It covers user accounts, intern onboarding, missions, tasks, deliverables, meetings, evaluations, notifications, audit logs, admin settings, and dashboard reporting.
 
-## Getting Started
+The repository is split into an ASP.NET Core API and a React client. Each folder has its own README with deeper implementation notes.
 
-### 1. Clone and Setup
+## Repository Map
 
-In your terminal:
-```bash
-git clone https://github.com/KlaiAhmed/Intern-Manager
-
-cd "Intern Manager"
+```text
+.
+|-- api/                 ASP.NET Core Web API, EF Core models, migrations, services, tests
+|-- client/              React + TypeScript single-page app
+|-- docs/                Discovery notes and feature planning documents
+|-- AGENTS.md            Local development notes for coding agents
+|-- CLAUDE.md            Pointer to AGENTS.md
+|-- Intern Manager.sln   Visual Studio solution
+`-- README.md            Project-level overview
 ```
 
+## Stack
 
-### 2. Configure Environment
-
-Create these two files with any editor:
-
-| File | Purpose | Example |
-| --- | --- | --- |
-| `api/.env` | API and database settings | `api/.env.example` |
-| `client/.env` | Frontend API URL | `client/.env.example` |
-
-
-### 3. Start SQL EXPRESS Server
-
-| Platform | What to do |
+| Area | Tools |
 | --- | --- |
-| Windows | Start `SQL Server (SQLEXPRESS)` from Services, or run `net start "SQL Server (SQLEXPRESS)"`. |
-| Linux/macOS | Connect the app to a running SQL Server instance, usually Docker or a remote server. |
+| API | .NET 10, ASP.NET Core controllers, EF Core 10, SQL Server, FluentValidation |
+| Auth | JWT access cookies, refresh cookies, CSRF cookie/header check, role-based authorization |
+| Email | MailKit/MimeKit for password reset emails |
+| Client | React 19, TypeScript 5.9, Vite 8, React Router 7, Recharts |
+| Tests | xUnit for API tests, Vitest and Testing Library for client tests |
 
-### 4. Run the API
+## Local Setup
 
-```bash
-cd api
+Prerequisites:
 
-# Run the API:
-dotnet run
+- .NET SDK 10
+- Node.js 20+ and npm 10+
+- SQL Server Express, or another SQL Server instance reachable from the API
 
-# Or with hot reload:
-dotnet watch run
+Create local environment files:
+
+```powershell
+Copy-Item api\.env.example api\.env
+Copy-Item client\.env.example client\.env
 ```
 
-Open:
+Important API values:
 
-- API: `http://localhost:5184`
-- Swagger: `http://localhost:5184/swagger`
+- `JWT__ISSUER` must be `AxiaInternManager`.
+- `JWT__AUDIENCE` must be `AxiaInternManagerClient`.
+- `JWT__KEY` must be a real secret of at least 32 bytes.
+- `SQLSERVER_INSTANCE` defaults to `.\SQLEXPRESS`.
+- `DATABASE_PATH=app.db` creates a SQL Server database named `AxiaInternManager_app`.
+- `EMAIL_*` settings are required at startup because password reset emails are wired in.
+- `SUPERADMIN_PASSWORD` must be at least 8 characters and include uppercase, lowercase, digit, and special character.
 
-The API automatically:
-- Creates the database on first run
-- Seeds the SuperAdmin account
-- Seeds reference data (departments, schools, etc.)
+Run the API:
 
-### 5. Run the Client
+```powershell
+cd api
+dotnet restore
+dotnet build InternManager.Api.csproj
+dotnet run --project InternManager.Api.csproj
+```
 
-```bash
+Run the client:
+
+```powershell
 cd client
-
-# Install dependencies:
 npm install
-
-# Start the frontend:
 npm run dev
 ```
 
-Open:
+Default local URLs:
 
+- API: `http://localhost:5184`
+- Swagger: `http://localhost:5184/swagger`
 - Client: `http://localhost:5173`
 
-## Technology Stack
+## How The App Starts
 
-- Backend: ASP.NET Core 10, EF Core 10, SQL Server
-- Frontend: React 19, TypeScript 5.9, Vite 8, React Router 7
-- Security: JWT, BCrypt, CSRF protection
-- Rate limiting: Built-in ASP.NET Core rate limiting
+On API startup, `Program.cs` loads `api/.env`, validates JWT and email settings, builds the SQL Server connection string, registers application services, runs EF Core migrations, seeds reference data, creates the SuperAdmin account if needed, and then maps controllers.
 
+In Development, Swagger is enabled and `DevelopmentLazyAuthBypassMiddleware` can inject a matching dev user for protected endpoints. It reads endpoint role metadata such as `[Authorize(Roles = "...")]`; no query string flag is needed.
 
-## Project Structure Overview
+The client reads `VITE_API_BASE_URL` from `client/.env`, sends requests with cookies, retries once after a `401` by calling `/auth/refresh`, and redirects to `/login` when the session cannot be renewed.
 
-Modern view:
+## Main Product Areas
 
-```text
-intern-manager/
-├── client/                          # React + Vite frontend
-│   ├── src/         
-│   │   ├── app/                     # App shell, providers, and routing setup
-│   │   ├── assets/                  # Static assets imported in the app
-│   │   ├── components/              # Shared reusable UI components
-│   │   ├── features/                # Feature-based modules (auth, dashboard, home, notifications)
-│   │   ├── hooks/                   # Shared custom hooks
-│   │   ├── lib/                     # API clients and utility wrappers
-│   │   ├── locales/                 # Global translations and i18n setup
-│   │   ├── pages/                   # Route-level page components
-│   │   ├── routes/                  # Router configuration and guards
-│   │   ├── stores/                  # Global state and context providers
-│   │   ├── styles/                  # Global styles
-│   │   ├── types/                   # Shared TypeScript types
-│   │   ├── utils/                   # General utility helpers
-│   │   ├── main.tsx                 # Frontend entry point
-│   │   └── vite-env.d.ts            # Vite type declarations
-│   ├── public/                      # Static files served directly
-│   ├── package.json                 # Frontend dependencies and scripts
-│   ├── tsconfig.json                # TypeScript configuration
-│   ├── vite.config.ts               # Vite configuration
-│   └── .env                         # Frontend environment variables
-│        
-├── api/                             # ASP.NET Core backend
-│   ├── Controllers/                 # API endpoints
-│   ├── Data/                        # DbContext, migrations, and seeding
-│   ├── Models/                      # Entities, DTOs, and request/response models
-│   ├── Services/                    # Business logic
-│   ├── Common/                      # Shared enums, options, and helpers
-│   ├── Extensions/                  # Startup and DI extensions
-│   ├── Middleware/                  # Custom middleware
-│   ├── Properties/                  # Launch settings and metadata
-│   ├── Program.cs                   # Backend entry point
-│   ├── appsettings.json             # Base configuration
-│   ├── appsettings.Development.json # Development overrides
-│   ├── uploads/                     # Uploaded files
-│   └── .env                         # Backend environment variables
-│        
-├── AGENTS.md                        # Instructions for agents
-├── .gitignore                       # Git ignored files and folders
-└── README.md                        # Project overview and setup guide
+Roles in the API are `SuperAdmin`, `Admin`, `Manager`, `Supervisor`, and `Intern`.
+
+The current backend surface includes:
+
+- Auth and password reset
+- User management and account archiving/deletion checks
+- Admin settings for departments, schools, internship types, and skills
+- Intern profile, onboarding, CV upload, and feature flags
+- Internships, missions, mission assignments, and mission history
+- Tasks, deliverables, deliverable versions, meetings, and evaluations
+- Supervisor journal review and supervisor dashboard metrics
+- In-app notifications and intern-specific notifications
+- Admin audit logs and dashboard/BI statistics
+
+The client exposes public pages, auth pages, password reset, protected dashboards, role-specific dashboard sections, notifications, language/theme controls, and intern onboarding flows.
+
+## Security Notes
+
+- Access and refresh tokens are stored in secure cookies.
+- The readable `csrf_token` cookie must be copied to the `X-CSRF-Token` header for protected write requests.
+- `apiClient.ts` only injects the CSRF token when the request already includes an `X-CSRF-Token` header key.
+- CORS uses `CLIENT_ORIGIN` and allows credentials.
+- Deliverable uploads accept `.pdf`, `.doc`, `.docx`, and `.zip` up to 10 MB.
+- Intern CV upload accepts PDF files up to 2 MB.
+
+## Validation Commands
+
+Client verification order:
+
+```powershell
+cd client
+npm run lint
+npm run build
+npm run test
 ```
 
-## Client Architecture Highlights
+API verification:
 
-The client follows a **feature-first architecture**:
+```powershell
+cd api
+dotnet test tests\InternManager.Api.Tests\InternManager.Api.Tests.csproj
+```
 
-- **`src/features/`**: Contains business logic organized by domain (auth, dashboard, home, notifications)
-- **`src/components/`**: Shared, reusable UI components (layout, buttons, cards, etc.)
-- **`src/stores/`**: Global state management (Auth, Theme, RolePreference)
-- **`src/lib/`**: Third-party library wrappers and helpers (API client, auth API)
-- **`src/locales/`**: Global internationalization (ar, en, fr)
-- **`src/pages/`**: Page components used by the router
-- **`src/routes/`**: Routing configuration and guards
+## Code Conventions
 
-Each feature module is self-contained with:
-- `api/` - API calls specific to the feature
-- `components/` - UI components for the feature
-- `hooks/` - Custom React hooks for the feature
-- `locales/` - Translations for the feature
-- `types/` - TypeScript types for the feature
-- `styles/` - CSS specific to the feature
-
-## API Reference
-
-Swagger UI is available at `http://localhost:5184/swagger`.
-
-Main endpoints:
-
-- `POST /auth/login` - Sign in
-- `GET /auth/me` - Current user
-- `POST /api/auth/forgot-password` - Request a 6-digit reset code
-- `POST /api/auth/verify-reset-code` - Verify code and get verification token
-- `POST /api/auth/reset-password` - Reset password with verification token
-- `GET /users` - Users list for Admin/SuperAdmin
-- `GET/POST /internships` - Internship management
-- `GET/POST /missions` - Mission management
-- `GET/POST /deliverables` - Deliverable tracking
-
-
-
-## Context Structure
-
-`useAuth()` gives you:
-
-| Field | Meaning |
-| --- | --- |
-| `user` | Current signed-in user, or `null` |
-| `isAuthenticated` | `true` when the user is signed in |
-| `login(email, password)` | Signs the user in |
-| `logout()` | Signs the user out |
-| `refreshToken()` | Renews the session |
-| `isLoading` | `true` while auth is still loading |
-
-
-### Handle API Errors
-
-| Status | Meaning | What to do |
-| --- | --- | --- |
-| `401` | Not signed in or session expired | Log in again or refresh the session |
-| `403` | Signed in, but not allowed | Use an account with the right role |
-| `429` | Too many requests | Wait and try again later |
-| Other | Request failed | Show the message returned by the API |
-
-### Configure Protected Route
-
-Think of it as a simple gate:
-
-- Loading -> show a spinner
-- Not signed in -> send the user to `/login`
-- Wrong role -> send the user to `/dashboard`
-- Allowed -> render the page
-
-## Rate Limiting
-
-Use rate limits to protect busy actions.
-
-| Policy | Limit | Typical use |
-| --- | --- | --- |
-| `auth` | 10 requests per minute | Login and auth endpoints |
-| `upload` | 5 requests per minute | File uploads |
-| `write-heavy` | 20 requests per minute | Regular write actions |
-
-Add the matching policy name to the action you want to protect, for example `upload` for file uploads.
-
-
-## Security Configuration
-
-### JWT Configuration
-
-- The API uses JWT access tokens plus refresh cookies.
-- Token validation checks issuer, audience, signature, and expiry.
-- Protected requests also use a CSRF token.
-
-### CORS for Production
-
-- Allow only the real frontend domains in production.
-- Keep credentials enabled so cookies still work.
-
-### Secure File Upload
-
-- Allow only `.pdf`, `.doc`, `.docx`, and `.zip`.
-- Limit uploads to 10 MB.
-- Generate a safe file name instead of trusting the original one.
-- Create the upload folder before saving the file.
-
-## Testing the API
-Swagger UI is available at `http://localhost:5184/swagger`
+- Keep API endpoints in controllers and business rules in services.
+- Add request/response models under `api/Models` when an endpoint needs a clear contract.
+- Use existing rate limit policy names from `Program.cs`.
+- Keep client feature code under `client/src/features`.
+- Put shared client UI under `client/src/components`.
+- Use `useI18n()` for user-facing text and update `ar.ts`, `en.ts`, and `fr.ts`.
+- Use CSS modules for shared/layout components. Dashboard components use the global dashboard CSS entry point.
+- Client environment variables must start with `VITE_`.
