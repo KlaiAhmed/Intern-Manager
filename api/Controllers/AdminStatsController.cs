@@ -1603,11 +1603,11 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                 .GroupBy(log => log.Action)
                 .Select(group => new
                 {
-                    action = group.Key,
-                    count = group.Count()
+                    name = group.Key,
+                    value = group.Count()
                 })
-                .OrderByDescending(item => item.count)
-                .ThenBy(item => item.action)
+                .OrderByDescending(item => item.value)
+                .ThenBy(item => item.name)
                 .Take(10)
                 .ToListAsync(cancellationToken);
 
@@ -1617,8 +1617,8 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                 .OrderBy(group => group.Key)
                 .Select(group => new
                 {
-                    role = group.Key.ToString(),
-                    count = group.Count()
+                    name = group.Key.ToString(),
+                    value = group.Count()
                 })
                 .ToList();
 
@@ -1705,7 +1705,7 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                     priority = "high",
                     message = $"{pendingVerifications} interns awaiting verification",
                     count = pendingVerifications,
-                    actionUrl = "/admin/interns?filter=pending"
+                    actionUrl = "/dashboard/admin/interns"
                 },
                 new
                 {
@@ -1713,7 +1713,7 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                     priority = "high",
                     message = $"{pendingEvaluations} evaluations awaiting approval",
                     count = pendingEvaluations,
-                    actionUrl = "/admin/evaluations?filter=pending"
+                    actionUrl = "/dashboard/admin/evaluations"
                 },
                 new
                 {
@@ -1721,7 +1721,7 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                     priority = "medium",
                     message = $"{missionsEndingSoon.Count} missions end within 7 days",
                     count = missionsEndingSoon.Count,
-                    actionUrl = "/admin/missions?filter=ending-soon"
+                    actionUrl = "/dashboard/admin/internships"
                 },
                 new
                 {
@@ -1729,7 +1729,7 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                     priority = "medium",
                     message = $"{unassignedVerifiedInterns} verified interns without an active mission",
                     count = unassignedVerifiedInterns,
-                    actionUrl = "/admin/interns?filter=unassigned"
+                    actionUrl = "/dashboard/admin/interns"
                 },
                 new
                 {
@@ -1737,7 +1737,7 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
                     priority = "low",
                     message = $"{overdueDeliverables} overdue deliverables",
                     count = overdueDeliverables,
-                    actionUrl = "/admin/deliverables?filter=overdue"
+                    actionUrl = "/dashboard/admin/internships"
                 }
             }
                 .OrderBy(item => GetPriorityOrder(item.priority))

@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
+import { format } from 'date-fns'
+import { useI18n } from '@/locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
 import { ErrorState } from '../../components/ErrorState'
 import { Skeleton } from '../../components/Skeleton'
@@ -40,13 +42,14 @@ function renderSection<T>(
   title: string,
   section: BiSectionData<T>,
   children: ReactNode,
-  options: { handlesState?: boolean } = {},
+  options: { badge?: ReactNode; handlesState?: boolean } = {},
 ) {
   return (
     <div className={styles.sectionCard} key={n}>
       <div className={styles.sectionHeader}>
         <span className={styles.sectionNum}>{n}</span>
         <span className={styles.sectionTitle}>{title}</span>
+        {options.badge}
       </div>
       {!options.handlesState && <SectionStatus section={section} />}
       {children}
@@ -55,7 +58,10 @@ function renderSection<T>(
 }
 
 export function BiDashboardSection() {
+  const { t } = useI18n()
   const dashboardData = useBiDashboardData()
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
+  const { refetchAll } = dashboardData
 
   const isLoading = [
     dashboardData.kpi,
@@ -69,30 +75,53 @@ export function BiDashboardSection() {
     dashboardData.actionQueue,
   ].some((section) => section.loading)
 
+  const handleRefreshAll = useCallback(() => {
+    void refetchAll().then(() => {
+      setLastRefreshed(new Date())
+    })
+  }, [refetchAll])
+
   return (
     <section className={styles.root}>
-      <div className={styles.topBar}>
-        <h2 className={styles.title}>BI Dashboard</h2>
-        <DashboardButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          loading={isLoading}
-          onClick={dashboardData.refetchAll}
-        >
-          Refresh all
-        </DashboardButton>
+      <div className={styles.dashboardHeader}>
+        <div className={styles.headerText}>
+          <h2 className={styles.title}>{t('dashboard.bi.header.title')}</h2>
+          <p className={styles.subtitle}>{t('dashboard.bi.header.subtitle')}</p>
+        </div>
+        <div className={styles.headerActions}>
+          <DashboardButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            loading={isLoading}
+            onClick={handleRefreshAll}
+          >
+            {t('dashboard.bi.header.refreshAll')}
+          </DashboardButton>
+          <span className={styles.refreshTimestamp}>
+            {t('dashboard.bi.header.lastRefreshed')}: {lastRefreshed ? format(lastRefreshed, 'HH:mm:ss') : '-'}
+          </span>
+        </div>
       </div>
 
-      {renderSection(1, 'KPI Row', dashboardData.kpi, <S1_KpiRow data={dashboardData.kpi} />, { handlesState: true })}
-      {renderSection(2, 'Intern Funnel', dashboardData.funnel, <S2_InternFunnel data={dashboardData.funnel} />, { handlesState: true })}
-      {renderSection(3, 'Mission Stats', dashboardData.missionStats, <S3_MissionStats data={dashboardData.missionStats} />, { handlesState: true })}
-      {renderSection(4, 'Evaluations', dashboardData.evaluationStats, <S4_EvaluationsSection data={dashboardData.evaluationStats} />, { handlesState: true })}
-      {renderSection(5, 'Demographics', dashboardData.demographics, <S5_Demographics data={dashboardData.demographics} />, { handlesState: true })}
-      {renderSection(6, 'Supervisor Workload', dashboardData.supervisorWorkload, <S6_SupervisorWorkload data={dashboardData.supervisorWorkload} />, { handlesState: true })}
-      {renderSection(7, 'Deliverables', dashboardData.deliverableStats, <S7_Deliverables data={dashboardData.deliverableStats} />, { handlesState: true })}
-      {renderSection(8, 'System Health', dashboardData.systemHealth, <S8_SystemHealth data={dashboardData.systemHealth} />, { handlesState: true })}
-      {renderSection(9, 'Action Queue', dashboardData.actionQueue, <S9_ActionQueue data={dashboardData.actionQueue} />, { handlesState: true })}
+      {renderSection(1, t('dashboard.bi.section.kpi'), dashboardData.kpi, <S1_KpiRow data={dashboardData.kpi} />, { handlesState: true })}
+      {renderSection(2, t('dashboard.bi.section.funnel'), dashboardData.funnel, <S2_InternFunnel data={dashboardData.funnel} />, { handlesState: true })}
+      {renderSection(3, t('dashboard.bi.section.missions'), dashboardData.missionStats, <S3_MissionStats data={dashboardData.missionStats} />, { handlesState: true })}
+      {renderSection(4, t('dashboard.bi.section.evaluations'), dashboardData.evaluationStats, <S4_EvaluationsSection data={dashboardData.evaluationStats} />, { handlesState: true })}
+      {renderSection(5, t('dashboard.bi.section.demographics'), dashboardData.demographics, <S5_Demographics data={dashboardData.demographics} />, { handlesState: true })}
+      {renderSection(6, t('dashboard.bi.section.supervisors'), dashboardData.supervisorWorkload, <S6_SupervisorWorkload data={dashboardData.supervisorWorkload} />, { handlesState: true })}
+      {renderSection(7, t('dashboard.bi.section.deliverables'), dashboardData.deliverableStats, <S7_Deliverables data={dashboardData.deliverableStats} />, { handlesState: true })}
+      {renderSection(8, t('dashboard.bi.section.system'), dashboardData.systemHealth, <S8_SystemHealth data={dashboardData.systemHealth} />, { handlesState: true })}
+      {renderSection(
+        9,
+        t('dashboard.bi.section.actions'),
+        dashboardData.actionQueue,
+        <S9_ActionQueue data={dashboardData.actionQueue} />,
+        {
+          badge: <span className={`${styles.sectionBadge} ${styles.sectionBadgeOperational}`}>{t('dashboard.bi.actions.badge.operational')}</span>,
+          handlesState: true,
+        },
+      )}
     </section>
   )
 }

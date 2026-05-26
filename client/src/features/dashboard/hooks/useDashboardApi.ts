@@ -75,6 +75,33 @@ function parseBlockers(payload: JsonRecord): Record<string, number> | null {
   return Object.keys(parsed).length > 0 ? parsed : null
 }
 
+function assertBiSystemHealthShape(data: unknown): void {
+  const d = data as Record<string, unknown>
+  const rolesOk = Array.isArray(d?.usersByRole) &&
+    (d.usersByRole as unknown[]).every(
+      (item) => {
+        const point = item as Record<string, unknown> | null
+        return typeof point?.name === 'string' &&
+          typeof point?.value === 'number'
+      }
+    )
+  const auditOk = Array.isArray(d?.auditByAction) &&
+    (d.auditByAction as unknown[]).every(
+      (item) => {
+        const point = item as Record<string, unknown> | null
+        return typeof point?.name === 'string' &&
+          typeof point?.value === 'number'
+      }
+    )
+  if (!rolesOk || !auditOk) {
+    console.error('[useDashboardApi] BiSystemHealth shape mismatch. Received:', d)
+    throw new Error(
+      'BiSystemHealth API response does not match expected { name, value }[] shape. ' +
+      'Check AdminStatsController usersByRole and auditByAction projections.'
+    )
+  }
+}
+
 async function ensureSuccess(response: Response): Promise<void> {
   if (response.ok) {
     return
@@ -196,7 +223,16 @@ export function useDashboardApi() {
 
     await ensureSuccess(response)
 
-    return parseJsonBody<T>(response)
+    const parsedData = await parseJsonBody<T>(response)
+    if (path === '/api/stats/bi/system-health') {
+      try {
+        assertBiSystemHealthShape(parsedData)
+      } catch (error) {
+        console.error('[useDashboardApi] BiSystemHealth validation failed:', error)
+      }
+    }
+
+    return parsedData
   }, [])
 
   const post = useCallback(async <T>(path: string, body: unknown): Promise<T> => {

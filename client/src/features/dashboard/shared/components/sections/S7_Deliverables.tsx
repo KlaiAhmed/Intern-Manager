@@ -14,12 +14,18 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useI18n } from '@/locales/I18nContext'
 import { ErrorState } from '../../../components/ErrorState'
 import { Skeleton } from '../../../components/Skeleton'
 import type { ChartDataPoint, BiDeliverableStatsResponse, BiSectionData } from '../../types/biDashboard'
+import { formatNumberTooltip } from '../../utils/chartFormatters'
 import styles from '../BiDashboardSection.module.css'
 
 interface Props { data: BiSectionData<BiDeliverableStatsResponse>; }
+
+type LocalizedChartDataPoint = ChartDataPoint & {
+  colorKey: string
+}
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#BA7517',
@@ -48,9 +54,11 @@ function formatDateLabel(value: unknown, pattern: string) {
 }
 
 export function S7_Deliverables({ data }: Props) {
+  const { t } = useI18n()
+
   if (data.loading) {
     return (
-      <div className={`${styles.sectionGrid} ${styles.threeColumn}`} aria-busy="true">
+      <div className={`${styles.sectionGrid} ${styles.grid3}`} aria-busy="true">
         <Skeleton height="280px" />
         <Skeleton height="280px" />
         <Skeleton height="280px" />
@@ -63,25 +71,35 @@ export function S7_Deliverables({ data }: Props) {
   }
 
   if (!data.data) {
-    return <div className={styles.emptyState}>No deliverable data available.</div>
+    return <div className={styles.emptyState}>{t('dashboard.bi.deliverables.noData')}</div>
   }
 
-  const statusData = data.data.byStatus
+  const statusLabels: Record<string, string> = {
+    pending: t('dashboard.bi.deliverables.status.pending'),
+    submitted: t('dashboard.bi.deliverables.status.submitted'),
+    accepted: t('dashboard.bi.deliverables.status.accepted'),
+    rejected: t('dashboard.bi.deliverables.status.rejected'),
+  }
+  const statusData: LocalizedChartDataPoint[] = data.data.byStatus.map((item) => ({
+    ...item,
+    colorKey: item.name,
+    name: statusLabels[item.name.toLowerCase()] ?? item.name,
+  }))
   const submissionsByWeek = data.data.submissionsByWeek
   const journalActivity = data.data.journalActivityByDay
   const recentJournalActivity = journalActivity.slice(-30)
   const journalInterval = Math.max(0, Math.floor(journalActivity.length / 6))
 
   return (
-    <div className={`${styles.sectionGrid} ${styles.threeColumn}`} aria-busy={data.loading}>
+    <div className={`${styles.sectionGrid} ${styles.grid3}`} aria-busy={data.loading}>
       <article className={styles.panel}>
         <div className={styles.panelHeader}>
-          <h3 className={styles.panelTitle}>Deliverable status</h3>
+          <h3 className={styles.panelTitle}>{t('dashboard.bi.deliverables.statusTitle')}</h3>
         </div>
 
         {statusData.length > 0 && hasPositiveValues(statusData) ? (
-          <div className={styles.chartFrame} style={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div className={styles.chartFrame}>
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={statusData}
@@ -92,40 +110,43 @@ export function S7_Deliverables({ data }: Props) {
                   paddingAngle={2}
                 >
                   {statusData.map((entry) => (
-                    <Cell key={entry.name} fill={getStatusColor(entry.name)} />
+                    <Cell key={`${entry.colorKey}-${entry.name}`} fill={getStatusColor(entry.colorKey)} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={formatNumberTooltip} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className={styles.emptyState}>No deliverable statuses found.</div>
+          <div className={styles.emptyState}>{t('dashboard.bi.deliverables.noStatus')}</div>
         )}
 
         {data.data.overdueCount > 0 && (
-          <span className={styles.warningChip}>⚠ {data.data.overdueCount} overdue</span>
+          <span className={styles.warningChip}>
+            {t('dashboard.bi.deliverables.overdue', { count: data.data.overdueCount.toLocaleString() })}
+          </span>
         )}
       </article>
 
       <article className={styles.panel}>
         <div className={styles.panelHeader}>
-          <h3 className={styles.panelTitle}>Submission rate by week</h3>
+          <h3 className={styles.panelTitle}>{t('dashboard.bi.deliverables.weekTitle')}</h3>
         </div>
 
         {submissionsByWeek.length > 0 ? (
-          <div className={styles.chartFrame} style={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div className={styles.chartFrame}>
+            <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={submissionsByWeek} margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip formatter={formatNumberTooltip} />
                 <Legend />
                 <Area
                   type="monotone"
                   dataKey="submitted"
+                  name={t('dashboard.intern.submitted')}
                   stackId="a"
                   stroke="#378ADD"
                   fill="#378ADD"
@@ -134,6 +155,7 @@ export function S7_Deliverables({ data }: Props) {
                 <Area
                   type="monotone"
                   dataKey="accepted"
+                  name={t('dashboard.intern.accepted')}
                   stackId="a"
                   stroke="#1D9E75"
                   fill="#1D9E75"
@@ -142,6 +164,7 @@ export function S7_Deliverables({ data }: Props) {
                 <Area
                   type="monotone"
                   dataKey="rejected"
+                  name={t('dashboard.intern.rejected')}
                   stackId="a"
                   stroke="#E05050"
                   fill="#E05050"
@@ -151,19 +174,19 @@ export function S7_Deliverables({ data }: Props) {
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className={styles.emptyState}>No weekly submissions found.</div>
+          <div className={styles.emptyState}>{t('dashboard.bi.deliverables.noWeekly')}</div>
         )}
       </article>
 
       <article className={styles.panel}>
         <div className={styles.panelHeader}>
-          <h3 className={styles.panelTitle}>Journal activity</h3>
-          <p className={styles.panelNote}>Journal entries per day (last 90 days)</p>
+          <h3 className={styles.panelTitle}>{t('dashboard.bi.deliverables.journalTitle')}</h3>
+          <p className={styles.panelNote}>{t('dashboard.bi.deliverables.journalSub')}</p>
         </div>
 
-        {recentJournalActivity.length > 0 ? (
-          <div className={styles.chartFrame} style={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
+        {journalActivity.length > 0 ? (
+          <div className={styles.chartFrame}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={recentJournalActivity} margin={{ top: 12, right: 12, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
@@ -173,13 +196,13 @@ export function S7_Deliverables({ data }: Props) {
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip labelFormatter={(value) => formatDateLabel(value, 'PPP')} />
+                <Tooltip formatter={formatNumberTooltip} labelFormatter={(value) => formatDateLabel(value, 'PPP')} />
                 <Bar dataKey="count" fill="#639922" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className={styles.emptyState}>No journal activity found.</div>
+          <div className={styles.emptyState}>{t('dashboard.bi.deliverables.noJournal')}</div>
         )}
       </article>
     </div>

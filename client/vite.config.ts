@@ -10,6 +10,9 @@ export default defineConfig({
     },
   },
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 700,
+  },
   server: {
     port: 5173,        // The default port to start on
     strictPort: false, // When false, Vite tries 5173, then 5174, etc.

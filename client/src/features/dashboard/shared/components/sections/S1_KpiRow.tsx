@@ -3,14 +3,10 @@ import { useI18n } from '@/locales/I18nContext'
 import { ErrorState } from '../../../components/ErrorState'
 import { Skeleton } from '../../../components/Skeleton'
 import type { BiKpiResponse, BiSectionData } from '../../types/biDashboard'
+import { formatNumberValue } from '../../utils/chartFormatters'
 import styles from '../BiDashboardSection.module.css'
 
 interface Props { data: BiSectionData<BiKpiResponse>; }
-
-type KpiCardStyle = CSSProperties & {
-  '--bi-kpi-accent': string
-  '--bi-kpi-border': string
-}
 
 const skeletonItems = Array.from({ length: 6 }, (_, index) => index)
 
@@ -19,7 +15,7 @@ export function S1_KpiRow({ data }: Props) {
 
   if (data.loading) {
     return (
-      <div className={styles.kpiGrid} aria-busy="true">
+      <div className={`${styles.kpiGrid} ${styles.grid6}`} aria-busy="true">
         {skeletonItems.map((item) => (
           <Skeleton key={item} height="100px" />
         ))}
@@ -39,19 +35,19 @@ export function S1_KpiRow({ data }: Props) {
   const cards = [
     {
       label: t('dashboard.bi.kpi.totalInterns'),
-      value: data.data.totalInterns,
-      trend: t('dashboard.bi.kpi.activeInternsTrend', { count: data.data.activeInterns }),
+      value: formatNumberValue(data.data.totalInterns),
+      trend: t('dashboard.bi.kpi.activeInternsTrend', { count: formatNumberValue(data.data.activeInterns) }),
       accent: '#378ADD',
     },
     {
       label: t('dashboard.bi.kpi.activeMissions'),
-      value: data.data.activeMissions,
-      trend: t('dashboard.bi.kpi.totalMissionsTrend', { count: data.data.totalMissions }),
+      value: formatNumberValue(data.data.activeMissions),
+      trend: t('dashboard.bi.kpi.ofTotal', { total: formatNumberValue(data.data.totalMissions) }),
       accent: '#1D9E75',
     },
     {
-      label: t('dashboard.bi.kpi.pendingVerifications'),
-      value: pendingVerifications,
+      label: t('dashboard.bi.kpi.pendingVerif'),
+      value: formatNumberValue(pendingVerifications),
       trend: pendingVerifications > 0
         ? t('dashboard.bi.kpi.actionNeeded')
         : t('dashboard.bi.kpi.allClear'),
@@ -59,40 +55,39 @@ export function S1_KpiRow({ data }: Props) {
       attention: pendingVerifications > 0,
     },
     {
-      label: t('dashboard.bi.kpi.avgEvaluationScore'),
+      label: t('dashboard.bi.kpi.avgScore'),
       value: data.data.avgEvaluationScore.toFixed(1),
       trend: t('dashboard.bi.kpi.scoreScale'),
       accent: '#D4537E',
     },
     {
-      label: t('dashboard.bi.kpi.supervisorUtilization'),
+      label: t('dashboard.bi.kpi.supervisorUtil'),
       value: `${data.data.supervisorUtilization.toFixed(1)}%`,
-      trend: t('dashboard.bi.kpi.capacityUsed'),
+      trend: t('dashboard.bi.kpi.avgCapacity'),
       accent: '#7F77DD',
     },
     {
-      label: t('dashboard.bi.kpi.onboardingCompletion'),
+      label: t('dashboard.bi.kpi.onboarding'),
       value: `${data.data.onboardingCompletionRate.toFixed(1)}%`,
-      trend: t('dashboard.bi.kpi.registeredInterns'),
+      trend: t('dashboard.bi.kpi.ofRegistered'),
       accent: '#639922',
     },
   ]
 
   return (
-    <div className={styles.kpiGrid}>
+    <div className={`${styles.kpiGrid} ${styles.grid6}`}>
       {cards.map((card) => {
-        const cardStyle: KpiCardStyle = {
-          '--bi-kpi-accent': card.accent,
-          '--bi-kpi-border': card.attention ? card.accent : 'var(--dash-border, var(--color-border))',
-        }
+        const attentionTextStyle: CSSProperties | undefined = card.attention
+          ? { color: card.accent }
+          : undefined
 
         return (
-          <article className={styles.kpiCard} key={card.label} style={cardStyle}>
+          <article className={styles.kpiCard} key={card.label}>
             <span className={styles.kpiAccent} aria-hidden="true" />
             <div className={styles.kpiContent}>
               <h3 className={styles.kpiLabel}>{card.label}</h3>
-              <div className={styles.kpiValue}>{card.value}</div>
-              <p className={styles.kpiTrend}>{card.trend}</p>
+              <div className={styles.kpiValue} style={attentionTextStyle}>{card.value}</div>
+              <p className={styles.kpiTrend} style={attentionTextStyle}>{card.trend}</p>
             </div>
           </article>
         )

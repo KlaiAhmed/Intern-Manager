@@ -100,7 +100,7 @@ export function useBiDashboardData() {
   const refetchDeliverableStats = useCallback(() => { void fetchDeliverableStats() }, [fetchDeliverableStats])
   const refetchSystemHealth = useCallback(() => { void fetchSystemHealth() }, [fetchSystemHealth])
   const refetchActionQueue = useCallback(() => { void fetchActionQueue() }, [fetchActionQueue])
-  const refetchAll = useCallback(() => { void fetchAll() }, [fetchAll])
+  const refetchAll = useCallback(() => fetchAll(), [fetchAll])
 
   return {
     kpi: { ...kpi, refetch: refetchKpi },

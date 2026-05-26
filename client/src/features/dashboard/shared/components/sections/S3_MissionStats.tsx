@@ -16,24 +16,20 @@ import { useI18n } from '@/locales/I18nContext'
 import { ErrorState } from '../../../components/ErrorState'
 import { Skeleton } from '../../../components/Skeleton'
 import type { BiMissionStatsResponse, BiSectionData } from '../../types/biDashboard'
+import {
+  formatMonthLabel,
+  formatNumberTooltip,
+  formatNumberValue,
+  formatPercentTooltip,
+} from '../../utils/chartFormatters'
 import styles from '../BiDashboardSection.module.css'
 
 interface Props { data: BiSectionData<BiMissionStatsResponse>; }
 
-const skeletonItems = Array.from({ length: 3 }, (_, index) => index)
+const skeletonItems = Array.from({ length: 4 }, (_, index) => index)
 
 function formatPercentTick(value: string | number) {
   return `${value}%`
-}
-
-function formatPercentTooltip(value: unknown) {
-  const numericValue = Number(value)
-
-  if (!Number.isFinite(numericValue)) {
-    return `${String(value)}%`
-  }
-
-  return `${numericValue.toFixed(1)}%`
 }
 
 export function S3_MissionStats({ data }: Props) {
@@ -41,7 +37,7 @@ export function S3_MissionStats({ data }: Props) {
 
   if (data.loading) {
     return (
-      <div className={styles.panelsGrid} aria-busy="true">
+      <div className={`${styles.sectionGrid} ${styles.grid3}`} aria-busy="true">
         {skeletonItems.map((item) => (
           <Skeleton key={item} height="280px" />
         ))}
@@ -57,17 +53,25 @@ export function S3_MissionStats({ data }: Props) {
     return null
   }
 
+  if (data.data.byStatus.length === 0 || data.data.timeline.length === 0) {
+    return (
+      <article className={styles.chartPanel}>
+        <div className={`${styles.emptyState} ${styles.chartEmptyState}`}>No mission data available</div>
+      </article>
+    )
+  }
+
   return (
     <div className={styles.stack}>
-      <div className={styles.panelsGrid}>
+      <div className={`${styles.sectionGrid} ${styles.grid3}`}>
         <article className={styles.chartPanel}>
           <h3 className={styles.panelTitle}>{t('dashboard.bi.missions.timeline')}</h3>
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={data.data.timeline}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" />
+              <XAxis dataKey="month" tickFormatter={formatMonthLabel} />
               <YAxis />
-              <Tooltip />
+              <Tooltip formatter={formatNumberTooltip} labelFormatter={formatMonthLabel} />
               <Legend />
               <Area
                 type="monotone"
@@ -98,13 +102,26 @@ export function S3_MissionStats({ data }: Props) {
         </article>
 
         <article className={styles.chartPanel}>
+          <h3 className={styles.panelTitle}>{t('dashboard.bi.missions.byStatus')}</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={data.data.byStatus}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip formatter={formatNumberTooltip} />
+              <Bar dataKey="value" fill="#1D9E75" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </article>
+
+        <article className={styles.chartPanel}>
           <h3 className={styles.panelTitle}>{t('dashboard.bi.missions.byType')}</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart layout="vertical" data={data.data.byType}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <YAxis type="category" dataKey="name" width={120} />
-              <XAxis type="number" />
-              <Tooltip />
+              <XAxis type="number" allowDecimals={false} />
+              <Tooltip formatter={formatNumberTooltip} />
               <Bar dataKey="value" fill="#378ADD" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -115,9 +132,9 @@ export function S3_MissionStats({ data }: Props) {
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={data.data.completionRateByMonth}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" />
+              <XAxis dataKey="month" tickFormatter={formatMonthLabel} />
               <YAxis domain={[0, 100]} tickFormatter={formatPercentTick} />
-              <Tooltip formatter={formatPercentTooltip} />
+              <Tooltip formatter={formatPercentTooltip} labelFormatter={formatMonthLabel} />
               <Line
                 type="monotone"
                 dataKey="rate"
@@ -136,7 +153,7 @@ export function S3_MissionStats({ data }: Props) {
           {t('dashboard.bi.missions.avgDuration', { count: data.data.avgDurationDays.toFixed(0) })}
         </span>
         <span className={styles.statChip}>
-          {t('dashboard.bi.missions.currentlyActive', { count: data.data.totalActive })}
+          {t('dashboard.bi.missions.currentlyActive', { count: formatNumberValue(data.data.totalActive) })}
         </span>
       </div>
     </div>
