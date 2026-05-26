@@ -1,6 +1,39 @@
 export const dashboardEn = {
   'dashboard.action.refresh': 'Refresh',
 
+  'dashboard.bi.kpi.totalInterns': 'Total Interns',
+  'dashboard.bi.kpi.activeInternsTrend': '+{{count}} active',
+  'dashboard.bi.kpi.activeMissions': 'Active Missions',
+  'dashboard.bi.kpi.totalMissionsTrend': 'of {{count}} total',
+  'dashboard.bi.kpi.pendingVerifications': 'Pending Verifications',
+  'dashboard.bi.kpi.actionNeeded': '⚠ action needed',
+  'dashboard.bi.kpi.allClear': 'All clear',
+  'dashboard.bi.kpi.avgEvaluationScore': 'Avg Evaluation Score',
+  'dashboard.bi.kpi.scoreScale': '/ 5.0 scale',
+  'dashboard.bi.kpi.supervisorUtilization': 'Supervisor Utilization',
+  'dashboard.bi.kpi.capacityUsed': 'avg capacity used',
+  'dashboard.bi.kpi.onboardingCompletion': 'Onboarding Completion',
+  'dashboard.bi.kpi.registeredInterns': 'of registered interns',
+
+  'dashboard.bi.missions.timeline': 'Mission timeline',
+  'dashboard.bi.missions.created': 'Created',
+  'dashboard.bi.missions.completed': 'Completed',
+  'dashboard.bi.missions.cancelled': 'Cancelled',
+  'dashboard.bi.missions.byType': 'Missions by type',
+  'dashboard.bi.missions.completionRate': 'Completion rate',
+  'dashboard.bi.missions.rate': 'Rate',
+  'dashboard.bi.missions.avgDuration': 'Avg Duration: {{count}} days',
+  'dashboard.bi.missions.currentlyActive': 'Currently Active: {{count}} missions',
+
+  'dashboard.bi.demographics.byUniversity': 'By University',
+  'dashboard.bi.demographics.byMajor': 'By Major',
+  'dashboard.bi.demographics.byYearOfStudy': 'By Year of Study',
+  'dashboard.bi.demographics.other': 'Other',
+
+  'dashboard.bi.actionQueue.view': 'View →',
+  'dashboard.bi.actionQueue.lastRefreshed': 'Last refreshed: {{timestamp}}',
+  'dashboard.bi.actionQueue.refresh': 'Refresh',
+
   'dashboard.supervisor.subtitle': 'Track intern progress, workloads, and reviews in one place.',
 
   'dashboard.supervisor.kpi.avgValidationDelay': 'Avg Validation Delay',

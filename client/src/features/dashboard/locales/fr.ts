@@ -1,1 +1,34 @@
-export const dashboardFr = {} as const
+export const dashboardFr = {
+  'dashboard.bi.kpi.totalInterns': 'Total stagiaires',
+  'dashboard.bi.kpi.activeInternsTrend': '+{{count}} actifs',
+  'dashboard.bi.kpi.activeMissions': 'Missions actives',
+  'dashboard.bi.kpi.totalMissionsTrend': 'sur {{count}} au total',
+  'dashboard.bi.kpi.pendingVerifications': 'Verifications en attente',
+  'dashboard.bi.kpi.actionNeeded': '⚠ action requise',
+  'dashboard.bi.kpi.allClear': 'Tout est clair',
+  'dashboard.bi.kpi.avgEvaluationScore': 'Score moyen evaluation',
+  'dashboard.bi.kpi.scoreScale': '/ echelle 5.0',
+  'dashboard.bi.kpi.supervisorUtilization': 'Utilisation encadrants',
+  'dashboard.bi.kpi.capacityUsed': 'capacite moyenne utilisee',
+  'dashboard.bi.kpi.onboardingCompletion': 'Completion onboarding',
+  'dashboard.bi.kpi.registeredInterns': 'des stagiaires inscrits',
+
+  'dashboard.bi.missions.timeline': 'Chronologie des missions',
+  'dashboard.bi.missions.created': 'Creees',
+  'dashboard.bi.missions.completed': 'Terminees',
+  'dashboard.bi.missions.cancelled': 'Annulees',
+  'dashboard.bi.missions.byType': 'Missions par type',
+  'dashboard.bi.missions.completionRate': 'Taux de completion',
+  'dashboard.bi.missions.rate': 'Taux',
+  'dashboard.bi.missions.avgDuration': 'Duree moyenne : {{count}} jours',
+  'dashboard.bi.missions.currentlyActive': 'Actuellement actives : {{count}} missions',
+
+  'dashboard.bi.demographics.byUniversity': 'Par universite',
+  'dashboard.bi.demographics.byMajor': 'Par specialite',
+  'dashboard.bi.demographics.byYearOfStudy': 'Par annee d etude',
+  'dashboard.bi.demographics.other': 'Autre',
+
+  'dashboard.bi.actionQueue.view': 'Voir →',
+  'dashboard.bi.actionQueue.lastRefreshed': 'Derniere actualisation : {{timestamp}}',
+  'dashboard.bi.actionQueue.refresh': 'Actualiser',
+} as const

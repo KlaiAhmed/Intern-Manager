@@ -1,1 +1,34 @@
-export const dashboardAr = {} as const
+export const dashboardAr = {
+  'dashboard.bi.kpi.totalInterns': 'إجمالي المتدربين',
+  'dashboard.bi.kpi.activeInternsTrend': '+{{count}} نشط',
+  'dashboard.bi.kpi.activeMissions': 'المهام النشطة',
+  'dashboard.bi.kpi.totalMissionsTrend': 'من إجمالي {{count}}',
+  'dashboard.bi.kpi.pendingVerifications': 'التحققات المعلقة',
+  'dashboard.bi.kpi.actionNeeded': '⚠ يتطلب إجراء',
+  'dashboard.bi.kpi.allClear': 'لا توجد مشاكل',
+  'dashboard.bi.kpi.avgEvaluationScore': 'متوسط التقييم',
+  'dashboard.bi.kpi.scoreScale': '/ مقياس 5.0',
+  'dashboard.bi.kpi.supervisorUtilization': 'استخدام المشرفين',
+  'dashboard.bi.kpi.capacityUsed': 'متوسط السعة المستخدمة',
+  'dashboard.bi.kpi.onboardingCompletion': 'اكتمال الانضمام',
+  'dashboard.bi.kpi.registeredInterns': 'من المتدربين المسجلين',
+
+  'dashboard.bi.missions.timeline': 'الخط الزمني للمهام',
+  'dashboard.bi.missions.created': 'تم إنشاؤها',
+  'dashboard.bi.missions.completed': 'مكتملة',
+  'dashboard.bi.missions.cancelled': 'ملغاة',
+  'dashboard.bi.missions.byType': 'المهام حسب النوع',
+  'dashboard.bi.missions.completionRate': 'معدل الإكمال',
+  'dashboard.bi.missions.rate': 'المعدل',
+  'dashboard.bi.missions.avgDuration': 'متوسط المدة: {{count}} يوم',
+  'dashboard.bi.missions.currentlyActive': 'النشطة حاليا: {{count}} مهام',
+
+  'dashboard.bi.demographics.byUniversity': 'حسب الجامعة',
+  'dashboard.bi.demographics.byMajor': 'حسب التخصص',
+  'dashboard.bi.demographics.byYearOfStudy': 'حسب سنة الدراسة',
+  'dashboard.bi.demographics.other': 'أخرى',
+
+  'dashboard.bi.actionQueue.view': 'عرض →',
+  'dashboard.bi.actionQueue.lastRefreshed': 'آخر تحديث: {{timestamp}}',
+  'dashboard.bi.actionQueue.refresh': 'تحديث',
+} as const

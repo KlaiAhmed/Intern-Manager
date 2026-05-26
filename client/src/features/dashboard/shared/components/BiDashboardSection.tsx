@@ -40,6 +40,7 @@ function renderSection<T>(
   title: string,
   section: BiSectionData<T>,
   children: ReactNode,
+  options: { handlesState?: boolean } = {},
 ) {
   return (
     <div className={styles.sectionCard} key={n}>
@@ -47,7 +48,7 @@ function renderSection<T>(
         <span className={styles.sectionNum}>{n}</span>
         <span className={styles.sectionTitle}>{title}</span>
       </div>
-      <SectionStatus section={section} />
+      {!options.handlesState && <SectionStatus section={section} />}
       {children}
     </div>
   )
@@ -83,15 +84,15 @@ export function BiDashboardSection() {
         </DashboardButton>
       </div>
 
-      {renderSection(1, 'KPI Row', dashboardData.kpi, <S1_KpiRow data={dashboardData.kpi} />)}
-      {renderSection(2, 'Intern Funnel', dashboardData.funnel, <S2_InternFunnel data={dashboardData.funnel} />)}
-      {renderSection(3, 'Mission Stats', dashboardData.missionStats, <S3_MissionStats data={dashboardData.missionStats} />)}
-      {renderSection(4, 'Evaluations', dashboardData.evaluationStats, <S4_EvaluationsSection data={dashboardData.evaluationStats} />)}
-      {renderSection(5, 'Demographics', dashboardData.demographics, <S5_Demographics data={dashboardData.demographics} />)}
-      {renderSection(6, 'Supervisor Workload', dashboardData.supervisorWorkload, <S6_SupervisorWorkload data={dashboardData.supervisorWorkload} />)}
-      {renderSection(7, 'Deliverables', dashboardData.deliverableStats, <S7_Deliverables data={dashboardData.deliverableStats} />)}
-      {renderSection(8, 'System Health', dashboardData.systemHealth, <S8_SystemHealth data={dashboardData.systemHealth} />)}
-      {renderSection(9, 'Action Queue', dashboardData.actionQueue, <S9_ActionQueue data={dashboardData.actionQueue} />)}
+      {renderSection(1, 'KPI Row', dashboardData.kpi, <S1_KpiRow data={dashboardData.kpi} />, { handlesState: true })}
+      {renderSection(2, 'Intern Funnel', dashboardData.funnel, <S2_InternFunnel data={dashboardData.funnel} />, { handlesState: true })}
+      {renderSection(3, 'Mission Stats', dashboardData.missionStats, <S3_MissionStats data={dashboardData.missionStats} />, { handlesState: true })}
+      {renderSection(4, 'Evaluations', dashboardData.evaluationStats, <S4_EvaluationsSection data={dashboardData.evaluationStats} />, { handlesState: true })}
+      {renderSection(5, 'Demographics', dashboardData.demographics, <S5_Demographics data={dashboardData.demographics} />, { handlesState: true })}
+      {renderSection(6, 'Supervisor Workload', dashboardData.supervisorWorkload, <S6_SupervisorWorkload data={dashboardData.supervisorWorkload} />, { handlesState: true })}
+      {renderSection(7, 'Deliverables', dashboardData.deliverableStats, <S7_Deliverables data={dashboardData.deliverableStats} />, { handlesState: true })}
+      {renderSection(8, 'System Health', dashboardData.systemHealth, <S8_SystemHealth data={dashboardData.systemHealth} />, { handlesState: true })}
+      {renderSection(9, 'Action Queue', dashboardData.actionQueue, <S9_ActionQueue data={dashboardData.actionQueue} />, { handlesState: true })}
     </section>
   )
 }
