@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback } from 'react'
+import { Suspense, lazy } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
 import { ManagerSidebar, getManagerNavItems } from '../../components/ManagerSidebar'
@@ -19,9 +19,12 @@ const OverviewTab = lazy(() =>
 const SupervisorsTab = lazy(() =>
   import('./SupervisorsTab').then((m) => ({ default: m.SupervisorsTab })),
 )
-// Lazy-load modal - only loaded when opened
+// Lazy-load modals - only loaded when opened
 const InternDetailsModal = lazy(() =>
   import('./InternDetailsModal').then((m) => ({ default: m.InternDetailsModal })),
+)
+const AssignInternModal = lazy(() =>
+  import('./AssignInternModal').then((m) => ({ default: m.AssignInternModal })),
 )
 
 function TabLoadingFallback() {
@@ -70,17 +73,22 @@ export function ManagerDashboard() {
     verificationStatusOptions,
     getInitials,
     openInternModal,
+    openAssignModal,
     loadInterns,
+    selectedIntern,
+    isInternModalOpen,
+    selectedInternForAssign,
+    isAssignModalOpen,
+    closeInternModal,
+    closeAssignModal,
+    viewInternCv,
     loadingSupervisors,
     supervisorsError,
     supervisors,
     loadSupervisors,
-    selectedIntern,
-    isInternModalOpen,
-    closeInternModal,
   } = state
 
-  const renderTabContent = useCallback(() => {
+  const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
         return (
@@ -122,6 +130,8 @@ export function ManagerDashboard() {
             departmentsError={departmentsError}
             getInitials={getInitials}
             openInternModal={openInternModal}
+            openAssignModal={openAssignModal}
+            viewInternCv={viewInternCv}
             loadInterns={loadInterns}
           />
         )
@@ -147,44 +157,7 @@ export function ManagerDashboard() {
       default:
         return null
     }
-  }, [
-    activeTab,
-    loadingKPIs,
-    loadingDepartments,
-    loadingActivity,
-    kpisError,
-    departmentsError,
-    activityError,
-    internsCount,
-    activeMissionsCount,
-    avgCompletion,
-    pendingReviews,
-    departments,
-    activities,
-    loadKPIs,
-    loadDepartments,
-    loadActivity,
-    getActivityIcon,
-    formatActivityDate,
-    loadingInterns,
-    internsError,
-    filteredInterns,
-    selectedDepartment,
-    setSelectedDepartment,
-    selectedVerificationStatus,
-    setSelectedVerificationStatus,
-    internsSearch,
-    setInternsSearch,
-    departmentOptions,
-    verificationStatusOptions,
-    getInitials,
-    openInternModal,
-    loadInterns,
-    loadingSupervisors,
-    supervisorsError,
-    supervisors,
-    loadSupervisors,
-  ])
+  }
 
   // Build nav items with proper icons for ManagerSidebar
   const sidebarNavItems = getManagerNavItems(t)
@@ -227,6 +200,16 @@ export function ManagerDashboard() {
             intern={selectedIntern}
             onClose={closeInternModal}
             getInitials={getInitials}
+          />
+        </Suspense>
+      )}
+
+      {isAssignModalOpen && (
+        <Suspense fallback={null}>
+          <AssignInternModal
+            isOpen={isAssignModalOpen}
+            intern={selectedInternForAssign}
+            onClose={closeAssignModal}
             departments={departments}
             loadingDepartments={loadingDepartments}
             departmentsError={departmentsError}

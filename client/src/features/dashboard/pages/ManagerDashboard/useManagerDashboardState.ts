@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
+import { getCsrfCookieToken } from '../../../../lib/auth'
+import { apiFetch } from '../../../../lib/apiClient'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
 import { toErrorMessage } from '../../shared/utils/errorMessage'
 import type {
@@ -66,6 +68,9 @@ export function useManagerDashboardState() {
 
   const [selectedIntern, setSelectedIntern] = useState<Intern | null>(null)
   const [isInternModalOpen, setIsInternModalOpen] = useState(false)
+
+  const [selectedInternForAssign, setSelectedInternForAssign] = useState<Intern | null>(null)
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
 
   const loadKPIs = async () => {
     setLoadingKPIs(true)
@@ -340,6 +345,75 @@ useEffect(() => {
     setSelectedIntern(null)
   }
 
+  const openAssignModal = (intern: Intern) => {
+    setSelectedInternForAssign(intern)
+    setIsAssignModalOpen(true)
+  }
+
+  const closeAssignModal = () => {
+    setIsAssignModalOpen(false)
+    setSelectedInternForAssign(null)
+  }
+
+  const viewInternCv = async (internId: string): Promise<void> => {
+    try {
+      const csrfToken = getCsrfCookieToken()
+      const headers: Record<string, string> = {}
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken
+      }
+
+      const response = await apiFetch(`/api/interns/${internId}/cv`, {
+        method: 'GET',
+        headers,
+        omitJsonAcceptHeader: true,
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('No CV on file for this intern')
+        }
+        if (response.status === 403) {
+          throw new Error('You do not have permission to view this CV')
+        }
+        const text = await response.text()
+        throw new Error(text.trim() || 'Unable to open this CV.')
+      }
+
+      const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+        const rawPayload = (await response.text()).trim()
+        try {
+          const jsonPayload = JSON.parse(rawPayload) as Record<string, unknown>
+          const rawUrl = typeof jsonPayload.url === 'string' ? jsonPayload.url.trim() : ''
+          if (rawUrl) {
+            window.open(rawUrl, '_blank', 'noopener,noreferrer')
+            return
+          }
+        } catch {
+          const normalizedUrl = rawPayload.replace(/^"|"$/g, '')
+          if (/^https?:\/\//i.test(normalizedUrl) || normalizedUrl.startsWith('/')) {
+            window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
+            return
+          }
+        }
+      }
+
+      const cvBlob = await response.blob()
+      const blobUrl = URL.createObjectURL(cvBlob)
+      window.open(blobUrl, '_blank', 'noopener,noreferrer')
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+    } catch (error) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Unable to open this CV.'
+      alert(message)
+      if (!(error instanceof Error && (error.message.includes('No CV') || error.message.includes('permission')))) {
+        console.error('Failed to open intern CV', error)
+      }
+    }
+  }
+
   return {
     loadingKPIs,
     loadingInterns,
@@ -369,12 +443,17 @@ useEffect(() => {
     setActiveTab,
     selectedIntern,
     isInternModalOpen,
+    selectedInternForAssign,
+    isAssignModalOpen,
     navItems,
     filteredInterns,
     departmentOptions,
     verificationStatusOptions,
     openInternModal,
     closeInternModal,
+    openAssignModal,
+    closeAssignModal,
+    viewInternCv,
     refreshAll,
     loadKPIs,
     loadInterns,

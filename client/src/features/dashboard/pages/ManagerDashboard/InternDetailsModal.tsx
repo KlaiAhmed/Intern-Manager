@@ -9,19 +9,15 @@ import { Skeleton } from '../../components/Skeleton'
 import { StatusBadge } from '../../components/StatusBadge'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
 import { toDashboardErrorMessage } from '../../shared/utils/errorMessage'
-import { toDateInputValue, toIsoDate } from '../../shared/utils/operations'
+import { toDateInputValue } from '../../shared/utils/operations'
 import { asNonEmptyString } from './utils'
-import type { Department, Intern, PagedResponse } from './types'
+import type { Intern } from './types'
 
 interface InternDetailsModalProps {
   isOpen: boolean
   intern: Intern | null
   onClose: () => void
   getInitials: (name: string) => string
-  departments: Department[]
-  loadingDepartments: boolean
-  departmentsError: string | null
-  onAssignmentSuccess: () => Promise<void> | void
 }
 
 interface InternDetailsPayload {
@@ -71,65 +67,6 @@ interface InternCurrentInternshipPayload {
   mission?: InternCurrentInternshipMissionPayload | null
 }
 
-interface MissionPayload {
-  id?: string
-  title?: string
-  status?: string
-  internName?: string | null
-  supervisorName?: string | null
-}
-
-interface ReferentialPayload {
-  id?: string
-  name?: string
-}
-
-interface ReferentialOption {
-  id: string
-  name: string
-}
-
-interface MissionOption {
-  id: string
-  title: string
-  status: string
-  internName: string | null
-  supervisorName: string | null
-}
-
-interface AssignmentFormState {
-  missionId: string
-  departmentId: string
-  internshipTypeId: string
-  startDate: string
-  endDate: string
-  skillIds: string[]
-}
-
-interface AssignmentFieldErrors {
-  missionId?: string
-  startDate?: string
-  endDate?: string
-}
-
-interface AssignStageResponse {
-  missionId?: string
-  internId?: string
-  status?: string
-  verificationStatus?: string
-  startDate?: string
-  endDate?: string
-}
-
-const defaultAssignmentForm: AssignmentFormState = {
-  missionId: '',
-  departmentId: '',
-  internshipTypeId: '',
-  startDate: '',
-  endDate: '',
-  skillIds: [],
-}
-
 function toDisplayLabel(value: string): string {
   const normalized = value.trim()
   if (!normalized) return 'Unknown'
@@ -152,19 +89,6 @@ function toStatusTone(rawValue: string): 'neutral' | 'info' | 'success' | 'warni
   if (normalized.includes('rejected') || normalized.includes('denied')) return 'danger'
 
   return 'info'
-}
-
-function parseReferentialOptions(payload: PagedResponse<ReferentialPayload> | ReferentialPayload[]): ReferentialOption[] {
-  const entries = Array.isArray(payload) ? payload : payload.data ?? []
-
-  return entries
-    .map((entry): ReferentialOption | null => {
-      const id = asNonEmptyString(entry.id)
-      const name = asNonEmptyString(entry.name)
-      if (!id || !name) return null
-      return { id, name }
-    })
-    .filter((entry): entry is ReferentialOption => entry !== null)
 }
 
 async function readResponseMessage(response: Response): Promise<string | null> {
@@ -200,10 +124,6 @@ export function InternDetailsModal({
   intern,
   onClose,
   getInitials,
-  departments,
-  loadingDepartments,
-  departmentsError,
-  onAssignmentSuccess,
 }: InternDetailsModalProps) {
   const { t } = useI18n()
   const api = useDashboardApi()
@@ -215,19 +135,6 @@ export function InternDetailsModal({
   const [cvLoading, setCvLoading] = useState(false)
   const [cvError, setCvError] = useState<string | null>(null)
 
-  const [showAssignSection, setShowAssignSection] = useState(false)
-  const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(defaultAssignmentForm)
-  const [assignmentFieldErrors, setAssignmentFieldErrors] = useState<AssignmentFieldErrors>({})
-  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false)
-  const [assignmentError, setAssignmentError] = useState<string | null>(null)
-  const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null)
-
-  const [assignmentOptionsLoading, setAssignmentOptionsLoading] = useState(false)
-  const [assignmentOptionsError, setAssignmentOptionsError] = useState<string | null>(null)
-  const [missionOptions, setMissionOptions] = useState<MissionOption[]>([])
-  const [typeOptions, setTypeOptions] = useState<ReferentialOption[]>([])
-  const [skillOptions, setSkillOptions] = useState<ReferentialOption[]>([])
-
   const targetInternId = asNonEmptyString(intern?.id)
 
   const loadInternDetails = useCallback(async (internId: string) => {
@@ -237,24 +144,7 @@ export function InternDetailsModal({
     try {
       const internPayload = await api.get<InternDetailsPayload>(`/api/interns/${internId}`)
 
-      const profileStartDate = asNonEmptyString(internPayload.startDate)
-      const profileEndDate = asNonEmptyString(internPayload.endDate)
-      const internshipStartDate = asNonEmptyString(internPayload.currentInternship?.startDate)
-      const internshipEndDate = asNonEmptyString(internPayload.currentInternship?.endDate)
-      const selectedSkillIds = (internPayload.skills ?? [])
-        .map((skill) => asNonEmptyString(skill.id))
-        .filter((skillId) => skillId.length > 0)
-
       setInternDetails(internPayload)
-      setAssignmentForm({
-        missionId: '',
-        departmentId: '',
-        internshipTypeId: '',
-        startDate: toDateInputValue(profileStartDate || internshipStartDate || null),
-        endDate: toDateInputValue(profileEndDate || internshipEndDate || null),
-        skillIds: selectedSkillIds,
-      })
-      setAssignmentFieldErrors({})
     } catch (error) {
       setDetailsError(toDashboardErrorMessage(error))
       setInternDetails(null)
@@ -263,79 +153,17 @@ export function InternDetailsModal({
     }
   }, [api])
 
-  const loadAssignmentOptions = useCallback(async () => {
-    setAssignmentOptionsLoading(true)
-    setAssignmentOptionsError(null)
-
-    const [missionsResult, typesResult, skillsResult] = await Promise.allSettled([
-      api.get<PagedResponse<MissionPayload>>('/api/missions?page=1&limit=200'),
-      api.get<PagedResponse<ReferentialPayload> | ReferentialPayload[]>('/api/admin/settings/internship-types'),
-      api.get<PagedResponse<ReferentialPayload> | ReferentialPayload[]>('/api/admin/settings/skills'),
-    ])
-
-    const errors: string[] = []
-
-    if (missionsResult.status === 'fulfilled') {
-      const parsedMissions = (missionsResult.value.data ?? [])
-        .map((mission): MissionOption | null => {
-          const id = asNonEmptyString(mission.id)
-          const title = asNonEmptyString(mission.title)
-          if (!id || !title) return null
-
-          return {
-            id,
-            title,
-            status: asNonEmptyString(mission.status),
-            internName: asNonEmptyString(mission.internName) || null,
-            supervisorName: asNonEmptyString(mission.supervisorName) || null,
-          }
-        })
-        .filter((mission): mission is MissionOption => mission !== null)
-
-      setMissionOptions(parsedMissions)
-    } else {
-      errors.push(toDashboardErrorMessage(missionsResult.reason))
-      setMissionOptions([])
-    }
-
-    if (typesResult.status === 'fulfilled') {
-      setTypeOptions(parseReferentialOptions(typesResult.value))
-    } else {
-      errors.push(toDashboardErrorMessage(typesResult.reason))
-      setTypeOptions([])
-    }
-
-    if (skillsResult.status === 'fulfilled') {
-      setSkillOptions(parseReferentialOptions(skillsResult.value))
-    } else {
-      errors.push(toDashboardErrorMessage(skillsResult.reason))
-      setSkillOptions([])
-    }
-
-    setAssignmentOptionsError(errors.length > 0
-      ? 'Some assignment options failed to load. You can still submit with available fields.'
-      : null)
-
-    setAssignmentOptionsLoading(false)
-  }, [api])
-
   useEffect(() => {
     if (!isOpen || !targetInternId) {
       return
     }
 
     void loadInternDetails(targetInternId)
-    void loadAssignmentOptions()
-  }, [isOpen, loadAssignmentOptions, loadInternDetails, targetInternId])
+  }, [isOpen, loadInternDetails, targetInternId])
 
   useEffect(() => {
     if (!isOpen) {
-      setShowAssignSection(false)
-      setAssignmentError(null)
-      setAssignmentSuccess(null)
       setCvError(null)
-      setAssignmentFieldErrors({})
-      setAssignmentForm(defaultAssignmentForm)
     }
   }, [isOpen])
 
@@ -351,22 +179,6 @@ export function InternDetailsModal({
   const hasCv = useMemo(() => {
     return Boolean(asNonEmptyString(internDetails?.cvFileUrl) || asNonEmptyString(intern?.cvFileUrl))
   }, [internDetails?.cvFileUrl, intern?.cvFileUrl])
-
-  const toggleSkill = (skillId: string) => {
-    setAssignmentForm((previous) => {
-      if (previous.skillIds.includes(skillId)) {
-        return {
-          ...previous,
-          skillIds: previous.skillIds.filter((id) => id !== skillId),
-        }
-      }
-
-      return {
-        ...previous,
-        skillIds: [...previous.skillIds, skillId],
-      }
-    })
-  }
 
   const handleViewCv = async () => {
     if (!targetInternId) {
@@ -439,108 +251,6 @@ export function InternDetailsModal({
       }
     } finally {
       setCvLoading(false)
-    }
-  }
-
-  const submitAssignment = async () => {
-    if (!targetInternId) {
-      setAssignmentError('Unable to resolve intern id.')
-      return
-    }
-
-    const fieldErrors: AssignmentFieldErrors = {}
-    if (!assignmentForm.missionId.trim()) {
-      fieldErrors.missionId = 'Mission is required.'
-    }
-
-    if (!assignmentForm.startDate) {
-      fieldErrors.startDate = 'Start date is required.'
-    }
-
-    if (!assignmentForm.endDate) {
-      fieldErrors.endDate = 'End date is required.'
-    }
-
-    if (assignmentForm.startDate && assignmentForm.endDate) {
-      const startDate = new Date(assignmentForm.startDate)
-      const endDate = new Date(assignmentForm.endDate)
-      if (endDate <= startDate) {
-        fieldErrors.endDate = 'End date must be later than start date.'
-      }
-    }
-
-    if (Object.keys(fieldErrors).length > 0) {
-      setAssignmentFieldErrors(fieldErrors)
-      setAssignmentError(null)
-      return
-    }
-
-    setAssignmentFieldErrors({})
-
-    setAssignmentSubmitting(true)
-    setAssignmentError(null)
-    setAssignmentSuccess(null)
-
-    try {
-      const assignmentResponse = await api.post<AssignStageResponse>('/api/stages/assign', {
-        missionId: assignmentForm.missionId,
-        internId: targetInternId,
-        startDate: toIsoDate(assignmentForm.startDate),
-        endDate: toIsoDate(assignmentForm.endDate),
-      })
-
-      const internshipId = asNonEmptyString(assignmentResponse.missionId)
-
-      const followUpErrors: string[] = []
-
-      if (assignmentForm.departmentId || assignmentForm.internshipTypeId) {
-        if (!internshipId) {
-          followUpErrors.push('Internship update step failed: missing internship id from assignment response.')
-        } else {
-          const internshipUpdatePayload: Record<string, string> = {}
-          if (assignmentForm.departmentId) {
-            internshipUpdatePayload.departmentId = assignmentForm.departmentId
-          }
-
-          if (assignmentForm.internshipTypeId) {
-            internshipUpdatePayload.internshipTypeId = assignmentForm.internshipTypeId
-          }
-
-          try {
-            await api.patch(`/api/internships/${internshipId}`, internshipUpdatePayload)
-          } catch (error) {
-            followUpErrors.push(`Internship update step failed: ${toDashboardErrorMessage(error)}`)
-          }
-        }
-      }
-
-      if (assignmentForm.skillIds.length > 0) {
-        try {
-          await api.put(`/api/interns/${targetInternId}/skills`, {
-            skillIds: assignmentForm.skillIds,
-          })
-        } catch (error) {
-          followUpErrors.push(`Skills update step failed: ${toDashboardErrorMessage(error)}`)
-        }
-      }
-
-      await Promise.resolve(onAssignmentSuccess())
-      await loadInternDetails(targetInternId)
-
-      if (followUpErrors.length > 0) {
-        setAssignmentError(
-          `${followUpErrors.join(' ')} Assignment created but additional details could not be saved. Please edit the internship manually.`,
-        )
-        return
-      }
-
-      setShowAssignSection(false)
-      setAssignmentSuccess('Intern successfully assigned')
-      window.setTimeout(() => onClose(), 300)
-    } catch (error) {
-      setAssignmentError(`Assignment step failed: ${toDashboardErrorMessage(error)}`)
-    } finally {
-      setAssignmentSubmitting(false)
     }
   }
 
@@ -697,178 +407,9 @@ export function InternDetailsModal({
             <DashboardButton variant="secondary" onClick={onClose}>
               {t('dashboard.manager.internDetails.close')}
             </DashboardButton>
-            <DashboardButton
-              variant="primary"
-              size="md"
-              loading={cvLoading}
-              disabled={!hasCv || cvLoading}
-              title={!hasCv ? t('dashboard.manager.internDetails.noCvUploaded') : undefined}
-              onClick={() => void handleViewCv()}
-            >
-              {t('dashboard.manager.internDetails.viewCv')}
-            </DashboardButton>
-            <DashboardButton
-              variant="primary"
-              size="md"
-              onClick={() => setShowAssignSection((previous) => !previous)}
-            >
-              {showAssignSection ? t('dashboard.manager.internDetails.hideAssignment') : t('dashboard.manager.internDetails.assignIntern')}
-            </DashboardButton>
           </div>
 
           {cvError && <p className="form-error">{cvError}</p>}
-          {assignmentSuccess && <p className="intern-modal-success">{assignmentSuccess}</p>}
-
-          {showAssignSection && (
-            <section className="intern-modal-assignment">
-              <h4 className="intern-modal-section-title">{t('dashboard.manager.internDetails.section.assignIntern')}</h4>
-
-              {assignmentOptionsLoading ? (
-                <Skeleton height="220px" />
-              ) : (
-                <form
-                  className="modal-form"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    void submitAssignment()
-                  }}
-                >
-                  {assignmentOptionsError && <p className="intern-modal-warning">{assignmentOptionsError}</p>}
-                  {departmentsError && <p className="intern-modal-warning">{departmentsError}</p>}
-
-                  <div className="admin-form-grid admin-form-grid-two">
-                    <div className="form-field">
-                      <label htmlFor="manager-assign-mission">{t('dashboard.manager.internDetails.label.mission')}</label>
-                      <select
-                        id="manager-assign-mission"
-                        value={assignmentForm.missionId}
-                        onChange={(event) => setAssignmentForm((previous) => ({
-                          ...previous,
-                          missionId: event.target.value,
-                        }))}
-                        required
-                      >
-                        <option value="">{t('dashboard.manager.internDetails.selectMission')}</option>
-                        {missionOptions.map((mission) => (
-                          <option key={mission.id} value={mission.id}>
-                            {mission.title}
-                            {mission.supervisorName ? ` - ${mission.supervisorName}` : ''}
-                            {mission.status ? ` (${mission.status})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      {assignmentFieldErrors.missionId && <p className="form-error">{assignmentFieldErrors.missionId}</p>}
-                    </div>
-
-                    <div className="form-field">
-                      <label htmlFor="manager-assign-department">{t('dashboard.manager.internDetails.label.department')}</label>
-                      <select
-                        id="manager-assign-department"
-                        value={assignmentForm.departmentId}
-                        onChange={(event) => setAssignmentForm((previous) => ({
-                          ...previous,
-                          departmentId: event.target.value,
-                        }))}
-                        disabled={loadingDepartments}
-                      >
-                        <option value="">{t('dashboard.manager.internDetails.selectDepartment')}</option>
-                        {departments.map((department) => (
-                          <option key={department.id} value={department.id}>{department.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="admin-form-grid admin-form-grid-two">
-                    <div className="form-field">
-                      <label htmlFor="manager-assign-type">{t('dashboard.manager.internDetails.label.internshipType')}</label>
-                      <select
-                        id="manager-assign-type"
-                        value={assignmentForm.internshipTypeId}
-                        onChange={(event) => setAssignmentForm((previous) => ({
-                          ...previous,
-                          internshipTypeId: event.target.value,
-                        }))}
-                      >
-                        <option value="">{t('dashboard.manager.internDetails.selectInternshipType')}</option>
-                        {typeOptions.map((typeOption) => (
-                          <option key={typeOption.id} value={typeOption.id}>{typeOption.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-field">
-                      <label htmlFor="manager-assign-start-date">{t('dashboard.manager.internDetails.label.startDate')}</label>
-                      <input
-                        id="manager-assign-start-date"
-                        type="date"
-                        value={assignmentForm.startDate}
-                        onChange={(event) => setAssignmentForm((previous) => ({
-                          ...previous,
-                          startDate: event.target.value,
-                        }))}
-                        required
-                      />
-                      {assignmentFieldErrors.startDate && <p className="form-error">{assignmentFieldErrors.startDate}</p>}
-                    </div>
-                  </div>
-
-                  <div className="admin-form-grid admin-form-grid-two">
-                    <div className="form-field">
-                      <label htmlFor="manager-assign-end-date">{t('dashboard.manager.internDetails.label.endDate')}</label>
-                      <input
-                        id="manager-assign-end-date"
-                        type="date"
-                        value={assignmentForm.endDate}
-                        onChange={(event) => setAssignmentForm((previous) => ({
-                          ...previous,
-                          endDate: event.target.value,
-                        }))}
-                        required
-                      />
-                      {assignmentFieldErrors.endDate && <p className="form-error">{assignmentFieldErrors.endDate}</p>}
-                    </div>
-                  </div>
-
-                  <div className="form-field">
-                    <label>{t('dashboard.manager.internDetails.label.skills')}</label>
-                    {skillOptions.length === 0 ? (
-                      <p className="intern-modal-muted">{t('dashboard.manager.internDetails.noSkillOptions')}</p>
-                    ) : (
-                      <div className="intern-modal-chip-list" role="list" aria-label={t('dashboard.manager.internDetails.aria.availableSkills')}>
-                        {skillOptions.map((skillOption) => {
-                          const isSelected = assignmentForm.skillIds.includes(skillOption.id)
-                          return (
-                            <button
-                              key={skillOption.id}
-                              type="button"
-                              role="listitem"
-                              className={`intern-modal-skill-chip ${isSelected ? 'is-selected' : ''}`}
-                              onClick={() => toggleSkill(skillOption.id)}
-                            >
-                              {skillOption.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {assignmentError && <p className="form-error">{assignmentError}</p>}
-
-                  <div className="modal-actions">
-                    <DashboardButton
-                      type="button"
-                      variant="secondary"
-                      size="md"
-                      onClick={() => setShowAssignSection(false)}
-                    > {t('dashboard.manager.internDetails.cancel')} </DashboardButton>
-                    <DashboardButton type="submit" variant="primary" size="md" loading={assignmentSubmitting}> {t('dashboard.manager.internDetails.saveAssignment')} </DashboardButton>
-                  </div>
-                </form>
-              )}
-            </section>
-          )}
         </div>
       )}
     </Modal>

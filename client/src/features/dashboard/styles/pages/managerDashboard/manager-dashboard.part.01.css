@@ -257,6 +257,24 @@
   outline-offset: 2px;
 }
 
+/* Table column widths */
+.dash-table .col-name {
+  width: 22%;
+}
+
+.dash-table .col-progress {
+  width: 16%;
+}
+
+.dash-table .col-actions {
+  width: 100px;
+}
+
+/* Actions cell: keep buttons on one line */
+.dash-table td.cell-actions {
+  white-space: nowrap;
+}
+
 /* Modern Intern Action Button */
 .intern-action-btn {
   appearance: none;
@@ -291,6 +309,20 @@
   outline-offset: 2px;
   background: color-mix(in srgb, var(--dash-accent) 10%, var(--dash-bg-secondary));
   color: var(--dash-accent);
+}
+
+.intern-action-btn--disabled,
+.intern-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+
+.intern-action-btn--disabled:hover,
+.intern-action-btn:disabled:hover {
+  background: transparent;
+  color: var(--dash-text-muted);
+  transform: none;
 }
 
 /* Supervisor Cards */

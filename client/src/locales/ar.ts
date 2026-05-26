@@ -532,6 +532,8 @@ export const commonAr = {
   'dashboard.manager.interns.table.verificationStatus': 'حالة التحقق',
   'dashboard.manager.interns.table.actions': 'الإجراءات',
   'dashboard.manager.interns.viewDetails': 'عرض تفاصيل {{name}}',
+  'dashboard.manager.interns.assignIntern': 'تكليف {{name}}',
+  'dashboard.manager.interns.viewCv': 'عرض السيرة الذاتية لـ {{name}}',
 
   // Dashboard - Manager Supervisors Tab
   'dashboard.manager.supervisors.title': 'المشرفون',

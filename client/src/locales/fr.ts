@@ -533,6 +533,8 @@ export const commonFr = {
   'dashboard.manager.interns.table.verificationStatus': 'Statut de verification',
   'dashboard.manager.interns.table.actions': 'Actions',
   'dashboard.manager.interns.viewDetails': 'Voir les details de {{name}}',
+  'dashboard.manager.interns.assignIntern': 'Affecter {{name}}',
+  'dashboard.manager.interns.viewCv': 'Voir le CV de {{name}}',
 
   // Dashboard - Manager Supervisors Tab
   'dashboard.manager.supervisors.title': 'Encadrants',

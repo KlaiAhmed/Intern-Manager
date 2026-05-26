@@ -532,6 +532,8 @@ export const commonEn = {
   'dashboard.manager.interns.table.verificationStatus': 'Verification Status',
   'dashboard.manager.interns.table.actions': 'Actions',
   'dashboard.manager.interns.viewDetails': 'View details for {{name}}',
+  'dashboard.manager.interns.assignIntern': 'Assign intern {{name}}',
+  'dashboard.manager.interns.viewCv': 'View CV for {{name}}',
 
   // Dashboard - Manager Supervisors Tab
   'dashboard.manager.supervisors.title': 'Supervisors',
