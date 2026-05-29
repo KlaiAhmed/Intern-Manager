@@ -163,7 +163,7 @@ export function Header() {
       )}
     >
       <div className={classNames("container", styles.headerContent)}>
-        <a className={styles.brand} href="/" aria-label="Axia Intern Manager">
+        <a className={styles.brand} href="/" aria-label="Axia Smart Intern Manager">
           <img
             src="/axiaLogo.png"
             alt="Axia logo"
@@ -171,7 +171,7 @@ export function Header() {
             width="40"
             height="40"
           />
-          <span className={styles.brandText}>Axia Intern Manager</span>
+          <span className={styles.brandText}>Axia Smart Intern Manager</span>
         </a>
 
         <button

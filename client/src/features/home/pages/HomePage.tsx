@@ -21,15 +21,15 @@ export function HomePage() {
   useHomeScrollReveal()
 
   usePageMetadata({
-    title: 'Axia Intern Manager | Internship Lifecycle Platform',
+    title: 'Axia Smart Intern Manager | Internship Lifecycle Platform',
     description:
-      'Axia Intern Manager is an enterprise platform for mission assignment, progress tracking, evaluations, AI matching, and BI analytics.',
+      'Axia Smart Intern Manager is an enterprise platform for mission assignment, progress tracking, evaluations, AI matching, and BI analytics.',
     path: '/',
   })
 
   return (
     <main id="main-content" tabIndex={-1}>
-      <h1 className="sr-only">Axia Intern Manager</h1>
+      <h1 className="sr-only">Axia Smart Intern Manager</h1>
       <HeroSection />
       <BenefitsSection />
       <RoleValueSection />
