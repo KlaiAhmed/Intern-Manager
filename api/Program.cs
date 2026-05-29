@@ -73,6 +73,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddScoped<IInternshipsService, InternshipsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICvStorageService, CvStorageService>();
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<ISupervisorScopeService, SupervisorScopeService>();
 builder.Services.AddScoped<ISupervisorStatsService, SupervisorStatsService>();
 builder.Services.AddScoped<ISupervisorInternsService, SupervisorInternsService>();

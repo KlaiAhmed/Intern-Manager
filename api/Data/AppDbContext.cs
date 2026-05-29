@@ -266,6 +266,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .ValueGeneratedOnAdd()
                 .HasDefaultValueSql("NEWID()");
 
+            entity.Property(mission => mission.CoSupervisorId);
+
 entity.Property(mission => mission.Title)
                 .HasMaxLength(500);
 
@@ -291,6 +293,7 @@ entity.Property(mission => mission.Title)
                 .HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasIndex(mission => mission.SupervisorId);
+            entity.HasIndex(mission => mission.CoSupervisorId);
             entity.HasIndex(mission => mission.InternId);
             entity.HasIndex(mission => mission.InternshipTypeId);
             entity.HasIndex(mission => mission.CreatedAt);
@@ -299,6 +302,11 @@ entity.Property(mission => mission.Title)
                 .WithMany()
                 .HasForeignKey(mission => mission.SupervisorId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(mission => mission.CoSupervisor)
+                .WithMany()
+                .HasForeignKey(mission => mission.CoSupervisorId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(mission => mission.Intern)
                 .WithMany()
@@ -437,7 +445,12 @@ entity.Property(mission => mission.Title)
 
         modelBuilder.Entity<DeliverableVersion>(entity =>
         {
-            entity.ToTable("DeliverableVersions");
+            entity.ToTable("DeliverableVersions", table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_DeliverableVersions_SubmissionSource",
+                    "(([FileUrl] IS NOT NULL AND [GitHubUrl] IS NULL) OR ([FileUrl] IS NULL AND [GitHubUrl] IS NOT NULL))");
+            });
 
             entity.HasKey(version => version.Id);
 
@@ -446,8 +459,16 @@ entity.Property(mission => mission.Title)
                 .HasDefaultValueSql("NEWID()");
 
             entity.Property(version => version.FileUrl)
-                .IsRequired()
                 .HasMaxLength(2048);
+
+            entity.Property(version => version.GitHubUrl)
+                .HasMaxLength(2048);
+
+            entity.Property(version => version.GitHubBranch)
+                .HasMaxLength(200);
+
+            entity.Property(version => version.Message)
+                .HasMaxLength(2000);
 
             entity.Property(version => version.Status)
                 .IsRequired()
@@ -462,6 +483,7 @@ entity.Property(mission => mission.Title)
                 .HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasIndex(version => version.DeliverableId);
+            entity.HasIndex(version => version.SubmittedByUserId);
             entity.HasIndex(version => new { version.DeliverableId, version.VersionNumber })
                 .IsUnique();
 
@@ -469,6 +491,11 @@ entity.Property(mission => mission.Title)
                 .WithMany(deliverable => deliverable.Versions)
                 .HasForeignKey(version => version.DeliverableId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(version => version.SubmittedByUser)
+                .WithMany()
+                .HasForeignKey(version => version.SubmittedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Evaluation>(entity =>

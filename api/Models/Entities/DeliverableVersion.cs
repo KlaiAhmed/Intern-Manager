@@ -11,7 +11,13 @@ public sealed class DeliverableVersion
 
     public int VersionNumber { get; set; }
 
-    public string FileUrl { get; set; } = string.Empty;
+    public string? FileUrl { get; set; }
+
+    public string? GitHubUrl { get; set; }
+
+    public string? GitHubBranch { get; set; }
+
+    public string? Message { get; set; }
 
     public string Status { get; set; } = "submitted";
 
@@ -21,5 +27,9 @@ public sealed class DeliverableVersion
 
     public DateTime? ValidatedAt { get; set; }
 
+    public Guid? SubmittedByUserId { get; set; }
+
     public Deliverable? Deliverable { get; set; }
+
+    public User? SubmittedByUser { get; set; }
 }

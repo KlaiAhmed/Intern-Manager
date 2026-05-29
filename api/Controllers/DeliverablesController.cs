@@ -1,3 +1,4 @@
+using System.Data;
 using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Attributes;
 using InternManager.Api.Common.Enums;
@@ -19,6 +20,7 @@ namespace InternManager.Api.Controllers;
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
+/// <param name="fileStorageService">Service de stockage de fichiers.</param>
 /// <param name="deliverablesService">Service métier des livrables.</param>
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
 /// <param name="logger">Logger pour les événements du contrôleur.</param>
@@ -28,11 +30,15 @@ namespace InternManager.Api.Controllers;
 public sealed class DeliverablesController(
     AppDbContext dbContext,
     IWebHostEnvironment environment,
+    IFileStorageService fileStorageService,
     IDeliverablesService deliverablesService,
     INotificationService notificationService,
     ILogger<DeliverablesController> logger) : ControllerBase
 {
     private const long MaxUploadBytes = 10 * 1024 * 1024;
+    private const int MaxGitHubUrlLength = 2048;
+    private const int MaxGitHubBranchLength = 200;
+    private const int MaxSubmissionMessageLength = 2000;
 
 private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
  {
@@ -282,6 +288,317 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
     }
 
     /// <summary>
+    /// Creates a new deliverable submission version.
+    /// </summary>
+    [HttpPost("{deliverableId:guid}/versions", Name = "SubmitDeliverableVersion")]
+    [FeatureCard(DashboardCard.Deliverables)]
+    [Authorize(Roles = "Intern")]
+    [EnableRateLimiting("upload")]
+    [ProducesResponseType(typeof(DeliverableVersionResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SubmitDeliverableVersion(
+        Guid deliverableId,
+        [FromForm] SubmitDeliverableVersionForm request,
+        CancellationToken cancellationToken)
+    {
+        var internId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!internId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var intern = await dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.Id == internId.Value && user.Role == UserRole.Intern, cancellationToken);
+
+        if (intern is null)
+        {
+            return NotFound(new { message = "Intern not found." });
+        }
+
+        var hasFile = request.File is { Length: > 0 };
+        var normalizedGitHubUrl = NormalizeOptionalText(request.GitHubUrl);
+        var hasGitHubUrl = !string.IsNullOrWhiteSpace(normalizedGitHubUrl);
+
+        if (hasFile && hasGitHubUrl)
+        {
+            return BadRequest(new { message = "Submit either a file or a GitHub URL, not both." });
+        }
+
+        if (!hasFile && !hasGitHubUrl)
+        {
+            return BadRequest(new { message = "A file or GitHub URL is required." });
+        }
+
+        string? fileExtension = null;
+        if (hasFile)
+        {
+            var fileValidationError = ValidateSubmissionFile(request.File!);
+            if (fileValidationError is not null)
+            {
+                return BadRequest(new { message = fileValidationError });
+            }
+
+            fileExtension = Path.GetExtension(request.File!.FileName);
+        }
+
+        if (hasGitHubUrl)
+        {
+            if (normalizedGitHubUrl!.Length > MaxGitHubUrlLength)
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["githubUrl"] = "GitHub URL cannot exceed 2048 characters."
+                });
+            }
+
+            if (!IsRepoLevelGitHubUrl(normalizedGitHubUrl))
+            {
+                return BadRequest(new { message = "GitHub URL must be a repository-level URL such as https://github.com/owner/repo." });
+            }
+        }
+
+        var normalizedGitHubBranch = NormalizeOptionalText(request.GitHubBranch);
+        if (!hasGitHubUrl && normalizedGitHubBranch is not null)
+        {
+            return BadRequest(new { message = "GitHub branch requires a GitHub URL submission." });
+        }
+
+        if (normalizedGitHubBranch is { Length: > MaxGitHubBranchLength })
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["githubBranch"] = "GitHub branch cannot exceed 200 characters."
+            });
+        }
+
+        var normalizedMessage = NormalizeOptionalText(request.Message);
+        if (normalizedMessage is { Length: > MaxSubmissionMessageLength })
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["message"] = "Message cannot exceed 2000 characters."
+            });
+        }
+
+        var deliverable = await dbContext.Deliverables
+            .Include(item => item.Mission)
+            .FirstOrDefaultAsync(item => item.Id == deliverableId, cancellationToken);
+
+        if (deliverable is null)
+        {
+            return NotFound(new { message = "Deliverable not found." });
+        }
+
+        if (deliverable.InternId != internId.Value)
+        {
+            return Forbid();
+        }
+
+        if (deliverable.Mission is null || !IsActiveMission(deliverable.Mission))
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new { message = "Deliverable is not associated with an active mission." });
+        }
+
+        var belongsToCurrentInternMission = deliverable.Mission.InternId == internId.Value ||
+            await dbContext.MissionInternAssignments
+                .AsNoTracking()
+                .AnyAsync(
+                    assignment => assignment.MissionId == deliverable.MissionId && assignment.InternId == internId.Value,
+                    cancellationToken);
+
+        if (!belongsToCurrentInternMission)
+        {
+            return Forbid();
+        }
+
+        StoredFileInfo? storedFile = null;
+        if (hasFile)
+        {
+            await using var uploadStream = request.File!.OpenReadStream();
+            storedFile = await fileStorageService.SaveAsync(
+                new FileStorageSaveRequest(
+                    uploadStream,
+                    $"deliverables/{deliverable.Id}",
+                    request.File.FileName,
+                    request.File.ContentType,
+                    fileExtension),
+                cancellationToken);
+        }
+
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        try
+        {
+            if (dbContext.Database.IsRelational())
+            {
+                transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+            }
+
+            var latestVersionNumber = await dbContext.DeliverableVersions
+                .AsNoTracking()
+                .Where(version => version.DeliverableId == deliverable.Id)
+                .Select(version => (int?)version.VersionNumber)
+                .MaxAsync(cancellationToken);
+
+            var nextVersionNumber = ComputeNextVersionNumber(deliverable, latestVersionNumber);
+            var submittedAt = DateTime.UtcNow;
+
+            var version = new DeliverableVersion
+            {
+                Id = Guid.NewGuid(),
+                DeliverableId = deliverable.Id,
+                VersionNumber = nextVersionNumber,
+                FileUrl = storedFile?.Url,
+                GitHubUrl = normalizedGitHubUrl,
+                GitHubBranch = normalizedGitHubBranch,
+                Message = normalizedMessage,
+                Status = DomainStatuses.Deliverable.Submitted,
+                SupervisorComment = null,
+                SubmittedAt = submittedAt,
+                SubmittedByUserId = intern.Id
+            };
+
+            dbContext.DeliverableVersions.Add(version);
+
+            deliverable.Version = nextVersionNumber;
+            deliverable.FileUrl = storedFile?.Url ?? string.Empty;
+            deliverable.SubmittedDate = submittedAt;
+            deliverable.Status = DomainStatuses.Deliverable.Submitted;
+            deliverable.SupervisorComment = null;
+
+            var linkedTasks = await dbContext.InternTasks
+                .Where(task => task.DeliverableId == deliverable.Id && task.InternId == internId.Value)
+                .ToListAsync(cancellationToken);
+
+            foreach (var task in linkedTasks)
+            {
+                task.IsComplete = true;
+                task.CompletedAt = submittedAt;
+            }
+
+            dbContext.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = internId,
+                Actor = UserContextHelper.ResolveCurrentActorName(User),
+                Action = "deliverable.version.submit",
+                Entity = $"deliverable:{deliverable.Id} version:{version.VersionNumber}",
+                Timestamp = submittedAt
+            });
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            return Created(
+                $"/api/deliverables/{deliverable.Id}/versions/{version.Id}",
+                ToVersionResponse(version, intern));
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            if (storedFile is not null)
+            {
+                try
+                {
+                    await fileStorageService.DeleteAsync(storedFile.Url, cancellationToken);
+                }
+                catch (Exception cleanupException)
+                {
+                    logger.LogWarning(cleanupException, "Failed to delete stored deliverable file after version submission failure.");
+                }
+            }
+
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the version history for a deliverable.
+    /// </summary>
+    [HttpGet("{deliverableId:guid}/versions", Name = "ListDeliverableVersions")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor,Intern")]
+    [EnableRateLimiting("read-frequent")]
+    [ProducesResponseType(typeof(DeliverableVersionHistoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDeliverableVersions(
+        Guid deliverableId,
+        CancellationToken cancellationToken)
+    {
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var deliverable = await dbContext.Deliverables
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == deliverableId, cancellationToken);
+
+        if (deliverable is null)
+        {
+            return NotFound(new { message = "Deliverable not found." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        var isSupervisorScope = User.IsInRole("Supervisor") && deliverable.SupervisorId == currentUserId.Value;
+        var isInternScope = User.IsInRole("Intern") && deliverable.InternId == currentUserId.Value;
+
+        if (!isAdminScope && !isSupervisorScope && !isInternScope)
+        {
+            return Forbid();
+        }
+
+        var versions = await dbContext.DeliverableVersions
+            .AsNoTracking()
+            .Include(version => version.SubmittedByUser)
+            .Where(version => version.DeliverableId == deliverable.Id)
+            .OrderByDescending(version => version.VersionNumber)
+            .ThenByDescending(version => version.SubmittedAt)
+            .ToListAsync(cancellationToken);
+
+        var response = new DeliverableVersionHistoryResponse
+        {
+            Deliverable = new DeliverableVersionParentSummaryResponse
+            {
+                Id = deliverable.Id,
+                MissionId = deliverable.MissionId,
+                Title = deliverable.Title,
+                Status = deliverable.Status,
+                Version = deliverable.Version,
+                Progress = deliverable.Progress,
+                DueDate = deliverable.DueDate,
+                SubmittedDate = deliverable.SubmittedDate,
+                SupervisorComment = deliverable.SupervisorComment
+            },
+            Versions = versions
+                .Select(version => ToVersionResponse(version, version.SubmittedByUser))
+                .ToArray()
+        };
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Soumet un fichier pour un livrable.
     /// </summary>
     /// <remarks>
@@ -374,7 +691,8 @@ var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "del
             FileUrl = $"/uploads/deliverables/{storedFileName}".Replace('\\', '/'),
             Status = DomainStatuses.Deliverable.Submitted,
             SupervisorComment = null,
-            SubmittedAt = DateTime.UtcNow
+            SubmittedAt = DateTime.UtcNow,
+            SubmittedByUserId = internId.Value
         });
 
         deliverable.Version = nextVersionNumber;
@@ -761,6 +1079,126 @@ var deliverable = new Deliverable
         });
     }
 
+    private static DeliverableVersionResponse ToVersionResponse(DeliverableVersion version, User? submittedByUser)
+    {
+        return new DeliverableVersionResponse
+        {
+            Id = version.Id,
+            DeliverableId = version.DeliverableId,
+            VersionNumber = version.VersionNumber,
+            FileUrl = version.FileUrl,
+            GitHubUrl = version.GitHubUrl,
+            GitHubBranch = version.GitHubBranch,
+            Message = version.Message,
+            Status = version.Status,
+            SupervisorComment = version.SupervisorComment,
+            SubmittedAt = version.SubmittedAt,
+            ValidatedAt = version.ValidatedAt,
+            SubmittedBy = version.SubmittedByUserId.HasValue
+                ? new DeliverableVersionSubmittedByResponse
+                {
+                    Id = version.SubmittedByUserId.Value,
+                    Name = submittedByUser is null
+                        ? string.Empty
+                        : $"{submittedByUser.FirstName} {submittedByUser.LastName}".Trim(),
+                    Email = submittedByUser?.Email ?? string.Empty
+                }
+                : null
+        };
+    }
+
+    private static string? ValidateSubmissionFile(IFormFile file)
+    {
+        if (file.Length == 0)
+        {
+            return "File is required.";
+        }
+
+        if (file.Length > MaxUploadBytes)
+        {
+            return "File exceeds the 10 MB limit.";
+        }
+
+        var fileExtension = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(fileExtension) || !AllowedExtensions.Contains(fileExtension))
+        {
+            return "File extension is not allowed.";
+        }
+
+        if (string.IsNullOrWhiteSpace(file.ContentType) || !AllowedMimeTypes.Contains(file.ContentType))
+        {
+            return "File content type is not allowed.";
+        }
+
+        return null;
+    }
+
+    private static bool IsRepoLevelGitHubUrl(string rawValue)
+    {
+        if (!Uri.TryCreate(rawValue, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        if (uri.Scheme is not "https" and not "http")
+        {
+            return false;
+        }
+
+        if (!string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(uri.Query) || !string.IsNullOrWhiteSpace(uri.Fragment))
+        {
+            return false;
+        }
+
+        var pathSegments = uri.AbsolutePath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (pathSegments.Length != 2)
+        {
+            return false;
+        }
+
+        return pathSegments.All(segment =>
+            segment.Length > 0 &&
+            segment.All(character =>
+                char.IsAsciiLetterOrDigit(character) ||
+                character is '-' or '_' or '.'));
+    }
+
+    private static bool IsActiveMission(Mission mission)
+    {
+        return string.Equals(mission.Status, DomainStatuses.Mission.Active, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int ComputeNextVersionNumber(Deliverable deliverable, int? latestVersionNumber)
+    {
+        if (latestVersionNumber.HasValue)
+        {
+            return Math.Max(latestVersionNumber.Value, deliverable.Version) + 1;
+        }
+
+        var hasLegacySubmission =
+            deliverable.SubmittedDate.HasValue ||
+            !string.IsNullOrWhiteSpace(deliverable.FileUrl) ||
+            !string.Equals(deliverable.Status, DomainStatuses.Deliverable.Pending, StringComparison.OrdinalIgnoreCase);
+
+        return hasLegacySubmission
+            ? Math.Max(deliverable.Version + 1, 2)
+            : 1;
+    }
+
+    private static string? NormalizeOptionalText(string? rawValue)
+    {
+        return string.IsNullOrWhiteSpace(rawValue)
+            ? null
+            : rawValue.Trim();
+    }
+
     private static string NormalizeStatusForIntern(string rawStatus)
     {
         var normalizedStatus = rawStatus.Trim().ToLowerInvariant();
@@ -789,6 +1227,81 @@ public sealed class ValidateDeliverableRequest
 public sealed class SubmitDeliverableForm
 {
     public IFormFile? File { get; init; }
+}
+
+public sealed class SubmitDeliverableVersionForm
+{
+    public IFormFile? File { get; init; }
+
+    public string? GitHubUrl { get; init; }
+
+    public string? GitHubBranch { get; init; }
+
+    public string? Message { get; init; }
+}
+
+public sealed class DeliverableVersionHistoryResponse
+{
+    public DeliverableVersionParentSummaryResponse Deliverable { get; init; } = new();
+
+    public IReadOnlyList<DeliverableVersionResponse> Versions { get; init; } = Array.Empty<DeliverableVersionResponse>();
+}
+
+public sealed class DeliverableVersionParentSummaryResponse
+{
+    public Guid Id { get; init; }
+
+    public Guid MissionId { get; init; }
+
+    public string Title { get; init; } = string.Empty;
+
+    public string Status { get; init; } = string.Empty;
+
+    public int Version { get; init; }
+
+    public int Progress { get; init; }
+
+    public DateTime? DueDate { get; init; }
+
+    public DateTime? SubmittedDate { get; init; }
+
+    public string? SupervisorComment { get; init; }
+}
+
+public sealed class DeliverableVersionResponse
+{
+    public Guid Id { get; init; }
+
+    public Guid DeliverableId { get; init; }
+
+    public int VersionNumber { get; init; }
+
+    public string? FileUrl { get; init; }
+
+    public string? GitHubUrl { get; init; }
+
+    public string? GitHubBranch { get; init; }
+
+    public string? Message { get; init; }
+
+    public string Status { get; init; } = string.Empty;
+
+    public string? SupervisorComment { get; init; }
+
+    public DateTime SubmittedAt { get; init; }
+
+    public DateTime? ValidatedAt { get; init; }
+
+    public DeliverableVersionSubmittedByResponse? SubmittedBy { get; init; }
+}
+
+public sealed class DeliverableVersionSubmittedByResponse
+{
+    public Guid Id { get; init; }
+
+    public string Name { get; init; } = string.Empty;
+
+    public string Email { get; init; } = string.Empty;
 }
 
 public sealed class UpdateDeliverableProgressRequest
