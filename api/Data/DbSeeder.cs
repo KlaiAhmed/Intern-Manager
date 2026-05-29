@@ -1,6 +1,5 @@
 ﻿using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
-using InternManager.Api.Data.Initialization;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Auth;
 using Microsoft.EntityFrameworkCore;
@@ -33,8 +32,6 @@ public static class DbSeeder
 
         await SqlMigrationScriptRunner.ApplyPendingScriptsAsync(dbContext, logger, hostEnvironment.ContentRootPath);
 
-        await ReferenceDataSeeder.SeedDefaultStatusReferencesAsync(dbContext, logger);
-        
         await SeedDevelopmentBypassUsersAsync(dbContext, logger, hostEnvironment);
 
         var superAdminExists = await dbContext.Users

@@ -133,15 +133,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     /// </summary>
     public DbSet<Skill> Skills => Set<Skill>();
 
-    /// <summary>
-    /// Table des statuts de compte utilisateur (Active/Archived).
-    /// </summary>
-    public DbSet<UserAccountStatusReference> UserAccountStatusReferences => Set<UserAccountStatusReference>();
-
-    /// <summary>
-    /// Table des statuts de verification des stagiaires.
-    /// </summary>
-    public DbSet<UserVerificationStatusReference> UserVerificationStatusReferences => Set<UserVerificationStatusReference>();
 
     /// <summary>
     /// Définit les contraintes de schéma et les conversions de l entité <see cref="User"/>.
@@ -987,8 +978,6 @@ entity.Property(mission => mission.Title)
         modelBuilder.Entity<School>(entity => ConfigureReferentialEntity(entity, "Schools"));
         modelBuilder.Entity<InternshipType>(entity => ConfigureReferentialEntity(entity, "InternshipTypes"));
         modelBuilder.Entity<Skill>(entity => ConfigureReferentialEntity(entity, "Skills"));
-        modelBuilder.Entity<UserAccountStatusReference>(entity => ConfigureReferentialEntity(entity, "UserAccountStatusReferences"));
-        modelBuilder.Entity<UserVerificationStatusReference>(entity => ConfigureReferentialEntity(entity, "UserVerificationStatusReferences"));
     }
 
     /// <summary>
