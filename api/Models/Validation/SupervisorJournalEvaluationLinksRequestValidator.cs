@@ -8,6 +8,7 @@ public sealed class SupervisorJournalEvaluationLinksRequestValidator : AbstractV
     public SupervisorJournalEvaluationLinksRequestValidator()
     {
         RuleFor(request => request.Criteria)
+            .Cascade(CascadeMode.Stop)
             .NotNull()
             .WithMessage("criteria is required.")
             .Must(criteria => criteria.Count <= 5)

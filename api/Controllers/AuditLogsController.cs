@@ -2,6 +2,7 @@
 using InternManager.Api.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -34,6 +35,7 @@ public sealed class AuditLogsController(AppDbContext dbContext) : ControllerBase
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet(Name = "ListAuditLogs")]
+    [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

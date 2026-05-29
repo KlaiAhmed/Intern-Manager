@@ -64,7 +64,10 @@ public sealed class GlobalExceptionMiddleware(
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";
 
-        await context.Response.WriteAsJsonAsync(problemDetails);
+        await context.Response.WriteAsJsonAsync(
+            problemDetails,
+            options: null,
+            contentType: "application/problem+json");
     }
 
     private static (int StatusCode, string Title, string Detail) MapException(Exception exception)

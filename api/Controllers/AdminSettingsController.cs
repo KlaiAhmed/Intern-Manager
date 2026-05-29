@@ -397,7 +397,7 @@ public sealed class AdminSettingsController(AppDbContext dbContext) : Controller
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpGet("skills", Name = "ListSkills")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor,Intern")]
     [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(IEnumerable<ReferentialResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

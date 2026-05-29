@@ -290,20 +290,37 @@ public sealed class AuthService(
 
     private async Task CleanupExpiredTokensAsync(DateTime utcNow, CancellationToken cancellationToken)
     {
-        var expiredTokens = await dbContext.RefreshTokens
-            .Where(token => token.ExpiresAt <= utcNow && token.RevokedAt == null)
-            .ToListAsync(cancellationToken);
+        var expiredTokensQuery = dbContext.RefreshTokens
+            .Where(token => token.ExpiresAt <= utcNow && token.RevokedAt == null);
 
-        if (expiredTokens.Count == 0)
+        if (dbContext.Database.IsRelational())
         {
+            await expiredTokensQuery.ExecuteUpdateAsync(
+                setters => setters.SetProperty(token => token.RevokedAt, utcNow),
+                cancellationToken);
             return;
         }
 
-        foreach (var token in expiredTokens)
+        const int batchSize = 200;
+        while (true)
         {
-            token.RevokedAt = utcNow;
-        }
+            var expiredTokens = await expiredTokensQuery
+                .OrderBy(token => token.ExpiresAt)
+                .Take(batchSize)
+                .ToListAsync(cancellationToken);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            if (expiredTokens.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var token in expiredTokens)
+            {
+                token.RevokedAt = utcNow;
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+            dbContext.ChangeTracker.Clear();
+        }
     }
 }
