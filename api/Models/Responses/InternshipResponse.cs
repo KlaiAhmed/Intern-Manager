@@ -20,6 +20,8 @@ public sealed class InternshipResponse
 
     public Guid? CoSupervisorId { get; init; }
 
+    public string? CoSupervisorName { get; init; }
+
     public string? Department { get; init; }
 
     public string? Type { get; init; }

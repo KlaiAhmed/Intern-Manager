@@ -6,6 +6,8 @@ public sealed class Mission
 
     public Guid SupervisorId { get; set; }
 
+    public Guid? CoSupervisorId { get; set; }
+
     public Guid? InternId { get; set; }
 
     public string Title { get; set; } = string.Empty;
@@ -31,6 +33,8 @@ public sealed class Mission
     public DateTime CreatedAt { get; set; }
 
     public User? Supervisor { get; set; }
+
+    public User? CoSupervisor { get; set; }
 
     public User? Intern { get; set; }
 

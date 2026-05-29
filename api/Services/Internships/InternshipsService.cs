@@ -74,6 +74,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             .ThenInclude(item => item!.Department)
             .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
+            .Include(item => item.CoSupervisor)
             .OrderByDescending(item => item.CreatedAt)
             .Skip((safePage - 1) * safeLimit)
             .Take(safeLimit)
@@ -109,6 +110,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             .ThenInclude(item => item!.Department)
             .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
+            .Include(item => item.CoSupervisor)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (mission is null)
@@ -178,6 +180,7 @@ var status = DomainStatuses.Mission.Active;
         {
             Id = Guid.NewGuid(),
             SupervisorId = supervisor.Id,
+            CoSupervisorId = coSupervisor?.Id,
             InternId = intern?.Id,
             Title = ResolveMissionTitle(request.MissionName, typeName, intern),
             IsTitleManuallySet = hasManualTitle,
@@ -191,6 +194,7 @@ var status = DomainStatuses.Mission.Active;
             EndDate = endDate,
             CreatedAt = now,
             Supervisor = supervisor,
+            CoSupervisor = coSupervisor,
             Intern = intern
         };
 
@@ -298,6 +302,7 @@ var status = DomainStatuses.Mission.Active;
             .ThenInclude(item => item!.Department)
             .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
+            .Include(item => item.CoSupervisor)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (mission is null)
@@ -320,7 +325,7 @@ var status = DomainStatuses.Mission.Active;
             currentType = string.IsNullOrWhiteSpace(mission.Level) ? null : mission.Level;
         }
 
-        var currentCoSupervisorId = currentMetadata?.CoSupervisorId;
+        var currentCoSupervisorId = mission.CoSupervisorId ?? currentMetadata?.CoSupervisorId;
         var currentEndDate = mission.EndDate ?? currentMetadata?.EndDate;
 
         var nextDepartment = currentDepartment;
@@ -535,6 +540,8 @@ if (request.Type is not null || request.InternshipTypeId is not null)
                     actorUserId,
                     actorName);
 
+                mission.CoSupervisorId = requestedCoSupervisorId;
+                mission.CoSupervisor = requestedCoSupervisor;
                 nextCoSupervisorId = requestedCoSupervisorId;
             }
         }
@@ -837,7 +844,10 @@ if (request.Type is not null || request.InternshipTypeId is not null)
             SupervisorName = mission.Supervisor is null
                 ? null
                 : $"{mission.Supervisor.FirstName} {mission.Supervisor.LastName}".Trim(),
-            CoSupervisorId = metadata?.CoSupervisorId,
+            CoSupervisorId = mission.CoSupervisorId ?? metadata?.CoSupervisorId,
+            CoSupervisorName = mission.CoSupervisor is null
+                ? null
+                : $"{mission.CoSupervisor.FirstName} {mission.CoSupervisor.LastName}".Trim(),
             Department = metadata?.Department ?? mission.Intern?.Department?.Name,
             Type = metadata?.Type ?? mission.InternshipType?.Name ?? (string.IsNullOrWhiteSpace(mission.Level) ? null : mission.Level),
             Status = mission.Status,

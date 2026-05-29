@@ -25,6 +25,7 @@ public sealed class UserDeletionPolicy
     public IReadOnlyList<string> SetNullRelationships { get; } =
     [
         "Missions (InternId)",
+        "Missions (CoSupervisorId)",
         "Deliverables (InternId)",
         "MissionFeatureFlags (UpdatedByUserId)",
         "MissionHistoryEntries (ChangedByUserId)",
