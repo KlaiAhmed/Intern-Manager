@@ -129,7 +129,7 @@ export function useBiDashboardData(options: UseBiDashboardOptions = {}) {
     return promise
   }, [sectionLoaders])
 
-  const requestSections = useCallback(async (keys: BiSectionKey[], options?: { force?: boolean }) => {
+  const requestSections = useCallback(async (keys: readonly BiSectionKey[], options?: { force?: boolean }) => {
     await Promise.allSettled(keys.map((key) => requestSection(key, options)))
   }, [requestSection])
 

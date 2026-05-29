@@ -380,7 +380,6 @@ export const dashboardEn = {
   'dashboard.intern.profile.selectUniversity': 'Select university',
   'dashboard.intern.profile.major': 'Major',
   'dashboard.intern.profile.currentYear': 'Current year of study',
-  'dashboard.intern.profile.expectedGraduation': 'Expected graduation',
   'dashboard.intern.profile.selectGraduationYear': 'Select graduation year',
   'dashboard.intern.profile.workPreference': 'Work preference',
   'dashboard.intern.profile.selectPreference': 'Select preference',
