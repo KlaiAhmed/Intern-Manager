@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useI18n } from '../../../../locales/I18nContext'
 import { useAuth } from '../../../../stores/AuthContext'
-import { useDashboardApi } from '../useDashboardApi'
-import type { School } from '../../api/schoolsApi'
 import { toErrorMessage } from '../../shared/utils/errorMessage'
 import { getInitials, getFirstName } from '../../shared/utils/userUtils'
 import type {
@@ -11,257 +10,338 @@ import type {
   InternLifecycleStatus,
   InternProfileReadOnly,
   Internship,
-  InternStatusResponse,
   JournalEntry,
   Meeting,
-  NotificationItem,
+  PendingInternProfile,
   Task,
 } from '../../types/internDashboard'
+import type {
+  InternCurrentMissionSummaryResponse,
+  InternDetailResponse,
+  InternJournalEntryResponse,
+  InternNotificationResponse,
+  InternProfileResponse,
+  InternTaskResponse,
+  InternDeliverableResponse,
+  InternEvaluationResponse,
+  InternMeetingResponse,
+} from '../../types/intern.types'
+import { useInternDeliverables } from './useInternDeliverables'
+import { useInternEvaluations } from './useInternEvaluations'
+import { useInternJournal } from './useInternJournal'
+import { useInternLifecycleStatus } from './useInternLifecycleStatus'
+import { useInternMeetings } from './useInternMeetings'
+import { useInternMission } from './useInternMission'
+import { useInternNotifications } from './useInternNotifications'
+import { useInternProfile } from './useInternProfile'
+import { useInternTasks } from './useInternTasks'
+import {
+  computeInternTabVisibility,
+  getFirstVisibleInternTab,
+  isInternDashboardTab,
+} from './internTabVisibility'
+import type { InternDashboardTab } from '../../types/intern.types'
+
+export { computeInternTabVisibility } from './internTabVisibility'
+
+const defaultPendingNotificationMessage = 'Your profile is awaiting assignment'
+
+const emptyEvaluationScores: Evaluation['scores'] = {
+  technical: 0,
+  autonomy: 0,
+  communication: 0,
+  deadlineRespect: 0,
+  deliverableQuality: 0,
+}
+
+function resolveLifecycleStatus(status: InternDetailResponse | undefined): InternLifecycleStatus | null {
+  if (!status) {
+    return null
+  }
+
+  if (status.accountStatus === 'Archived') {
+    return 'ARCHIVED'
+  }
+
+  if (status.currentInternship?.status.toLowerCase() === 'completed') {
+    return 'COMPLETED'
+  }
+
+  return status.status
+}
+
+function toDashboardInternship(response: InternCurrentMissionSummaryResponse | null): Internship | null {
+  if (!response) {
+    return null
+  }
+
+  return {
+    id: response.id,
+    missionTitle: response.missionTitle,
+    supervisorName: response.supervisorName,
+    department: response.department,
+    startDate: response.startDate,
+    endDate: response.endDate,
+    status: response.status,
+    progress: response.progress,
+  }
+}
+
+function toDashboardTask(task: InternTaskResponse): Task {
+  return {
+    id: task.id,
+    title: task.title,
+    dueDate: task.dueDate,
+    completed: task.completed,
+  }
+}
+
+function toDashboardDeliverable(deliverable: InternDeliverableResponse): Deliverable {
+  return {
+    id: deliverable.id,
+    title: deliverable.title,
+    dueDate: deliverable.dueDate,
+    status: deliverable.status,
+    version: deliverable.version,
+    supervisorComment: deliverable.supervisorComment ?? undefined,
+    progress: deliverable.progress,
+  }
+}
+
+function toDashboardJournalEntry(entry: InternJournalEntryResponse): JournalEntry {
+  return {
+    id: entry.id,
+    content: entry.content,
+    isReviewed: entry.isReviewed,
+    comments: entry.comments,
+    evaluationLinks: entry.evaluationLinks.map((link) => ({
+      ...link,
+      criteria: String(link.criteria),
+    })),
+    createdAt: entry.createdAt,
+  }
+}
+
+function toDashboardEvaluation(evaluation: InternEvaluationResponse): Evaluation {
+  return {
+    id: evaluation.id,
+    type: evaluation.type,
+    scores: evaluation.criteria ?? emptyEvaluationScores,
+    comments: evaluation.comments,
+    date: evaluation.date,
+    isReleasedToIntern: evaluation.isReleasedToIntern,
+    releasedAt: evaluation.releasedAt,
+  }
+}
+
+function toDashboardMeeting(meeting: InternMeetingResponse | null): Meeting | null {
+  if (!meeting) {
+    return null
+  }
+
+  return {
+    id: meeting.id,
+    date: meeting.date,
+    supervisorName: meeting.supervisorName,
+    notes: meeting.notes,
+  }
+}
+
+function toReadOnlyProfile(profile: InternProfileResponse): InternProfileReadOnly {
+  return {
+    id: profile.id,
+    universityId: profile.universityId,
+    major: profile.major,
+    currentYearOfStudy: profile.currentYearOfStudy,
+    expectedGraduationDate: profile.expectedGraduationDate,
+    workPreference: profile.workPreference,
+    phoneNumber: profile.phoneNumber,
+    cvFileUrl: profile.cvFileUrl,
+    status: profile.status,
+    verificationStatus: profile.verificationStatus,
+    startDate: profile.startDate,
+    endDate: profile.endDate,
+    skills: profile.skills.map((skill) => ({
+      id: skill,
+      name: skill,
+    })),
+  }
+}
+
+function toPendingProfile(
+  profile: InternProfileResponse | null,
+  universityName: string | null,
+): PendingInternProfile | null {
+  if (!profile) {
+    return null
+  }
+
+  return {
+    ...toReadOnlyProfile(profile),
+    universityName,
+  }
+}
+
+function findPendingNotificationMessage(notifications: InternNotificationResponse[]): string {
+  const lifecycleNotification = notifications.find((item) =>
+    item.type === 'intern.profile.pending-assignment' || item.type === 'intern.cv.submitted')
+
+  return lifecycleNotification?.message?.trim() || defaultPendingNotificationMessage
+}
 
 export function useInternDashboard() {
   const { t } = useI18n()
   const { user } = useAuth()
-  const api = useDashboardApi()
+  const [searchParams, setSearchParams] = useSearchParams()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [internship, setInternship] = useState<Internship | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [deliverables, setDeliverables] = useState<Deliverable[]>([])
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
-  const [nextMeeting, setNextMeeting] = useState<Meeting | null>(null)
-  const [meetingsCount, setMeetingsCount] = useState(0)
-  const [internLifecycleStatus, setInternLifecycleStatus] = useState<InternLifecycleStatus | null>(null)
-  const [statusLoading, setStatusLoading] = useState(true)
-  const [statusError, setStatusError] = useState<string | null>(null)
-  const [pendingNotificationMessage, setPendingNotificationMessage] = useState('Your profile is awaiting assignment')
-  const [pendingProfile, setPendingProfile] = useState<InternProfileReadOnly | null>(null)
+  const statusQuery = useInternLifecycleStatus(user?.id, {
+    enabled: Boolean(user?.id),
+  })
+  const internLifecycleStatus = useMemo(
+    () => resolveLifecycleStatus(statusQuery.data),
+    [statusQuery.data],
+  )
+
+  const isActiveIntern = internLifecycleStatus === 'ACTIVE'
+  const shouldLoadPendingContext = internLifecycleStatus === 'PENDING'
+  const shouldLoadProfile = shouldLoadPendingContext || isActiveIntern
+
+  const mission = useInternMission({ enabled: isActiveIntern })
+  const tasks = useInternTasks({ enabled: isActiveIntern })
+  const deliverables = useInternDeliverables({ enabled: isActiveIntern })
+  const journal = useInternJournal({ enabled: isActiveIntern, limit: 5 })
+  const evaluations = useInternEvaluations({ enabled: isActiveIntern })
+  const meetings = useInternMeetings({ enabled: isActiveIntern })
+  const profile = useInternProfile({ enabled: shouldLoadProfile })
+  const notifications = useInternNotifications({
+    enabled: Boolean(user?.id),
+    isRead: false,
+    page: 1,
+    pageSize: 20,
+    refetchIntervalMs: 60_000,
+  })
 
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false)
   const [journalContent, setJournalContent] = useState('')
   const [selectedDeliverableForUpload, setSelectedDeliverableForUpload] = useState<string | null>(null)
   const [commentModalDeliverable, setCommentModalDeliverable] = useState<Deliverable | null>(null)
-
-  const [loadingInternship, setLoadingInternship] = useState(true)
-  const [loadingTasks, setLoadingTasks] = useState(true)
-  const [loadingDeliverables, setLoadingDeliverables] = useState(true)
-  const [loadingJournal, setLoadingJournal] = useState(true)
-  const [loadingEvaluations, setLoadingEvaluations] = useState(true)
-  const [loadingMeeting, setLoadingMeeting] = useState(true)
-  const [loadingMeetingsCount, setLoadingMeetingsCount] = useState(true)
-
-  const [internshipError, setInternshipError] = useState<string | null>(null)
-  const [tasksError, setTasksError] = useState<string | null>(null)
-  const [deliverablesError, setDeliverablesError] = useState<string | null>(null)
-  const [journalError, setJournalError] = useState<string | null>(null)
-  const [evaluationsError, setEvaluationsError] = useState<string | null>(null)
-  const [meetingError, setMeetingError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const emptyEvaluationScores: Evaluation['scores'] = {
-    technical: 0,
-    autonomy: 0,
-    communication: 0,
-    deadlineRespect: 0,
-    deliverableQuality: 0,
-  }
+  const activeTab = useMemo<InternDashboardTab>(() => {
+    const tab = searchParams.get('tab')
+    return isInternDashboardTab(tab) ? tab : 'overview'
+  }, [searchParams])
 
-  const loadInternLifecycleStatus = async () => {
-    if (!user?.id) {
-      setStatusError('Unable to resolve current intern id.')
-      setStatusLoading(false)
+  const setActiveTab = useCallback(
+    (tab: InternDashboardTab) => {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams)
+        nextParams.set('tab', tab)
+        return nextParams
+      })
+    },
+    [setSearchParams],
+  )
+
+  const tabVisibility = useMemo(
+    () => computeInternTabVisibility({
+      lifecycleStatus: internLifecycleStatus,
+      missionFlags: mission.featureFlags,
+      missionFlagsLoading: mission.featureFlagsQuery.isLoading,
+    }),
+    [internLifecycleStatus, mission.featureFlags, mission.featureFlagsQuery.isLoading],
+  )
+
+  useEffect(() => {
+    const rawTab = searchParams.get('tab')
+    if (rawTab !== null && !isInternDashboardTab(rawTab)) {
+      setActiveTab('overview')
+    }
+  }, [searchParams, setActiveTab])
+
+  useEffect(() => {
+    const visibility = tabVisibility[activeTab]
+    if (visibility.isLoading || visibility.isVisible) {
       return
     }
 
-    setStatusLoading(true)
-    setStatusError(null)
+    setActiveTab(getFirstVisibleInternTab(tabVisibility))
+  }, [activeTab, setActiveTab, tabVisibility])
 
-    try {
-      const result = await api.get<InternStatusResponse>(`/api/interns/${user.id}`)
-      setInternLifecycleStatus(result.status)
-    } catch (error) {
-      setStatusError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setStatusLoading(false)
-    }
-  }
+  const internship = useMemo(
+    () => toDashboardInternship(mission.internship),
+    [mission.internship],
+  )
 
-  const loadPendingContext = async () => {
-    try {
-      const [notificationsResult, profileResult] = await Promise.all([
-        api.get<{ data?: NotificationItem[] }>('/api/notifications?unreadOnly=true&limit=20'),
-        api.get<InternProfileReadOnly>('/api/intern/me/profile'),
-      ])
+  const dashboardTasks = useMemo(
+    () => tasks.tasks.map(toDashboardTask),
+    [tasks.tasks],
+  )
 
-      let universityName: string | null = null
-      if (profileResult.universityId) {
-        try {
-          const schoolsResult = await api.get<School[]>('/api/intern/me/profile/schools')
-          universityName = schoolsResult.find((school) => school.id === profileResult.universityId)?.name ?? null
-        } catch {
-          universityName = null
-        }
-      }
+  const dashboardDeliverables = useMemo(
+    () => deliverables.deliverables.map(toDashboardDeliverable),
+    [deliverables.deliverables],
+  )
 
-      setPendingProfile({
-        ...profileResult,
-        universityName,
-      })
+  const journalEntries = useMemo(
+    () => journal.entries.map(toDashboardJournalEntry),
+    [journal.entries],
+  )
 
-      const firstLifecycleNotification = (notificationsResult.data ?? []).find((item) =>
-        item.type === 'intern.profile.pending-assignment' || item.type === 'intern.cv.submitted')
+  const dashboardEvaluations = useMemo(
+    () => evaluations.evaluations.map(toDashboardEvaluation),
+    [evaluations.evaluations],
+  )
 
-      if (firstLifecycleNotification?.message?.trim()) {
-        setPendingNotificationMessage(firstLifecycleNotification.message)
-      }
-    } catch {
-      setPendingProfile(null)
-      setPendingNotificationMessage('Your profile is awaiting assignment')
-    }
-  }
+  const nextMeeting = useMemo(
+    () => toDashboardMeeting(meetings.nextMeeting),
+    [meetings.nextMeeting],
+  )
 
-  const loadInternship = async () => {
-    setLoadingInternship(true)
-    setInternshipError(null)
-    try {
-      const result = await api.get<Internship>('/api/intern/me/internship')
-      setInternship(result)
-    } catch (error) {
-      setInternshipError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setLoadingInternship(false)
-    }
-  }
+  const pendingNotificationMessage = useMemo(
+    () => findPendingNotificationMessage(notifications.notifications),
+    [notifications.notifications],
+  )
 
-  const loadTasks = async () => {
-    setLoadingTasks(true)
-    setTasksError(null)
-    try {
-      const result = await api.get<{ data: Task[] }>('/api/intern/me/tasks')
-      setTasks(result.data ?? [])
-    } catch (error) {
-      setTasksError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setLoadingTasks(false)
-    }
-  }
+  const pendingProfile = useMemo(() => {
+    const universityName = profile.schools.find((school) => school.id === profile.profile?.universityId)?.name ?? null
+    return toPendingProfile(profile.profile, universityName)
+  }, [profile.profile, profile.schools])
 
-  const loadDeliverables = async () => {
-    setLoadingDeliverables(true)
-    setDeliverablesError(null)
-    try {
-      const result = await api.get<{ data: Deliverable[] }>('/api/intern/me/deliverables')
-      setDeliverables(result.data ?? [])
-    } catch (error) {
-      setDeliverablesError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setLoadingDeliverables(false)
-    }
-  }
+  const loadInternLifecycleStatus = useCallback(async () => {
+    await statusQuery.refetch()
+  }, [statusQuery])
 
-  const loadJournal = async () => {
-    setLoadingJournal(true)
-    setJournalError(null)
-    try {
-      const result = await api.get<{ data: JournalEntry[] }>('/api/intern/me/journal?limit=5')
-      setJournalEntries(result.data ?? [])
-    } catch (error) {
-      setJournalError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setLoadingJournal(false)
-    }
-  }
+  const loadInternship = useCallback(async () => {
+    await mission.summaryQuery.refetch()
+  }, [mission.summaryQuery])
 
-  const loadEvaluations = async () => {
-    setLoadingEvaluations(true)
-    setEvaluationsError(null)
-    try {
-      const result = await api.get<{
-        data: Array<{
-          id: string
-          type: Evaluation['type']
-          scores?: Evaluation['scores']
-          criteria?: Evaluation['scores']
-          comments: string
-          date?: string
-          submittedAt?: string
-          isReleasedToIntern?: boolean
-          releasedAt?: string | null
-        }>
-      }>('/api/intern/me/evaluations')
+  const loadTasks = useCallback(async () => {
+    await tasks.refetch()
+  }, [tasks])
 
-      const normalizedEvaluations: Evaluation[] = (result.data ?? []).map((evaluation) => ({
-        id: evaluation.id,
-        type: evaluation.type,
-        scores: evaluation.scores ?? evaluation.criteria ?? emptyEvaluationScores,
-        comments: evaluation.comments,
-        date: evaluation.date ?? evaluation.submittedAt ?? '',
-        isReleasedToIntern: evaluation.isReleasedToIntern,
-        releasedAt: evaluation.releasedAt ?? null,
-      }))
+  const loadDeliverables = useCallback(async () => {
+    await deliverables.refetch()
+  }, [deliverables])
 
-      setEvaluations(normalizedEvaluations)
-    } catch (error) {
-      setEvaluationsError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setLoadingEvaluations(false)
-    }
-  }
+  const loadJournal = useCallback(async () => {
+    await journal.refetch()
+  }, [journal])
 
-  const loadMeetingsCount = async () => {
-    setLoadingMeetingsCount(true)
-    try {
-      const result = await api.get<{ count?: number }>('/api/meetings?internId=me&upcoming=true&count=true')
-      setMeetingsCount(typeof result.count === 'number' ? result.count : 0)
-    } catch {
-      setMeetingsCount(0)
-    } finally {
-      setLoadingMeetingsCount(false)
-    }
-  }
+  const loadEvaluations = useCallback(async () => {
+    await evaluations.refetch()
+  }, [evaluations])
 
-  const loadNextMeeting = async () => {
-    setLoadingMeeting(true)
-    setMeetingError(null)
-    try {
-      const result = await api.get<{ data?: Meeting[] }>('/api/meetings?internId=me&upcoming=true&limit=1')
-      setNextMeeting(result.data?.[0] ?? null)
-    } catch (error) {
-      setMeetingError(toErrorMessage(error, t('dashboard.error.load')))
-    } finally {
-      setLoadingMeeting(false)
-    }
-  }
-
-useEffect(() => {
-  void loadInternLifecycleStatus()
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable hook refs used internally
-}, [user?.id])
-
-useEffect(() => {
-  if (internLifecycleStatus === 'ACTIVE') {
-    void loadInternship()
-    void loadTasks()
-    void loadDeliverables()
-    void loadJournal()
-    void loadEvaluations()
-    void loadNextMeeting()
-    void loadMeetingsCount()
-    return
-  }
-
-  if (internLifecycleStatus === 'PENDING') {
-    void loadPendingContext()
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable hook refs used internally
-}, [internLifecycleStatus])
+  const loadNextMeeting = useCallback(async () => {
+    await meetings.nextMeetingQuery.refetch()
+  }, [meetings.nextMeetingQuery])
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      await api.patch(`/api/tasks/${taskId}/complete`, {})
-      void loadTasks()
-    } catch (error) {
-      setTasksError(toErrorMessage(error, t('dashboard.error.load')))
+      await tasks.completeTask(taskId)
+    } catch {
+      // React Query exposes the mutation error through tasks.error.
     }
   }
 
@@ -270,26 +350,23 @@ useEffect(() => {
       setFormError(t('dashboard.form.required'))
       return
     }
+
     try {
-      await api.post('/api/intern/me/journal', { content: journalContent })
+      await journal.addEntry({ content: journalContent })
       setIsJournalModalOpen(false)
       setJournalContent('')
       setFormError(null)
-      void loadJournal()
     } catch (error) {
       setFormError(toErrorMessage(error, t('dashboard.error.load')))
     }
   }
 
   const handleFileUpload = async (deliverableId: string, file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
     try {
-      await api.postFormData(`/api/deliverables/${deliverableId}/submit`, formData)
+      await deliverables.submitFile({ deliverableId, file })
       setSelectedDeliverableForUpload(null)
-      void loadDeliverables()
-    } catch (error) {
-      setDeliverablesError(toErrorMessage(error, t('dashboard.error.load')))
+    } catch {
+      // React Query exposes the mutation error through deliverables.error.
     }
   }
 
@@ -310,35 +387,57 @@ useEffect(() => {
 
   const getFirstNameFromUser = () => getFirstName(user?.name ?? '')
 
+  const statusError = !user?.id
+    ? 'Unable to resolve current intern id.'
+    : statusQuery.error
+      ? toErrorMessage(statusQuery.error, t('dashboard.error.load'))
+      : null
+
+  const internshipError = mission.summaryQuery.error
+    ? toErrorMessage(mission.summaryQuery.error, t('dashboard.error.load'))
+    : null
+  const tasksError = tasks.error ? toErrorMessage(tasks.error, t('dashboard.error.load')) : null
+  const deliverablesError = deliverables.error ? toErrorMessage(deliverables.error, t('dashboard.error.load')) : null
+  const journalError = journal.journalQuery.error ? toErrorMessage(journal.journalQuery.error, t('dashboard.error.load')) : null
+  const evaluationsError = evaluations.error ? toErrorMessage(evaluations.error, t('dashboard.error.load')) : null
+  const meetingError = meetings.nextMeetingQuery.error ? toErrorMessage(meetings.nextMeetingQuery.error, t('dashboard.error.load')) : null
+
   return {
     t,
     user,
     fileInputRef,
 
     internship,
-    tasks,
-    deliverables,
+    tasks: dashboardTasks,
+    deliverables: dashboardDeliverables,
     journalEntries,
-    evaluations,
+    evaluations: dashboardEvaluations,
     nextMeeting,
-    meetingsCount,
+    meetingsCount: meetings.upcomingCount,
     internLifecycleStatus,
     pendingNotificationMessage,
     pendingProfile,
+
+    activeTab,
+    setActiveTab,
+    tabVisibility,
+    missionFlags: mission.featureFlags,
+    missionFlagsLoading: mission.featureFlagsQuery.isLoading,
+    unreadNotificationCount: notifications.unreadCount,
 
     isJournalModalOpen,
     journalContent,
     selectedDeliverableForUpload,
     commentModalDeliverable,
 
-    loadingInternship,
-    loadingTasks,
-    loadingDeliverables,
-    loadingJournal,
-    loadingEvaluations,
-    loadingMeeting,
-    loadingMeetingsCount,
-    statusLoading,
+    loadingInternship: mission.summaryQuery.isLoading,
+    loadingTasks: tasks.isLoading,
+    loadingDeliverables: deliverables.isLoading,
+    loadingJournal: journal.isLoading,
+    loadingEvaluations: evaluations.isLoading,
+    loadingMeeting: meetings.nextMeetingQuery.isLoading,
+    loadingMeetingsCount: meetings.countQuery.isLoading,
+    statusLoading: Boolean(user?.id) && statusQuery.isLoading,
 
     internshipError,
     tasksError,
@@ -370,4 +469,3 @@ useEffect(() => {
     getFirstName: getFirstNameFromUser,
   }
 }
-

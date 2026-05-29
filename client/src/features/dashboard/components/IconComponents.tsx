@@ -111,6 +111,14 @@ export const Icons = {
       <line x1="6" y1="6" x2="18" y2="18" />
     </Icon>
   ),
+  RefreshCw: () => (
+    <Icon size={18}>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
+      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
+    </Icon>
+  ),
   Menu: () => (
     <Icon>
       <line x1="3" y1="12" x2="21" y2="12" />
@@ -198,6 +206,7 @@ export const {
   ChevronRight,
   ChevronDown,
   X,
+  RefreshCw,
   Menu,
   Plus,
   Edit,

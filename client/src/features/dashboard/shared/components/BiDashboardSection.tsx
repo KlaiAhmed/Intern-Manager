@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { useI18n } from '@/locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
@@ -62,6 +62,12 @@ export function BiDashboardSection() {
   const dashboardData = useBiDashboardData()
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
   const { refetchAll } = dashboardData
+
+  useEffect(() => {
+    void refetchAll().then(() => {
+      setLastRefreshed(new Date())
+    })
+  }, [refetchAll])
 
   const isLoading = [
     dashboardData.kpi,

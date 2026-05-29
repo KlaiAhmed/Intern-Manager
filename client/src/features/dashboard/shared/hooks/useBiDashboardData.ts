@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useDashboardApi } from '../../hooks/useDashboardApi'
 import type {
   BiActionQueueResponse,
@@ -14,26 +14,65 @@ import type {
 } from '../types/biDashboard'
 import { toDashboardErrorMessage } from '../utils/errorMessage'
 
+export const biSectionKeys = [
+  'kpi',
+  'funnel',
+  'missionStats',
+  'evaluationStats',
+  'demographics',
+  'supervisorWorkload',
+  'deliverableStats',
+  'systemHealth',
+  'actionQueue',
+] as const
+
+export type BiSectionKey = typeof biSectionKeys[number]
+
 type BiSectionState<T> = Omit<BiSectionData<T>, 'refetch'>
 
-const createInitialSectionState = <T,>(): BiSectionState<T> => ({
+type UseBiDashboardOptions = {
+  initialSections?: BiSectionKey[]
+}
+
+const createInitialSectionState = <T,>(loading = false): BiSectionState<T> => ({
   data: null,
-  loading: true,
+  loading,
   error: null,
 })
 
-export function useBiDashboardData() {
+export function useBiDashboardData(options: UseBiDashboardOptions = {}) {
   const api = useDashboardApi()
 
-  const [kpi, setKpi] = useState<BiSectionState<BiKpiResponse>>(createInitialSectionState)
-  const [funnel, setFunnel] = useState<BiSectionState<BiInternFunnelResponse>>(createInitialSectionState)
-  const [missionStats, setMissionStats] = useState<BiSectionState<BiMissionStatsResponse>>(createInitialSectionState)
-  const [evaluationStats, setEvaluationStats] = useState<BiSectionState<BiEvaluationStatsResponse>>(createInitialSectionState)
-  const [demographics, setDemographics] = useState<BiSectionState<BiDemographicsResponse>>(createInitialSectionState)
-  const [supervisorWorkload, setSupervisorWorkload] = useState<BiSectionState<BiSupervisorWorkloadResponse>>(createInitialSectionState)
-  const [deliverableStats, setDeliverableStats] = useState<BiSectionState<BiDeliverableStatsResponse>>(createInitialSectionState)
-  const [systemHealth, setSystemHealth] = useState<BiSectionState<BiSystemHealthResponse>>(createInitialSectionState)
-  const [actionQueue, setActionQueue] = useState<BiSectionState<BiActionQueueResponse>>(createInitialSectionState)
+  const initialSections = options.initialSections ?? []
+  const initialSectionSet = useMemo(() => new Set(initialSections), [initialSections])
+
+  const [kpi, setKpi] = useState<BiSectionState<BiKpiResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('kpi')),
+  )
+  const [funnel, setFunnel] = useState<BiSectionState<BiInternFunnelResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('funnel')),
+  )
+  const [missionStats, setMissionStats] = useState<BiSectionState<BiMissionStatsResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('missionStats')),
+  )
+  const [evaluationStats, setEvaluationStats] = useState<BiSectionState<BiEvaluationStatsResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('evaluationStats')),
+  )
+  const [demographics, setDemographics] = useState<BiSectionState<BiDemographicsResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('demographics')),
+  )
+  const [supervisorWorkload, setSupervisorWorkload] = useState<BiSectionState<BiSupervisorWorkloadResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('supervisorWorkload')),
+  )
+  const [deliverableStats, setDeliverableStats] = useState<BiSectionState<BiDeliverableStatsResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('deliverableStats')),
+  )
+  const [systemHealth, setSystemHealth] = useState<BiSectionState<BiSystemHealthResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('systemHealth')),
+  )
+  const [actionQueue, setActionQueue] = useState<BiSectionState<BiActionQueueResponse>>(
+    () => createInitialSectionState(initialSectionSet.has('actionQueue')),
+  )
 
   const loadSection = useCallback(async <T,>(
     path: string,
@@ -53,54 +92,57 @@ export function useBiDashboardData() {
     }
   }, [api])
 
-  const fetchKpi = useCallback(() => loadSection<BiKpiResponse>('/api/stats/bi/kpi', setKpi), [loadSection])
-  const fetchFunnel = useCallback(() => loadSection<BiInternFunnelResponse>('/api/stats/bi/intern-funnel', setFunnel), [loadSection])
-  const fetchMissionStats = useCallback(() => loadSection<BiMissionStatsResponse>('/api/stats/bi/mission-stats', setMissionStats), [loadSection])
-  const fetchEvaluationStats = useCallback(() => loadSection<BiEvaluationStatsResponse>('/api/stats/bi/evaluation-stats', setEvaluationStats), [loadSection])
-  const fetchDemographics = useCallback(() => loadSection<BiDemographicsResponse>('/api/stats/bi/demographics', setDemographics), [loadSection])
-  const fetchSupervisorWorkload = useCallback(() => loadSection<BiSupervisorWorkloadResponse>('/api/stats/bi/supervisor-workload', setSupervisorWorkload), [loadSection])
-  const fetchDeliverableStats = useCallback(() => loadSection<BiDeliverableStatsResponse>('/api/stats/bi/deliverable-stats', setDeliverableStats), [loadSection])
-  const fetchSystemHealth = useCallback(() => loadSection<BiSystemHealthResponse>('/api/stats/bi/system-health', setSystemHealth), [loadSection])
-  const fetchActionQueue = useCallback(() => loadSection<BiActionQueueResponse>('/api/stats/bi/action-queue', setActionQueue), [loadSection])
+  const sectionLoaders = useMemo(() => ({
+    kpi: () => loadSection<BiKpiResponse>('/api/stats/bi/kpi', setKpi),
+    funnel: () => loadSection<BiInternFunnelResponse>('/api/stats/bi/intern-funnel', setFunnel),
+    missionStats: () => loadSection<BiMissionStatsResponse>('/api/stats/bi/mission-stats', setMissionStats),
+    evaluationStats: () => loadSection<BiEvaluationStatsResponse>('/api/stats/bi/evaluation-stats', setEvaluationStats),
+    demographics: () => loadSection<BiDemographicsResponse>('/api/stats/bi/demographics', setDemographics),
+    supervisorWorkload: () => loadSection<BiSupervisorWorkloadResponse>('/api/stats/bi/supervisor-workload', setSupervisorWorkload),
+    deliverableStats: () => loadSection<BiDeliverableStatsResponse>('/api/stats/bi/deliverable-stats', setDeliverableStats),
+    systemHealth: () => loadSection<BiSystemHealthResponse>('/api/stats/bi/system-health', setSystemHealth),
+    actionQueue: () => loadSection<BiActionQueueResponse>('/api/stats/bi/action-queue', setActionQueue),
+  }) as const, [loadSection])
 
-  const fetchAll = useCallback(async () => {
-    await Promise.allSettled([
-      fetchKpi(),
-      fetchFunnel(),
-      fetchMissionStats(),
-      fetchEvaluationStats(),
-      fetchDemographics(),
-      fetchSupervisorWorkload(),
-      fetchDeliverableStats(),
-      fetchSystemHealth(),
-      fetchActionQueue(),
-    ])
-  }, [
-    fetchActionQueue,
-    fetchDeliverableStats,
-    fetchDemographics,
-    fetchEvaluationStats,
-    fetchFunnel,
-    fetchKpi,
-    fetchMissionStats,
-    fetchSupervisorWorkload,
-    fetchSystemHealth,
-  ])
+  const inFlightRef = useRef<Partial<Record<BiSectionKey, Promise<void>>>>({})
+  const requestedRef = useRef<Set<BiSectionKey>>(new Set())
 
-  useEffect(() => {
-    void fetchAll()
-  }, [fetchAll])
+  const requestSection = useCallback(async (key: BiSectionKey, options?: { force?: boolean }) => {
+    const isForced = options?.force ?? false
+    const inFlight = inFlightRef.current[key]
 
-  const refetchKpi = useCallback(() => { void fetchKpi() }, [fetchKpi])
-  const refetchFunnel = useCallback(() => { void fetchFunnel() }, [fetchFunnel])
-  const refetchMissionStats = useCallback(() => { void fetchMissionStats() }, [fetchMissionStats])
-  const refetchEvaluationStats = useCallback(() => { void fetchEvaluationStats() }, [fetchEvaluationStats])
-  const refetchDemographics = useCallback(() => { void fetchDemographics() }, [fetchDemographics])
-  const refetchSupervisorWorkload = useCallback(() => { void fetchSupervisorWorkload() }, [fetchSupervisorWorkload])
-  const refetchDeliverableStats = useCallback(() => { void fetchDeliverableStats() }, [fetchDeliverableStats])
-  const refetchSystemHealth = useCallback(() => { void fetchSystemHealth() }, [fetchSystemHealth])
-  const refetchActionQueue = useCallback(() => { void fetchActionQueue() }, [fetchActionQueue])
-  const refetchAll = useCallback(() => fetchAll(), [fetchAll])
+    if (!isForced) {
+      if (inFlight) {
+        return inFlight
+      }
+
+      if (requestedRef.current.has(key)) {
+        return Promise.resolve()
+      }
+    }
+
+    requestedRef.current.add(key)
+    const promise = sectionLoaders[key]().finally(() => {
+      delete inFlightRef.current[key]
+    })
+    inFlightRef.current[key] = promise
+    return promise
+  }, [sectionLoaders])
+
+  const requestSections = useCallback(async (keys: BiSectionKey[], options?: { force?: boolean }) => {
+    await Promise.allSettled(keys.map((key) => requestSection(key, options)))
+  }, [requestSection])
+
+  const refetchKpi = useCallback(() => { void requestSection('kpi', { force: true }) }, [requestSection])
+  const refetchFunnel = useCallback(() => { void requestSection('funnel', { force: true }) }, [requestSection])
+  const refetchMissionStats = useCallback(() => { void requestSection('missionStats', { force: true }) }, [requestSection])
+  const refetchEvaluationStats = useCallback(() => { void requestSection('evaluationStats', { force: true }) }, [requestSection])
+  const refetchDemographics = useCallback(() => { void requestSection('demographics', { force: true }) }, [requestSection])
+  const refetchSupervisorWorkload = useCallback(() => { void requestSection('supervisorWorkload', { force: true }) }, [requestSection])
+  const refetchDeliverableStats = useCallback(() => { void requestSection('deliverableStats', { force: true }) }, [requestSection])
+  const refetchSystemHealth = useCallback(() => { void requestSection('systemHealth', { force: true }) }, [requestSection])
+  const refetchActionQueue = useCallback(() => { void requestSection('actionQueue', { force: true }) }, [requestSection])
+  const refetchAll = useCallback(() => requestSections(biSectionKeys, { force: true }), [requestSections])
 
   return {
     kpi: { ...kpi, refetch: refetchKpi },
@@ -113,5 +155,6 @@ export function useBiDashboardData() {
     systemHealth: { ...systemHealth, refetch: refetchSystemHealth },
     actionQueue: { ...actionQueue, refetch: refetchActionQueue },
     refetchAll,
+    requestSection,
   }
 }

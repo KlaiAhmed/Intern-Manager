@@ -48,7 +48,7 @@
   }
 
   .super-admin-dashboard:has(.super-admin-sidebar[data-open="true"]) .super-admin-main {
-    margin-left: 72px;
+    margin-left: var(--dash-sidebar-width, 280px);
   }
 
   .super-admin-content-wrapper {

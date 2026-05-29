@@ -3,7 +3,7 @@ import { useI18n } from '../../../../locales/I18nContext'
 import { buildApiUrl } from '../../../../lib/apiClient'
 import { uploadInternCvWithProgress } from '../../api/internCvApi'
 import { parseCurrentYearOfStudy, getDegreeLevelLabel, getStudyYearLabel } from './academicYear'
-import type { InternLifecycleStatus, InternProfileReadOnly } from '../../types/internDashboard'
+import type { InternLifecycleStatus, PendingInternProfile } from '../../types/internDashboard'
 
 function extractFileName(fileUrl: string | null | undefined): string | null {
   if (!fileUrl?.trim()) {
@@ -38,10 +38,8 @@ export function StatusGateLoading() {
 }
 
 function CvUpload({
-  internId,
   onUploaded,
 }: {
-  internId: string
   onUploaded: (status: InternLifecycleStatus) => void
 }) {
   const { t } = useI18n()
@@ -63,8 +61,8 @@ function CvUpload({
     setProgress(0)
 
     try {
-      const response = await uploadInternCvWithProgress(internId, file, setProgress)
-      onUploaded(response.status ?? 'PENDING')
+      const response = await uploadInternCvWithProgress(file, setProgress)
+      onUploaded(response.status ?? response.verificationStatus ?? 'PENDING')
       return true
     } catch (uploadError) {
       if (uploadError instanceof Error && uploadError.message.trim()) {
@@ -154,10 +152,8 @@ function CvUpload({
 }
 
 export function IncompleteStatusView({
-  internId,
   onUploaded,
 }: {
-  internId: string
   onUploaded: (status: InternLifecycleStatus) => void
 }) {
   const { t } = useI18n()
@@ -177,7 +173,7 @@ export function IncompleteStatusView({
         <p className="status-gate-subtitle">
           {t('dashboard.intern.statusGate.incomplete.subtitle')}
         </p>
-        <CvUpload internId={internId} onUploaded={onUploaded} />
+        <CvUpload onUploaded={onUploaded} />
       </div>
     </div>
   )
@@ -188,7 +184,7 @@ export function PendingStatusView({
   profile,
 }: {
   notificationMessage: string
-  profile: InternProfileReadOnly | null
+  profile: PendingInternProfile | null
 }) {
   const { t } = useI18n()
   const [showProfile, setShowProfile] = useState(true)

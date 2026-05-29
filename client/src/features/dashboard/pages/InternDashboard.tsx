@@ -1,15 +1,7 @@
-import { useEffect } from 'react'
-import { Modal } from '../components/Modal'
-import { FeatureGate } from '../components/intern/FeatureGate'
-import {
-  DeliverablesCard,
-  EvaluationCard,
-  JournalCard,
-  MeetingCard,
-  MissionCard,
-  QuickStatsCard,
-  TasksCard,
-} from '../components/intern/InternDashboardCards'
+import { useEffect, useMemo } from 'react'
+import { DashboardButton } from '../components/DashboardButton'
+import { DashboardLayout } from '../components/DashboardLayout'
+import { TabErrorBoundary } from '../components/TabErrorBoundary'
 import {
   PendingStatusView,
   StatusGateLoading,
@@ -17,89 +9,129 @@ import {
 import { MultiStepApplicationForm } from '../components/intern/MultiStepApplicationForm'
 import { useInternDashboard } from '../hooks/intern/useInternDashboard'
 import { useMissionFeatureFlags } from '../hooks/intern/useMissionFeatureFlags'
+import type { InternDashboardTabId } from '../types/internDashboard'
 import type { DashboardCard } from '../types/missionFeatureFlags'
+import { DeliverablesTab } from '../tabs/intern/DeliverablesTab'
+import { EvaluationsTab } from '../tabs/intern/EvaluationsTab'
+import { JournalTab } from '../tabs/intern/JournalTab'
+import { MeetingsTab } from '../tabs/intern/MeetingsTab'
+import { MissionTab } from '../tabs/intern/MissionTab'
+import { OverviewTab } from '../tabs/intern/OverviewTab'
+import { ProfileTab } from '../tabs/intern/ProfileTab'
+import {
+  getFirstVisibleInternTab,
+  getInternTabVisibility,
+  getVisibleInternTabs,
+  internDashboardTabDefinitions,
+} from '../tabs/intern/internDashboardTabs'
 import '../styles/pages/InternDashboard.css'
+
+function isInternDashboardTabId(value: string): value is InternDashboardTabId {
+  return internDashboardTabDefinitions.some((tab) => tab.id === value)
+}
 
 export function InternDashboard() {
   const {
     t,
     user,
-    fileInputRef,
-
+    activeTab,
+    setActiveTab,
     internship,
-    tasks,
-    deliverables,
-    journalEntries,
-    evaluations,
-    nextMeeting,
-    meetingsCount,
+    loadingInternship,
+    internshipError,
+    unreadNotificationCount,
     internLifecycleStatus,
     pendingNotificationMessage,
     pendingProfile,
-
-    isJournalModalOpen,
-    journalContent,
-    commentModalDeliverable,
-
-    loadingInternship,
-    loadingTasks,
-    loadingDeliverables,
-    loadingJournal,
-    loadingEvaluations,
-    loadingMeeting,
-    loadingMeetingsCount,
     statusLoading,
-
-    internshipError,
-    tasksError,
-    deliverablesError,
-    journalError,
-    evaluationsError,
-    meetingError,
     statusError,
-    formError,
-
-    setIsJournalModalOpen,
-    setJournalContent,
-    setCommentModalDeliverable,
-
     loadInternLifecycleStatus,
     loadInternship,
-    loadTasks,
-    loadDeliverables,
-    loadJournal,
-    loadEvaluations,
-    loadNextMeeting,
-
-    handleCompleteTask,
-    handleAddJournalEntry,
-    handleUploadClick,
-    handleHiddenFileChange,
-
-    getUserInitials,
     getFirstName,
   } = useInternDashboard()
 
+
   const missionIdForFlags = internLifecycleStatus === 'ACTIVE' ? internship?.id ?? null : null
-  const { flags: missionFlags } = useMissionFeatureFlags(missionIdForFlags)
+  const {
+    flags: missionFlags,
+    isLoading: flagsLoading,
+    error: flagsError,
+  } = useMissionFeatureFlags(missionIdForFlags)
 
-  const isCardReadOnly = (card: DashboardCard) => Boolean(missionFlags?.[card] && !missionFlags[card].isInteractive)
-  const isJournalVisible = missionFlags?.journal?.isVisible ?? true
-  const isJournalReadOnly = isCardReadOnly('journal')
-
-  const openJournalModal = () => {
-    if (!isJournalVisible || isJournalReadOnly) {
-      return
-    }
-
-    setIsJournalModalOpen(true)
-  }
+  const tabVisibility = useMemo(() => getInternTabVisibility(missionFlags), [missionFlags])
+  const visibleTabs = useMemo(() => getVisibleInternTabs(tabVisibility), [tabVisibility])
 
   useEffect(() => {
-    if (isJournalModalOpen && (!isJournalVisible || isJournalReadOnly)) {
-      setIsJournalModalOpen(false)
+    if (!isInternDashboardTabId(activeTab) || !tabVisibility[activeTab]) {
+      setActiveTab(getFirstVisibleInternTab(tabVisibility))
     }
-  }, [isJournalModalOpen, isJournalReadOnly, isJournalVisible, setIsJournalModalOpen])
+  }, [activeTab, setActiveTab, tabVisibility])
+
+  const isCardReadOnly = (card: DashboardCard) => Boolean(missionFlags?.[card] && !missionFlags[card].isInteractive)
+  const isCardVisible = (card: DashboardCard) => missionFlags?.[card]?.isVisible ?? true
+
+  const navItems = visibleTabs.map((tab) => ({
+    id: tab.id,
+    label: t(tab.labelKey),
+    icon: tab.icon,
+    badge: tab.id === 'overview' ? unreadNotificationCount : undefined,
+    badgeLabel: t('dashboard.intern.sidebar.unreadNotifications', { count: unreadNotificationCount }),
+  }))
+
+  const handleTabChange = (tabId: string) => {
+    if (isInternDashboardTabId(tabId)) {
+      setActiveTab(tabId)
+    }
+  }
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <OverviewTab
+            internship={internship}
+            loadingInternship={loadingInternship}
+            internshipError={internshipError}
+            visibility={tabVisibility}
+            onRetryInternship={() => { void loadInternship() }}
+            t={t}
+          />
+        )
+      case 'deliverables':
+        return (
+          <DeliverablesTab
+            tasksVisible={isCardVisible('tasks')}
+            deliverablesVisible={isCardVisible('deliverables')}
+            tasksReadOnly={isCardReadOnly('tasks')}
+            deliverablesReadOnly={isCardReadOnly('deliverables')}
+            t={t}
+          />
+        )
+      case 'mission':
+        return (
+          <MissionTab
+            internship={internship}
+            loading={loadingInternship}
+            error={internshipError}
+            missionFlags={missionFlags}
+            flagsLoading={flagsLoading}
+            flagsError={flagsError}
+            onRetry={() => { void loadInternship() }}
+            t={t}
+          />
+        )
+      case 'journal':
+        return <JournalTab isReadOnly={isCardReadOnly('journal')} t={t} />
+      case 'evaluations':
+        return <EvaluationsTab t={t} />
+      case 'meetings':
+        return <MeetingsTab t={t} />
+      case 'profile':
+        return <ProfileTab t={t} />
+      default:
+        return null
+    }
+  }
 
   if (statusLoading) {
     return <StatusGateLoading />
@@ -131,8 +163,7 @@ export function InternDashboard() {
     return (
       <MultiStepApplicationForm
         onSubmitted={() => {
-          // Refresh the lifecycle status after form submission
-          loadInternLifecycleStatus()
+          void loadInternLifecycleStatus()
         }}
       />
     )
@@ -142,11 +173,11 @@ export function InternDashboard() {
     return <PendingStatusView notificationMessage={pendingNotificationMessage} profile={pendingProfile} />
   }
 
-  if (internLifecycleStatus === 'COMPLETED' || internLifecycleStatus === 'ARCHIVED') {
+  if (internLifecycleStatus !== 'ACTIVE') {
     return (
       <div className="intern-dashboard status-gate-page">
         <div className="status-gate-card">
-          <h1 className="status-gate-title">{t('dashboard.internDashboard.internshipStatus', { status: internLifecycleStatus })}</h1>
+          <h1 className="status-gate-title">{t('dashboard.internDashboard.internshipStatus', { status: internLifecycleStatus ?? '-' })}</h1>
           <p className="status-gate-subtitle">{t('dashboard.internDashboard.readOnly')}</p>
         </div>
       </div>
@@ -154,175 +185,41 @@ export function InternDashboard() {
   }
 
   return (
-    <div className="intern-dashboard">
-      <header className="intern-header">
-        <div className="intern-welcome">
-          <div className="intern-avatar">{getUserInitials()}</div>
-          <div>
-            <h1 className="intern-greeting">{t('dashboard.internDashboard.welcomeBack', { name: getFirstName() ? `, ${getFirstName()}` : '' })}</h1>
-            <p className="intern-greeting-sub">{t('dashboard.internDashboard.overviewSubtitle')}</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="intern-grid">
-        {/* Mission card alone on first row */}
-        <FeatureGate card="missionOverview" flags={missionFlags}>
-          <MissionCard
-            internship={internship}
-            loading={loadingInternship}
-            error={internshipError}
-            onRetry={loadInternship}
-            t={t}
-          />
-        </FeatureGate>
-
-        {/* Quick Stats + Tasks row */}
-        <div className="intern-row">
-          <FeatureGate card="quickStats" flags={missionFlags}>
-            <QuickStatsCard
-              tasks={tasks}
-              deliverables={deliverables}
-              internship={internship}
-              meetingsCount={meetingsCount}
-              loading={loadingInternship || loadingTasks || loadingDeliverables || loadingMeetingsCount}
-              t={t}
-            />
-          </FeatureGate>
-
-          <FeatureGate card="tasks" flags={missionFlags}>
-            <TasksCard
-              tasks={tasks}
-              loading={loadingTasks}
-              error={tasksError}
-              onRetry={loadTasks}
-              onComplete={handleCompleteTask}
-              isReadOnly={isCardReadOnly('tasks')}
-              t={t}
-            />
-          </FeatureGate>
-        </div>
-
-        {/* Deliverables + Evaluation row */}
-        <div className="intern-row">
-          <FeatureGate card="deliverables" flags={missionFlags}>
-            <DeliverablesCard
-              deliverables={deliverables}
-              loading={loadingDeliverables}
-              error={deliverablesError}
-              onRetry={loadDeliverables}
-              onUploadClick={handleUploadClick}
-              onViewComment={setCommentModalDeliverable}
-              isReadOnly={isCardReadOnly('deliverables')}
-              t={t}
-            />
-          </FeatureGate>
-
-          <FeatureGate card="evaluation" flags={missionFlags}>
-            <EvaluationCard
-              evaluations={evaluations}
-              loading={loadingEvaluations}
-              error={evaluationsError}
-              onRetry={loadEvaluations}
-              t={t}
-            />
-          </FeatureGate>
-        </div>
-
-        {/* Journal + Meeting row */}
-        <div className="intern-row">
-          <FeatureGate card="journal" flags={missionFlags}>
-            <JournalCard
-              entries={journalEntries}
-              loading={loadingJournal}
-              error={journalError}
-              onRetry={loadJournal}
-              onAddClick={openJournalModal}
-              isReadOnly={isJournalReadOnly}
-              t={t}
-            />
-          </FeatureGate>
-
-          <FeatureGate card="meeting" flags={missionFlags}>
-            <MeetingCard
-              meeting={nextMeeting}
-              loading={loadingMeeting}
-              error={meetingError}
-              onRetry={loadNextMeeting}
-              t={t}
-            />
-          </FeatureGate>
-        </div>
-      </div>
-
-      {isJournalVisible && (
-        <button
-          className="fab-button"
-          onClick={openJournalModal}
-          disabled={isJournalReadOnly}
-          aria-label={t('dashboard.internDashboard.addJournalEntry')}
-        >
-          +
-        </button>
+    <DashboardLayout
+      title={t('dashboard.intern.redesign.header.title')}
+      subtitle={t('dashboard.intern.redesign.header.subtitle', { name: getFirstName() || '' })}
+      navItems={navItems}
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+      onRefresh={() => { void loadInternship() }}
+      brandLabel={t('dashboard.intern.sidebar.brand')}
+      navigationLabel={t('dashboard.intern.sidebar.navigation')}
+      className="intern-dashboard-shell"
+      contentClassName="intern-dashboard-content"
+      headerActions={(
+        <DashboardButton variant="secondary" size="sm" onClick={() => { void loadInternship() }}>
+          {t('dashboard.action.refresh')}
+        </DashboardButton>
       )}
-
-      <Modal isOpen={isJournalModalOpen} onClose={() => setIsJournalModalOpen(false)} title={t('dashboard.intern.addEntry')}>
-        <form
-          className="modal-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (isJournalReadOnly || !isJournalVisible) {
-              return
-            }
-            void handleAddJournalEntry()
-          }}
-        >
-          <div className="form-field">
-            <textarea
-              value={journalContent}
-              onChange={(event) => setJournalContent(event.target.value)}
-              rows={6}
-              placeholder={t('dashboard.form.description')}
-              disabled={isJournalReadOnly || !isJournalVisible}
-              className={formError ? 'input-error' : ''}
-            />
-            {isJournalReadOnly && (
-              <span className="card-readonly-hint">{t('dashboard.internDashboard.journalReadOnly')}</span>
-            )}
-            {formError && <span className="field-error">{formError}</span>}
-          </div>
-          <div className="modal-actions">
-            <button type="button" className="button button-secondary button-sm" onClick={() => setIsJournalModalOpen(false)}>
-              {t('dashboard.form.cancel')}
-            </button>
-            <button type="submit" className="button button-primary button-sm" disabled={isJournalReadOnly || !isJournalVisible}>
-              {t('dashboard.form.save')}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        isOpen={!!commentModalDeliverable}
-        onClose={() => setCommentModalDeliverable(null)}
-        title={commentModalDeliverable?.title ?? ''}
+    >
+      <section
+        key={activeTab}
+        className="intern-tab-panel"
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        tabIndex={0}
       >
-        <div className="comment-modal-content">
-          <p className="supervisor-comment">{commentModalDeliverable?.supervisorComment}</p>
-          <div className="modal-actions">
-            <button type="button" className="button button-primary button-sm" onClick={() => setCommentModalDeliverable(null)}>
-              {t('dashboard.form.close')}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        className="intern-hidden-file-input"
-        onChange={handleHiddenFileChange}
-      />
-    </div>
+        <TabErrorBoundary
+          key={activeTab}
+          resetKeys={[activeTab]}
+          fallbackTitle={t('dashboard.tabError.title')}
+          fallbackMessage={t('dashboard.tabError.message')}
+          retryLabel={t('dashboard.tabError.retry')}
+        >
+          {renderActiveTab()}
+        </TabErrorBoundary>
+      </section>
+    </DashboardLayout>
   )
 }

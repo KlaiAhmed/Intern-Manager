@@ -2,21 +2,34 @@ import type { TranslationKey } from '../../../locales/I18nContext'
 
 export type TranslateFn = (key: TranslationKey, interpolationValues?: Record<string, string | number>) => string
 
+export type InternDashboardTabId =
+  | 'overview'
+  | 'deliverables'
+  | 'mission'
+  | 'journal'
+  | 'evaluations'
+  | 'meetings'
+  | 'profile'
+
+export type InternDashboardTabVisibility = Record<InternDashboardTabId, boolean>
+
 export interface Internship {
   id: string
   missionTitle: string
   supervisorName: string
+  coSupervisorName?: string | null
   department: string
-  startDate: string
-  endDate: string
+  startDate: string | null
+  endDate: string | null
   status: string
+  verificationStatus?: string
   progress: number
 }
 
 export interface Task {
   id: string
   title: string
-  dueDate: string
+  dueDate: string | null
   completed: boolean
   priority?: 'high' | 'medium' | 'low'
 }
@@ -24,11 +37,47 @@ export interface Task {
 export interface Deliverable {
   id: string
   title: string
-  dueDate: string
+  dueDate: string | null
   status: 'not_submitted' | 'submitted' | 'accepted' | 'rejected'
   version: number
-  supervisorComment?: string
+  supervisorComment?: string | null
   progress: number
+}
+
+export interface DeliverableVersionSubmittedBy {
+  id: string
+  name: string
+  email: string
+}
+
+export interface DeliverableVersion {
+  id: string
+  deliverableId: string
+  versionNumber: number
+  fileUrl?: string | null
+  gitHubUrl?: string | null
+  gitHubBranch?: string | null
+  message?: string | null
+  status: string
+  supervisorComment?: string | null
+  submittedAt: string
+  validatedAt?: string | null
+  submittedBy?: DeliverableVersionSubmittedBy | null
+}
+
+export interface DeliverableVersionHistory {
+  deliverable: {
+    id: string
+    missionId: string
+    title: string
+    status: string
+    version: number
+    progress: number
+    dueDate: string | null
+    submittedDate?: string | null
+    supervisorComment?: string | null
+  }
+  versions: DeliverableVersion[]
 }
 
 export interface JournalEntry {
@@ -73,7 +122,7 @@ export interface Meeting {
   notes: string
 }
 
-export type InternLifecycleStatus = 'INCOMPLETE' | 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+export type InternLifecycleStatus = 'INCOMPLETE' | 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' | 'NOT_APPLICABLE'
 
 export interface InternStatusResponse {
   id: string
@@ -94,26 +143,31 @@ export interface ProfileSkillSummary {
   name: string
 }
 
+export type InternProfileSkill = string | ProfileSkillSummary
+
 export interface InternProfileReadOnly {
-  universityId?: string | null
-  universityName?: string | null
-  major?: string | null
-  phoneNumber?: string | null
-  currentYearOfStudy?: string | null
-  expectedGraduationDate?: string | null
-  startDate?: string | null
-  endDate?: string | null
-  workPreference?: string | null
-  cvFileUrl?: string | null
-  skills?: ProfileSkillSummary[]
-  school?: string | null
-  specialty?: string | null
-  experience?: string | null
+  id: string
+  universityId: string | null
+  major: string
+  currentYearOfStudy: string
+  expectedGraduationDate: string | null
+  workPreference: string | null
+  phoneNumber: string | null
+  cvFileUrl: string | null
+  status: InternLifecycleStatus
+  verificationStatus: InternLifecycleStatus
+  startDate: string | null
+  endDate: string | null
+  skills: InternProfileSkill[]
+}
+
+export interface PendingInternProfile extends InternProfileReadOnly {
+  universityName: string | null
 }
 
 export interface CvUploadResponse {
-  id?: string
   status?: InternLifecycleStatus
-  cvFileUrl?: string
+  verificationStatus?: InternLifecycleStatus
+  fileUrl?: string | null
 }
 

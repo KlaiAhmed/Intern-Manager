@@ -1,60 +1,27 @@
-import { apiBaseUrl } from '../../../lib/apiClient'
-import { getCsrfCookieToken } from '../../../lib/auth'
 import type { CvUploadResponse } from '../types/internDashboard'
+import { internDashboardApi } from './internDashboardApi'
 
+type ProgressCallback = (value: number) => void
+
+export function uploadInternCvWithProgress(file: File, onProgress: ProgressCallback): Promise<CvUploadResponse>
+export function uploadInternCvWithProgress(_internId: string, file: File, onProgress: ProgressCallback): Promise<CvUploadResponse>
 export function uploadInternCvWithProgress(
-  internId: string,
-  file: File,
-  onProgress: (value: number) => void,
+  fileOrInternId: File | string,
+  fileOrProgress: File | ProgressCallback,
+  maybeProgress?: ProgressCallback,
 ): Promise<CvUploadResponse> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    const formData = new FormData()
-    formData.append('file', file)
+  const file = fileOrInternId instanceof File ? fileOrInternId : fileOrProgress
+  const onProgress = fileOrInternId instanceof File ? fileOrProgress : maybeProgress
 
-    xhr.open('POST', `${apiBaseUrl}/api/interns/${internId}/upload-cv`)
-    xhr.withCredentials = true
-    xhr.setRequestHeader('Accept', 'application/json')
+  if (!(file instanceof File) || typeof onProgress !== 'function') {
+    return Promise.reject(new Error('A CV file and upload progress callback are required.'))
+  }
 
-    const csrfToken = getCsrfCookieToken()
-    if (csrfToken) {
-      xhr.setRequestHeader('X-CSRF-Token', csrfToken)
-    }
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+  return internDashboardApi.uploadCv(file, {
+    onProgress: (progress) => {
+      if (progress.percent !== null) {
+        onProgress(progress.percent)
       }
-    }
-
-    xhr.onload = () => {
-      const responseText = xhr.responseText?.trim() ?? ''
-      let payload: Record<string, unknown> = {}
-
-      if (responseText) {
-        try {
-          payload = JSON.parse(responseText) as Record<string, unknown>
-        } catch {
-          payload = {}
-        }
-      }
-
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(payload as CvUploadResponse)
-        return
-      }
-
-      const apiMessage = typeof payload.message === 'string' && payload.message.trim().length > 0
-        ? payload.message
-        : xhr.statusText
-
-      reject(new Error(apiMessage || 'CV upload failed.'))
-    }
-
-    xhr.onerror = () => {
-      reject(new Error('Network error while uploading CV.'))
-    }
-
-    xhr.send(formData)
+    },
   })
 }

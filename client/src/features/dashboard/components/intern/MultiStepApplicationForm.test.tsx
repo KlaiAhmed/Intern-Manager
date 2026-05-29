@@ -175,7 +175,22 @@ describe('PendingStatusView', () => {
     render(
       <PendingStatusView
         notificationMessage="Pending"
-        profile={{ phoneNumber: '+21612345678' }}
+        profile={{
+          id: 'profile-1',
+          universityId: null,
+          universityName: null,
+          major: '',
+          currentYearOfStudy: '',
+          expectedGraduationDate: null,
+          workPreference: null,
+          phoneNumber: '+21612345678',
+          cvFileUrl: null,
+          status: 'PENDING',
+          verificationStatus: 'PENDING',
+          startDate: null,
+          endDate: null,
+          skills: [],
+        }}
       />,
     )
 
