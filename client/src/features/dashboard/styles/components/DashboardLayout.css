@@ -24,6 +24,7 @@
   flex-direction: column;
   z-index: 100;
   transition: width var(--dash-duration-medium) var(--dash-ease);
+  overflow: hidden;
 }
 
 .dash-layout[data-sidebar-open="true"] .dash-sidebar {
@@ -36,7 +37,7 @@
   justify-content: space-between;
   padding: var(--dash-space-lg);
   border-bottom: 1px solid var(--dash-border);
-  min-height: 72px;
+  min-height: 80px;
 }
 
 .dash-sidebar-title {
@@ -115,7 +116,8 @@ html[dir='rtl'] .dash-layout[data-sidebar-open="true"] .dash-nav-label {
 .dash-nav {
   flex: 1;
   overflow-y: auto;
-  padding: var(--dash-space-lg);
+  overflow-x: hidden;
+  padding: var(--dash-space-sm);
 }
 
 .dash-nav-list {
@@ -193,6 +195,12 @@ html[dir='rtl'] .dash-layout[data-sidebar-open="true"] .dash-nav-label {
   padding: var(--dash-space-md) var(--dash-space-lg);
 }
 
+.dash-layout:not([data-sidebar-open="true"]) .dash-nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: var(--dash-space-md) 0;
+}
+
 .dash-nav-item:hover {
   background: var(--dash-bg-secondary);
   color: var(--dash-text);
@@ -211,12 +219,19 @@ html[dir='rtl'] .dash-layout[data-sidebar-open="true"] .dash-nav-label {
 
 .dash-nav-icon {
   width: 24px;
+  flex: 0 0 24px;
   height: 24px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
   font-size: 0.75rem;
   line-height: 1;
+}
+
+.dash-nav-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
 }
 
 .dash-nav-label {
@@ -231,6 +246,22 @@ html[dir='rtl'] .dash-layout[data-sidebar-open="true"] .dash-nav-label {
 .dash-layout[data-sidebar-open="true"] .dash-nav-label {
   opacity: 1;
   transform: translateX(0);
+}
+
+.dash-layout:not([data-sidebar-open="true"]) .dash-nav-label {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 50%;
+  width: 0;
+  max-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(-8px);
+  flex: none;
+}
+
+.dash-layout:not([data-sidebar-open="true"]) .dash-nav-badge {
+  display: none;
 }
 
 .dash-nav-badge {
@@ -490,6 +521,11 @@ html[dir='rtl'] .dash-sidebar {
   .dash-mobile-refresh {
     transition: none;
     animation: none;
+  }
+
+  .dash-nav-label {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
