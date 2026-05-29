@@ -16,18 +16,20 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur de gestion du profil stagiaire.
 /// </summary>
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
-/// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
+/// <param name="fileStorageService">Service de stockage de fichiers.</param>
 /// <param name="notificationService">Service de notifications in-app.</param>
 /// <param name="internSkillsService">Service de gestion des compétences du stagiaire.</param>
+/// <param name="logger">Logger pour les événements du contrôleur.</param>
 [ApiController]
 [Route("api/intern/me/profile")]
 // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
 [Authorize(Roles = "SuperAdmin,Admin,Intern")]
 public sealed class InternProfileController(
     AppDbContext dbContext,
-    IWebHostEnvironment environment,
+    IFileStorageService fileStorageService,
     INotificationService notificationService,
-    IInternSkillsService internSkillsService) : ControllerBase
+    IInternSkillsService internSkillsService,
+    ILogger<InternProfileController> logger) : ControllerBase
 {
     private const long MaxCvUploadBytes = 2 * 1024 * 1024;
     private static readonly Regex PhoneNumberRegex = new(@"^\+?[0-9][0-9\s().-]{6,19}$", RegexOptions.Compiled);
@@ -46,6 +48,7 @@ public sealed class InternProfileController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Stagiaire non trouvé.</response>
     [HttpGet(Name = "GetMyInternProfile")]
+    [Authorize(Roles = "Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -73,11 +76,7 @@ public sealed class InternProfileController(
             .Where(item => item.InternProfileId == profile.Id)
             .Include(item => item.Skill)
             .OrderBy(item => item.Skill!.Name)
-            .Select(item => new
-            {
-                id = item.SkillId,
-                name = item.Skill != null ? item.Skill.Name : string.Empty
-            })
+            .Select(item => item.Skill != null ? item.Skill.Name : string.Empty)
             .ToListAsync(cancellationToken);
 
         return Ok(ToProfileResponse(profile, intern.VerificationStatus, skills));
@@ -97,6 +96,7 @@ public sealed class InternProfileController(
     /// <response code="400">Données invalides.</response>
     /// <response code="401">Utilisateur non connecté.</response>
     [HttpPatch(Name = "UpdateMyInternProfile")]
+    [Authorize(Roles = "Intern")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -228,11 +228,7 @@ public sealed class InternProfileController(
             .Where(item => item.InternProfileId == profile.Id)
             .Include(item => item.Skill)
             .OrderBy(item => item.Skill!.Name)
-            .Select(item => new
-            {
-                id = item.SkillId,
-                name = item.Skill != null ? item.Skill.Name : string.Empty
-            })
+            .Select(item => item.Skill != null ? item.Skill.Name : string.Empty)
             .ToListAsync(cancellationToken);
 
         return Ok(ToProfileResponse(profile, intern.VerificationStatus, skills));
@@ -310,6 +306,7 @@ public sealed class InternProfileController(
     /// <response code="400">Fichier invalide ou trop volumineux.</response>
     /// <response code="401">Utilisateur non connecté.</response>
     [HttpPost("cv", Name = "UploadMyInternCv")]
+    [Authorize(Roles = "Intern")]
     [EnableRateLimiting("upload")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -364,31 +361,23 @@ public sealed class InternProfileController(
         }
 
         var profile = await EnsureProfileAsync(internId.Value, cancellationToken);
-
-        if (intern.VerificationStatus == InternVerificationStatus.ACTIVE)
-        {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = $"CV upload is not allowed when intern status is {intern.VerificationStatus}." });
-        }
-
-        var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "cv");
-        Directory.CreateDirectory(uploadsDirectory);
-
         var oldCvFileUrl = profile.CvFileUrl;
-        var oldFilePath = ResolveStoredFilePath(oldCvFileUrl, uploadsDirectory);
+        StoredFileInfo? storedFile = null;
 
-        var storedFileName = $"{internId.Value}_{DateTime.UtcNow:yyyyMMddHHmmssfff}.pdf";
-        var finalPath = Path.Combine(uploadsDirectory, storedFileName);
-        var tempPath = Path.Combine(uploadsDirectory, $"{Guid.NewGuid():N}.tmp");
-
-        await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var uploadStream = request.File.OpenReadStream())
         {
-            await request.File.CopyToAsync(stream, cancellationToken);
+            storedFile = await fileStorageService.SaveAsync(
+                new FileStorageSaveRequest(
+                    uploadStream,
+                    "cv",
+                    request.File.FileName,
+                    "application/pdf",
+                    ".pdf"),
+                cancellationToken);
         }
 
-        profile.CvFileUrl = $"/uploads/cv/{storedFileName}";
-
-        profile.StartDate = null;
-        profile.EndDate = null;
+        var newCvFileUrl = storedFile.Url;
+        profile.CvFileUrl = newCvFileUrl;
 
         dbContext.AuditLogs.Add(new AuditLog
         {
@@ -406,34 +395,38 @@ public sealed class InternProfileController(
             "Your CV has been submitted successfully. You will be notified when a supervisor assigns you to a project.",
             $"intern:{internId.Value}");
 
-        notificationService.QueueNotification(
-            internId.Value,
-            "intern.profile.pending-assignment",
-            "Profile awaiting assignment",
-            "Your profile is awaiting assignment",
-            $"intern:{internId.Value}");
-
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
-
-            System.IO.File.Move(tempPath, finalPath, overwrite: true);
-
-            if (!string.IsNullOrWhiteSpace(oldFilePath) &&
-                !string.Equals(oldFilePath, finalPath, StringComparison.OrdinalIgnoreCase) &&
-                System.IO.File.Exists(oldFilePath))
-            {
-                System.IO.File.Delete(oldFilePath);
-            }
         }
         catch
         {
-            if (System.IO.File.Exists(tempPath))
+            if (storedFile is not null)
             {
-                System.IO.File.Delete(tempPath);
+                try
+                {
+                    await fileStorageService.DeleteAsync(storedFile.Url, cancellationToken);
+                }
+                catch (Exception cleanupException)
+                {
+                    logger.LogWarning(cleanupException, "Failed to delete uploaded CV after profile save failure.");
+                }
             }
 
             throw;
+        }
+
+        if (!string.IsNullOrWhiteSpace(oldCvFileUrl) &&
+            !string.Equals(oldCvFileUrl, newCvFileUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                await fileStorageService.DeleteAsync(oldCvFileUrl, cancellationToken);
+            }
+            catch (Exception cleanupException)
+            {
+                logger.LogWarning(cleanupException, "Failed to delete previous CV for intern {InternId}.", internId.Value);
+            }
         }
 
         return Ok(new
@@ -477,15 +470,13 @@ public sealed class InternProfileController(
             return NotFound(new { message = "CV not found." });
         }
 
-        var relativePath = profile.CvFileUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-        var absolutePath = Path.Combine(environment.ContentRootPath, relativePath);
-
-        if (!System.IO.File.Exists(absolutePath))
+        var storedFile = await fileStorageService.OpenReadAsync(profile.CvFileUrl, cancellationToken);
+        if (storedFile is null)
         {
             return NotFound(new { message = "CV file is missing from storage." });
         }
 
-        return PhysicalFile(absolutePath, "application/pdf", enableRangeProcessing: true);
+        return File(storedFile.Content, "application/pdf", enableRangeProcessing: true);
     }
 
     private async Task<InternProfile> EnsureProfileAsync(Guid internId, CancellationToken cancellationToken)
@@ -521,23 +512,29 @@ public sealed class InternProfileController(
         return profile;
     }
 
-    private static object ToProfileResponse(InternProfile profile, InternVerificationStatus verificationStatus, IEnumerable<object> skills)
+    private static InternProfileResponse ToProfileResponse(
+        InternProfile profile,
+        InternVerificationStatus verificationStatus,
+        IEnumerable<string?>? skills)
     {
-        return new
+        return new InternProfileResponse
         {
-            id = profile.Id,
-            universityId = profile.UniversityId,
-            major = profile.Major,
-            currentYearOfStudy = profile.CurrentYearOfStudy,
-            expectedGraduationDate = profile.ExpectedGraduationDate,
-            workPreference = profile.WorkPreference?.ToString().ToLowerInvariant(),
-            phoneNumber = profile.PhoneNumber,
-            cvFileUrl = profile.CvFileUrl,
-            status = verificationStatus.ToString(),
-            verificationStatus = verificationStatus.ToString(),
-            startDate = profile.StartDate,
-            endDate = profile.EndDate,
-            skills
+            Id = profile.Id,
+            UniversityId = profile.UniversityId,
+            Major = profile.Major,
+            CurrentYearOfStudy = profile.CurrentYearOfStudy,
+            ExpectedGraduationDate = profile.ExpectedGraduationDate,
+            WorkPreference = profile.WorkPreference?.ToString().ToLowerInvariant(),
+            PhoneNumber = profile.PhoneNumber,
+            CvFileUrl = profile.CvFileUrl,
+            Status = verificationStatus.ToString(),
+            VerificationStatus = verificationStatus.ToString(),
+            StartDate = profile.StartDate,
+            EndDate = profile.EndDate,
+            Skills = skills?
+                .Where(skill => !string.IsNullOrWhiteSpace(skill))
+                .Select(skill => skill!.Trim())
+                .ToArray() ?? Array.Empty<string>()
         };
     }
 
@@ -625,21 +622,35 @@ public sealed class InternProfileController(
                header[4] == 0x2D;   // -
     }
 
-    private static string? ResolveStoredFilePath(string? cvFileUrl, string uploadsDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(cvFileUrl))
-        {
-            return null;
-        }
+}
 
-        var fileName = Path.GetFileName(cvFileUrl);
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            return null;
-        }
+public sealed class InternProfileResponse
+{
+    public Guid Id { get; init; }
 
-        return Path.Combine(uploadsDirectory, fileName);
-    }
+    public Guid? UniversityId { get; init; }
+
+    public string Major { get; init; } = string.Empty;
+
+    public string CurrentYearOfStudy { get; init; } = string.Empty;
+
+    public DateTime? ExpectedGraduationDate { get; init; }
+
+    public string? WorkPreference { get; init; }
+
+    public string? PhoneNumber { get; init; }
+
+    public string? CvFileUrl { get; init; }
+
+    public string Status { get; init; } = string.Empty;
+
+    public string VerificationStatus { get; init; } = string.Empty;
+
+    public DateTime? StartDate { get; init; }
+
+    public DateTime? EndDate { get; init; }
+
+    public string[] Skills { get; init; } = Array.Empty<string>();
 }
 
 public sealed class UpdateInternProfileRequest
