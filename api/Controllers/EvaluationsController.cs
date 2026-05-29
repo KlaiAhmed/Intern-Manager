@@ -50,7 +50,7 @@ public sealed class EvaluationsController(
     [HttpGet(Name = "ListEvaluations")]
     [Authorize(Roles = "Admin,SuperAdmin")]
     [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<EvaluationListItemResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -106,33 +106,39 @@ public sealed class EvaluationsController(
             .ThenByDescending(item => item.CreatedAt)
             .Skip((safePage - 1) * safeLimit)
             .Take(safeLimit)
-            .Select(item => new
+            .Select(item => new EvaluationListItemResponse
             {
-                id = item.Id,
-                supervisorId = item.SupervisorId,
-                supervisorName = item.Supervisor != null
+                Id = item.Id,
+                SupervisorId = item.SupervisorId,
+                SupervisorName = item.Supervisor != null
                     ? $"{item.Supervisor.FirstName} {item.Supervisor.LastName}".Trim()
                     : string.Empty,
-                internId = item.InternId,
-                internName = item.Intern != null
+                InternId = item.InternId,
+                InternName = item.Intern != null
                     ? $"{item.Intern.FirstName} {item.Intern.LastName}".Trim()
                     : string.Empty,
-                type = item.Type,
-                status = item.Status,
-                submittedAt = item.SubmittedAt,
-                comments = item.Comments,
-                criteria = new
+                Type = item.Type,
+                Status = item.Status,
+                SubmittedAt = item.SubmittedAt,
+                Comments = item.Comments,
+                Criteria = new EvaluationCriteriaResponse
                 {
-                    technical = item.Technical,
-                    autonomy = item.Autonomy,
-                    communication = item.Communication,
-                    deadlineRespect = item.DeadlineRespect,
-                    deliverableQuality = item.DeliverableQuality
+                    Technical = item.Technical,
+                    Autonomy = item.Autonomy,
+                    Communication = item.Communication,
+                    DeadlineRespect = item.DeadlineRespect,
+                    DeliverableQuality = item.DeliverableQuality
                 }
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(new { data, total, page = safePage, limit = safeLimit });
+        return Ok(new PagedResponse<EvaluationListItemResponse>
+        {
+            Data = data,
+            Total = total,
+            Page = safePage,
+            Limit = safeLimit
+        });
     }
 
     /// <summary>
@@ -382,7 +388,7 @@ public sealed class EvaluationsController(
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(EvaluationDetailResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -480,14 +486,7 @@ public sealed class EvaluationsController(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var response = new
-        {
-            id = evaluation.Id,
-            internId = evaluation.InternId,
-            type = evaluation.Type
-        };
-
-        return CreatedAtAction(nameof(GetEvaluationById), new { id = evaluation.Id }, response);
+        return CreatedAtAction(nameof(GetEvaluationById), new { id = evaluation.Id }, ToDetailResponse(evaluation));
     }
 
     /// <summary>
@@ -510,7 +509,7 @@ public sealed class EvaluationsController(
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EvaluationDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -593,13 +592,7 @@ public sealed class EvaluationsController(
 
         if (!hasChanges)
         {
-            return Ok(new
-            {
-                id = evaluation.Id,
-                internId = evaluation.InternId,
-                type = evaluation.Type,
-                status = evaluation.Status
-            });
+            return Ok(ToDetailResponse(evaluation));
         }
 
         dbContext.AuditLogs.Add(new AuditLog
@@ -613,14 +606,7 @@ public sealed class EvaluationsController(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new
-        {
-            id = evaluation.Id,
-            internId = evaluation.InternId,
-            type = evaluation.Type,
-            status = evaluation.Status,
-            submittedAt = evaluation.SubmittedAt
-        });
+        return Ok(ToDetailResponse(evaluation));
     }
 
     /// <summary>
@@ -641,7 +627,7 @@ public sealed class EvaluationsController(
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EvaluationDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetEvaluationById(Guid id, CancellationToken cancellationToken)
@@ -661,23 +647,33 @@ public sealed class EvaluationsController(
             return NotFound();
         }
 
-        return Ok(new
+        return Ok(ToDetailResponse(evaluation));
+    }
+
+    private static EvaluationDetailResponse ToDetailResponse(Evaluation evaluation)
+    {
+        return new EvaluationDetailResponse
         {
-            id = evaluation.Id,
-            internId = evaluation.InternId,
-            type = evaluation.Type,
-            status = evaluation.Status,
-            submittedAt = evaluation.SubmittedAt,
-            comments = evaluation.Comments,
-            criteria = new
-            {
-                technical = evaluation.Technical,
-                autonomy = evaluation.Autonomy,
-                communication = evaluation.Communication,
-                deadlineRespect = evaluation.DeadlineRespect,
-                deliverableQuality = evaluation.DeliverableQuality
-            }
-        });
+            Id = evaluation.Id,
+            InternId = evaluation.InternId,
+            Type = evaluation.Type,
+            Status = evaluation.Status,
+            SubmittedAt = evaluation.SubmittedAt,
+            Comments = evaluation.Comments,
+            Criteria = ToCriteriaResponse(evaluation)
+        };
+    }
+
+    private static EvaluationCriteriaResponse ToCriteriaResponse(Evaluation evaluation)
+    {
+        return new EvaluationCriteriaResponse
+        {
+            Technical = evaluation.Technical,
+            Autonomy = evaluation.Autonomy,
+            Communication = evaluation.Communication,
+            DeadlineRespect = evaluation.DeadlineRespect,
+            DeliverableQuality = evaluation.DeliverableQuality
+        };
     }
 
     /// <summary>
@@ -700,7 +696,7 @@ public sealed class EvaluationsController(
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(InternEvaluationsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMyEvaluations(
@@ -732,37 +728,35 @@ public sealed class EvaluationsController(
         var data = await query
             .Skip((safePage - 1) * safePageSize)
             .Take(safePageSize)
-            .Select(evaluation => new
+            .Select(evaluation => new InternEvaluationResponse
             {
-                id = evaluation.Id,
-                type = NormalizeTypeForIntern(evaluation.Type),
-                criteria = new
+                Id = evaluation.Id,
+                Type = NormalizeTypeForIntern(evaluation.Type),
+                Criteria = new EvaluationCriteriaResponse
                 {
-                    technical = evaluation.Technical,
-                    autonomy = evaluation.Autonomy,
-                    communication = evaluation.Communication,
-                    deadlineRespect = evaluation.DeadlineRespect,
-                    deliverableQuality = evaluation.DeliverableQuality
+                    Technical = evaluation.Technical,
+                    Autonomy = evaluation.Autonomy,
+                    Communication = evaluation.Communication,
+                    DeadlineRespect = evaluation.DeadlineRespect,
+                    DeliverableQuality = evaluation.DeliverableQuality
                 },
-                scores = new
-                {
-                    technical = evaluation.Technical,
-                    autonomy = evaluation.Autonomy,
-                    communication = evaluation.Communication,
-                    deadlineRespect = evaluation.DeadlineRespect,
-                    deliverableQuality = evaluation.DeliverableQuality
-                },
-                isReleasedToIntern = evaluation.IsReleasedToIntern,
-                releasedAt = evaluation.ReleasedAt,
-                date = evaluation.SubmittedAt ?? evaluation.CreatedAt,
-                comments = evaluation.Comments,
-                supervisorName = evaluation.Supervisor != null
+                IsReleasedToIntern = evaluation.IsReleasedToIntern,
+                ReleasedAt = evaluation.ReleasedAt,
+                Date = evaluation.SubmittedAt ?? evaluation.CreatedAt,
+                Comments = evaluation.Comments,
+                SupervisorName = evaluation.Supervisor != null
                     ? $"{evaluation.Supervisor.FirstName} {evaluation.Supervisor.LastName}".Trim()
                     : string.Empty
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(new { data, page = safePage, pageSize = safePageSize, total });
+        return Ok(new InternEvaluationsResponse
+        {
+            Data = data,
+            Page = safePage,
+            PageSize = safePageSize,
+            Total = total
+        });
     }
 
     private static bool AreScoresInRange(EvaluationCriteriaRequest criteria)
