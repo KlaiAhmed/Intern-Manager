@@ -174,7 +174,6 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                     ? $"{mission.Supervisor.FirstName} {mission.Supervisor.LastName}".Trim()
                     : (string?)null,
                 status = mission.Status,
-                deliverableCount = deliverablesCount,
                 deliverablesCount
             };
         });

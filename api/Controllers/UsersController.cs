@@ -700,7 +700,7 @@ public sealed class UsersController(AppDbContext dbContext, UserDeletionService 
     [HttpGet("me/summary", Name = "GetUserSummary")]
     [Authorize]
     [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(typeof(UserSummaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(UserSummary), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)

@@ -10,42 +10,6 @@ namespace InternManager.Api.Application.Users;
 /// </summary>
 public sealed class UserDeletionPolicy
 {
-    public IReadOnlyList<string> CascadeRelationships { get; } =
-    [
-        "JournalEntries (InternId)",
-        "InternTasks (InternId)",
-        "InternProfiles (InternId)",
-        "MissionInternAssignments (InternId)",
-        "Notifications (UserId)",
-        "InternNotifications (InternId)",
-        "PasswordResetTokens (UserId)",
-        "RefreshTokens (UserId)"
-    ];
-
-    public IReadOnlyList<string> SetNullRelationships { get; } =
-    [
-        "Missions (InternId)",
-        "Missions (CoSupervisorId)",
-        "Deliverables (InternId)",
-        "MissionFeatureFlags (UpdatedByUserId)",
-        "MissionHistoryEntries (ChangedByUserId)",
-        "Evaluations (ReleasedByUserId)",
-        "AuditLogs (ActorUserId)",
-        "Users (DepartmentId)"
-    ];
-
-    public IReadOnlyList<string> RestrictRelationships { get; } =
-    [
-        "Missions (SupervisorId)",
-        "Deliverables (SupervisorId)",
-        "Evaluations (SupervisorId)",
-        "Evaluations (InternId)",
-        "Meetings (SupervisorId)",
-        "Meetings (InternId)",
-        "JournalComments (AuthorId)",
-        "JournalEvaluationLinks (LinkedByUserId)"
-    ];
-
     public async Task<UserDeletionBlockers> GetBlockersAsync(
         AppDbContext dbContext,
         Guid userId,

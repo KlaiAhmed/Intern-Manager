@@ -181,17 +181,12 @@ public sealed class AuthController(
     /// <summary>
     /// Alias explicite de l endpoint signup pour compatibilite avec les clients attendant /auth/register.
     /// </summary>
-    /// <param name="request">Objet contenant les informations du nouveau compte.</param>
-    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
-    /// <returns>Les informations du compte créé.</returns>
-    /// <response code="201">Compte créé avec succès.</response>
-    /// <response code="400">Données invalides ou rôle non autorisé.</response>
-    /// <response code="409">Un compte existe déjà avec cet email.</response>
+    /// <response code="301">Redirection vers /api/auth/signup.</response>
     [AllowAnonymous]
     [HttpPost("/api/auth/register")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(StatusCodes.Status301MovedPermanently)]
-    public IActionResult Register([FromBody] SignupRequest request, CancellationToken cancellationToken)
+    public IActionResult Register()
     {
         return RedirectPermanent("/api/auth/signup");
     }

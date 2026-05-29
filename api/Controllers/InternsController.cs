@@ -322,23 +322,6 @@ public sealed class InternsController(
         }
     }
 
-    [HttpPost("{id:guid}/upload-cv", Name = "UploadInternCv")]
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
-    [EnableRateLimiting("upload")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> UploadCv(Guid id, [FromForm] UploadInternCvForm request, CancellationToken cancellationToken)
-    {
-        return StatusCode(StatusCodes.Status410Gone, new
-        {
-            message = "This endpoint has been retired. Use POST /api/intern/me/profile/cv."
-        });
-    }
-
     /// <summary>
     /// Downloads an intern's CV file.
     /// </summary>
