@@ -67,18 +67,32 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
             }
         }
 
-        var total = await query.CountAsync(cancellationToken);
+        List<Mission> missions;
+        int total;
 
-        var missions = await query
-            .Include(item => item.Intern)
-            .ThenInclude(item => item!.Department)
-            .Include(item => item.InternshipType)
-            .Include(item => item.Supervisor)
-            .Include(item => item.CoSupervisor)
-            .OrderByDescending(item => item.CreatedAt)
-            .Skip((safePage - 1) * safeLimit)
-            .Take(safeLimit)
-            .ToListAsync(cancellationToken);
+        try
+        {
+            total = await query.CountAsync(cancellationToken);
+
+            missions = await query
+                .Include(item => item.Intern)
+                .ThenInclude(item => item.Department)
+                .Include(item => item.InternshipType)
+                .Include(item => item.Supervisor)
+                .Include(item => item.CoSupervisor)
+                .OrderByDescending(item => item.CreatedAt)
+                .Skip((safePage - 1) * safeLimit)
+                .Take(safeLimit)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            when (sqlEx.Message.Contains("Invalid column name") || sqlEx.Message.Contains("Invalid object name"))
+        {
+            throw new InvalidOperationException(
+                "Database schema is out of sync with the application model. Run 'dotnet ef database update' to apply pending migrations. " +
+                $"SQL error: {sqlEx.Message}",
+                sqlEx);
+        }
 
         var missionIds = missions.Select(item => item.Id).ToList();
         var metadataByMissionId = await LoadMetadataForMissionsAsync(missionIds, cancellationToken);
@@ -107,7 +121,7 @@ public sealed class InternshipsService(AppDbContext dbContext, IHttpContextAcces
         var mission = await dbContext.Missions
             .AsNoTracking()
             .Include(item => item.Intern)
-            .ThenInclude(item => item!.Department)
+            .ThenInclude(item => item.Department)
             .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
             .Include(item => item.CoSupervisor)
@@ -299,7 +313,7 @@ var status = DomainStatuses.Mission.Active;
 
         var mission = await dbContext.Missions
             .Include(item => item.Intern)
-            .ThenInclude(item => item!.Department)
+            .ThenInclude(item => item.Department)
             .Include(item => item.InternshipType)
             .Include(item => item.Supervisor)
             .Include(item => item.CoSupervisor)

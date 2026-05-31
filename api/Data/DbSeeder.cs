@@ -19,6 +19,7 @@ public static class DbSeeder
     /// <exception cref="InvalidOperationException">
     /// Levée quand une variable d environnement obligatoire `SUPERADMIN_*` est absente.
     /// </exception>
+    // Migration scripts are now run in Program.cs before this method is called.
     public static async Task SeedSuperAdminAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
@@ -30,8 +31,7 @@ public static class DbSeeder
             .CreateLogger("DbSeeder");
         var hostEnvironment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
-        await SqlMigrationScriptRunner.ApplyPendingScriptsAsync(dbContext, logger, hostEnvironment.ContentRootPath);
-
+        
         await SeedDevelopmentBypassUsersAsync(dbContext, logger, hostEnvironment);
 
         var superAdminExists = await dbContext.Users

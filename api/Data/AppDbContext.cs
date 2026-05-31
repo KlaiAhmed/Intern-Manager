@@ -420,6 +420,9 @@ entity.Property(mission => mission.Title)
             entity.Property(deliverable => deliverable.FileUrl)
                 .HasMaxLength(2048);
 
+            entity.Property(deliverable => deliverable.Description)
+                .HasMaxLength(4000);
+
             entity.Property(deliverable => deliverable.SupervisorComment)
                 .HasMaxLength(2000);
 
@@ -717,6 +720,9 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasMaxLength(250);
 
+            entity.Property(task => task.Description)
+                .HasMaxLength(4000);
+
             entity.Property(task => task.Status)
                 .IsRequired()
                 .HasMaxLength(50)
@@ -845,7 +851,7 @@ entity.Property(mission => mission.Title)
                 .HasForeignKey(profile => profile.InternId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne<School>()
+            entity.HasOne(profile => profile.University)
                 .WithMany()
                 .HasForeignKey(profile => profile.UniversityId)
                 .OnDelete(DeleteBehavior.Restrict);

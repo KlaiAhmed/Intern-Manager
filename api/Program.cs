@@ -247,25 +247,24 @@ try
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var hostEnvironment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
+    logger.LogInformation("Step 1/4: Running EF baseline bootstrapper");
     await EfMigrationBootstrapper.EnsureBaselineHistoryAsync(dbContext, logger);
-    await dbContext.Database.MigrateAsync();
-}
-catch (Exception exception)
-{
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogCritical(exception, "Fatal startup error during database initialization.");
-    throw;
-}
 
-try
-{
+    logger.LogInformation("Step 2/4: Applying EF migrations");
+    await dbContext.Database.MigrateAsync();
+
+    logger.LogInformation("Step 3/4: Applying pending SQL migration scripts");
+    await SqlMigrationScriptRunner.ApplyPendingScriptsAsync(dbContext, logger, hostEnvironment.ContentRootPath);
+
+    logger.LogInformation("Step 4/4: Seeding SuperAdmin");
     await DbSeeder.SeedSuperAdminAsync(app.Services);
 }
 catch (Exception exception)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogCritical(exception, "Fatal startup error during SuperAdmin seeding.");
+    logger.LogCritical(exception, "Database migration failed at startup. Startup aborted.");
     throw;
 }
 
@@ -405,8 +404,4 @@ static string[] BuildCorsOrigins(string? configuredOrigin)
     return origins.Length > 0
         ? origins
         : [defaultOrigin];
-}
-
-public partial class Program
-{
 }

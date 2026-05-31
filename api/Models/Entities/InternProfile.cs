@@ -13,6 +13,8 @@ public sealed class InternProfile
 
     public Guid? UniversityId { get; set; }
 
+    public School? University { get; set; }
+
     public string Major { get; set; } = string.Empty;
 
     public string CurrentYearOfStudy { get; set; } = string.Empty;
