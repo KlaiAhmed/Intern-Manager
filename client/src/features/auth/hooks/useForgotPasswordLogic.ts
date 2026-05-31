@@ -18,10 +18,11 @@ interface PasswordFieldErrors {
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const codePattern = /^\d{6}$/
+export const PASSWORD_RESET_CODE_LENGTH = 8 // Backend reset codes are exactly 8 digits.
+const codePattern = new RegExp(`^\\d{${PASSWORD_RESET_CODE_LENGTH}}$`) // Keep client validation aligned with backend OTP length.
 
 function normalizeCodeInput(value: string): string {
-  return value.replace(/\D/g, '').slice(0, 6)
+  return value.replace(/\D/g, '').slice(0, PASSWORD_RESET_CODE_LENGTH) // Keep pasted OTP input aligned with backend length.
 }
 
 export function useForgotPasswordLogic() {

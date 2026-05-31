@@ -5,6 +5,7 @@ import {
   ForgotPasswordPage,
   HomePage,
   LoginPage,
+  ManagerDashboard, // Route /dashboard/manager directly to the existing manager dashboard.
   NotFoundPage,
   SignUpPage,
 } from './lazyPages'
@@ -20,14 +21,15 @@ export interface RouteDefinition {
 export const appRoutes: RouteDefinition[] = [
   { path: '/', component: HomePage },
   { path: '/dashboard', component: DashboardPage, isProtected: true },
-  { path: '/dashboard/admin', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
-  { path: '/dashboard/admin/users', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
-  { path: '/dashboard/admin/interns', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
-  { path: '/dashboard/admin/internships', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
+  { path: '/dashboard/manager', component: ManagerDashboard, isProtected: true, allowedRoles: ['manager', 'admin', 'super_admin'] }, // Give managers and admin roles a guarded manager landing route.
+  { path: '/dashboard/admin', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin dashboard access.
+  { path: '/dashboard/admin/users', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin user access.
+  { path: '/dashboard/admin/interns', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin intern access.
+  { path: '/dashboard/admin/internships', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin internship access.
   { path: '/dashboard/admin/missions/:missionId/feature-flags', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] },
-  { path: '/dashboard/admin/evaluations', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
-  { path: '/dashboard/admin/settings', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
-  { path: '/dashboard/admin/audit', component: DashboardPage, isProtected: true, allowedRoles: ['admin'] },
+  { path: '/dashboard/admin/evaluations', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin evaluation access.
+  { path: '/dashboard/admin/settings', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin settings access.
+  { path: '/dashboard/admin/audit', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin audit access.
   { path: '/dashboard/supervisor/interns/:internId/journal', component: DashboardPage, isProtected: true, allowedRoles: ['supervisor'] },
   { path: '/login', component: LoginPage, isGuestOnly: true },
   { path: '/signup', component: SignUpPage, isGuestOnly: true },

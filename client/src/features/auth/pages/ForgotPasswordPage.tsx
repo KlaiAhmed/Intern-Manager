@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { LanguageSwitcher } from '../../../components/ui/LanguageSwitcher'
 import { ThemeSwitcher } from '../../../components/ui/ThemeSwitcher'
 import { PasswordVisibilityIcon } from '../components/AuthScreen/PasswordVisibilityIcon'
-import { useForgotPasswordLogic } from '../hooks/useForgotPasswordLogic'
+import { PASSWORD_RESET_CODE_LENGTH, useForgotPasswordLogic } from '../hooks/useForgotPasswordLogic' // Share backend-aligned OTP length with the input.
 import styles from '../styles/ForgotPasswordPage.module.css'
 
 export function ForgotPasswordPage() {
@@ -98,10 +98,10 @@ export function ForgotPasswordPage() {
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={PASSWORD_RESET_CODE_LENGTH /* Backend reset codes are exactly 8 digits. */}
               value={code}
               onChange={(event) => {
-                const digitsOnly = event.target.value.replace(/\D/g, '').slice(0, 6)
+                const digitsOnly = event.target.value.replace(/\D/g, '').slice(0, PASSWORD_RESET_CODE_LENGTH) // Keep typed OTP input aligned with backend length.
                 setCode(digitsOnly)
               }}
               className={styles.input}

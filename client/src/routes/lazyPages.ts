@@ -10,6 +10,11 @@ export const DashboardPage = lazy(async () => {
   return { default: module.DashboardPage }
 })
 
+export const ManagerDashboard = lazy(async () => { // Direct /dashboard/manager route uses the existing manager dashboard.
+  const module = await import('../features/dashboard/pages/ManagerDashboard/ManagerDashboard') // Load the already-built manager dashboard.
+  return { default: module.ManagerDashboard } // Expose the existing manager dashboard to routeConfig.
+})
+
 export const LoginPage = lazy(async () => {
   const module = await import('../pages/LoginPage')
   return { default: module.LoginPage }
