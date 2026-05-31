@@ -177,6 +177,25 @@ export function OperationalInternshipsSection() {
 
   const isEditing = editingInternshipId !== null
 
+  const today = useMemo(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }, [])
+
+  const minEndDate = useMemo(() => {
+    const getNextDay = (date: Date) => {
+      const d = new Date(date)
+      d.setDate(d.getDate() + 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+
+    if (formState.startDate) {
+      const [y, m, d] = formState.startDate.split('-').map(Number)
+      return getNextDay(new Date(y, m - 1, d))
+    }
+    return getNextDay(new Date())
+  }, [formState.startDate])
+
   const openCreateModal = () => {
     setEditingInternshipId(null)
     setFormState(defaultInternshipFormState)
@@ -574,6 +593,7 @@ try {
               <input
                 id="internship-start-date"
                 type="date"
+                min={today}
                 value={formState.startDate}
                 onChange={(event) => setFormState((prev) => ({ ...prev, startDate: event.target.value }))}
               />
@@ -584,6 +604,7 @@ try {
               <input
                 id="internship-end-date"
                 type="date"
+                min={minEndDate}
                 value={formState.endDate}
                 onChange={(event) => setFormState((prev) => ({ ...prev, endDate: event.target.value }))}
               />

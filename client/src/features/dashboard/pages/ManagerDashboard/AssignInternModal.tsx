@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { DashboardButton } from '../../components/DashboardButton'
 import { Modal } from '../../components/Modal'
@@ -114,6 +114,25 @@ export function AssignInternModal({
   const [missionOptions, setMissionOptions] = useState<MissionOption[]>([])
   const [typeOptions, setTypeOptions] = useState<ReferentialOption[]>([])
   const [skillOptions, setSkillOptions] = useState<ReferentialOption[]>([])
+
+  const today = useMemo(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }, [])
+
+  const minEndDate = useMemo(() => {
+    const getNextDay = (date: Date) => {
+      const d = new Date(date)
+      d.setDate(d.getDate() + 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+
+    if (assignmentForm.startDate) {
+      const [y, m, d] = assignmentForm.startDate.split('-').map(Number)
+      return getNextDay(new Date(y, m - 1, d))
+    }
+    return getNextDay(new Date())
+  }, [assignmentForm.startDate])
 
   const targetInternId = asNonEmptyString(intern?.id)
 
@@ -383,6 +402,7 @@ export function AssignInternModal({
               <input
                 id="assign-start-date"
                 type="date"
+                min={today}
                 value={assignmentForm.startDate}
                 onChange={(event) => setAssignmentForm((previous) => ({
                   ...previous,
@@ -400,6 +420,7 @@ export function AssignInternModal({
               <input
                 id="assign-end-date"
                 type="date"
+                min={minEndDate}
                 value={assignmentForm.endDate}
                 onChange={(event) => setAssignmentForm((previous) => ({
                   ...previous,

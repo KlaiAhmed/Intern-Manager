@@ -147,6 +147,7 @@ export function useSupervisorDashboardState() {
   const [deliverableFormError, setDeliverableFormError] = useState<string | null>(null)
 
   const [activeEvaluation, setActiveEvaluation] = useState<SupervisorEvaluationDueItem | null>(null)
+  const [selectedDeliverableId, setSelectedDeliverableId] = useState('')
   const [evaluationScores, setEvaluationScores] = useState<SupervisorEvaluationScores>(initialEvaluationScores)
   const [evaluationComment, setEvaluationComment] = useState('')
 
@@ -202,6 +203,25 @@ export function useSupervisorDashboardState() {
         }))
       ),
     [progressState.items, meetingsState.meetings]
+  )
+
+  const evaluationOverallScore = useMemo(() => {
+    const values = Object.values(evaluationScores)
+    if (values.length === 0) {
+      return null
+    }
+
+    return Number((values.reduce((sum, score) => sum + score, 0) / values.length).toFixed(1))
+  }, [evaluationScores])
+
+  const evaluationDeliverableOptions = useMemo(
+    () =>
+      evaluationsState.status.due.map((item) => ({
+        id: item.deliverableId,
+        label: `${item.deliverableTitle} (${item.internName})`,
+        status: item.deliverableStatus,
+      })),
+    [evaluationsState.status.due]
   )
 
   const refreshAll = useCallback(async () => {
@@ -270,15 +290,15 @@ export function useSupervisorDashboardState() {
 
   const handleQueueAccept = useCallback(
     async (item: SupervisorValidationQueueItem) => {
-      await queueState.validateDeliverable(item, 'accept', '')
+      await queueState.approveDeliverable(item.id, item.rowVersion)
       kpisState.applyPendingDelta(-1)
     },
     [kpisState, queueState]
   )
 
   const handleQueueReject = useCallback(
-    async (item: SupervisorValidationQueueItem, reason: string) => {
-      await queueState.validateDeliverable(item, 'reject', reason)
+    async (item: SupervisorValidationQueueItem, reason: string, taskIdsToReopen: string[]) => {
+      await queueState.rejectDeliverable(item.id, reason, taskIdsToReopen, item.rowVersion)
       kpisState.applyPendingDelta(-1)
     },
     [kpisState, queueState]
@@ -381,12 +401,18 @@ export function useSupervisorDashboardState() {
 
   const openEvaluationModal = useCallback((item: SupervisorEvaluationDueItem) => {
     setActiveEvaluation(item)
+    setSelectedDeliverableId(item.deliverableId)
     setEvaluationScores(initialEvaluationScores)
     setEvaluationComment('')
   }, [])
 
   const closeEvaluationModal = useCallback(() => {
     setActiveEvaluation(null)
+    setSelectedDeliverableId('')
+  }, [])
+
+  const updateEvaluationDeliverableId = useCallback((deliverableId: string) => {
+    setSelectedDeliverableId(deliverableId)
   }, [])
 
   const setEvaluationScore = useCallback((criterion: keyof SupervisorEvaluationScores, value: number) => {
@@ -403,6 +429,7 @@ export function useSupervisorDashboardState() {
     }
 
     await evaluationsState.submitEvaluation({
+      deliverableId: selectedDeliverableId || activeEvaluation.deliverableId,
       internId: activeEvaluation.internId,
       type: activeEvaluation.type,
       scores: evaluationScores,
@@ -412,7 +439,19 @@ export function useSupervisorDashboardState() {
     setActiveEvaluation(null)
     setEvaluationScores(initialEvaluationScores)
     setEvaluationComment('')
-  }, [activeEvaluation, evaluationComment, evaluationScores, evaluationsState])
+  }, [activeEvaluation, evaluationComment, evaluationScores, evaluationsState, selectedDeliverableId])
+
+  const releaseEvaluation = useCallback(async () => {
+    if (!activeEvaluation) {
+      return
+    }
+
+    await evaluationsState.releaseEvaluation(activeEvaluation.evaluationId)
+    setActiveEvaluation(null)
+    setSelectedDeliverableId('')
+    setEvaluationScores(initialEvaluationScores)
+    setEvaluationComment('')
+  }, [activeEvaluation, evaluationsState])
 
   return {
     t,
@@ -428,6 +467,8 @@ export function useSupervisorDashboardState() {
     meetingsState,
     evaluationsState,
     internOptions,
+    evaluationDeliverableOptions,
+    evaluationOverallScore,
     meetingForm,
     meetingFormError,
     updateMeetingFormField,
@@ -451,8 +492,11 @@ export function useSupervisorDashboardState() {
     evaluationComment,
     setEvaluationComment,
     setEvaluationScore,
+    selectedDeliverableId,
+    updateEvaluationDeliverableId,
     openEvaluationModal,
     closeEvaluationModal,
     submitEvaluation,
+    releaseEvaluation,
   }
 }

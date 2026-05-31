@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { DashboardButton } from '../../components/DashboardButton'
 import { DashboardMetricCard } from '../../components/DashboardMetricCard'
 import { EvaluationRow } from '../../components/EvaluationRow'
@@ -65,6 +66,8 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
     meetingsState,
     evaluationsState,
     internOptions,
+    evaluationDeliverableOptions,
+    evaluationOverallScore,
     meetingForm,
     meetingFormError,
     updateMeetingFormField,
@@ -88,9 +91,12 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
     evaluationComment,
     setEvaluationComment,
     setEvaluationScore,
+    selectedDeliverableId,
+    updateEvaluationDeliverableId,
     openEvaluationModal,
     closeEvaluationModal,
     submitEvaluation,
+    releaseEvaluation,
   } = state
 
   const workload = workloadState.workload
@@ -368,8 +374,12 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
                   acceptLabel={t('dashboard.supervisor.accept')}
                   rejectLabel={t('dashboard.supervisor.reject')}
                   rejectReasonLabel={t('dashboard.supervisor.queue.rejectReason')}
+                  rejectReasonLengthLabel={t('dashboard.supervisor.queue.rejectReasonLength')}
                   rejectReasonPlaceholder={t('dashboard.supervisor.queue.rejectReasonPlaceholder')}
                   rejectSubmitLabel={t('dashboard.supervisor.queue.rejectSubmit')}
+                  reopenTasksLabel={t('dashboard.supervisor.queue.reopenTasks')}
+                  noTasksLabel={t('dashboard.supervisor.queue.noTasks')}
+                  reasonCounterLabel={(count) => t('dashboard.supervisor.queue.reasonCounter', { count })}
                   cancelLabel={t('dashboard.form.cancel')}
                   onAccept={handleQueueAccept}
                   onReject={handleQueueReject}
@@ -379,6 +389,7 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
           )}
 
           {queueState.actionError && <p className="form-error supervisor-inline-error">{queueState.actionError}</p>}
+          {queueState.actionNotice && <p className="supervisor-inline-notice" role="status">{queueState.actionNotice}</p>}
         </Panel>
       </div>
 
@@ -456,16 +467,20 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
               ) : (
                 <div>
                   {evaluationsState.status.due.map((item) => (
-                    <EvaluationRow
-                      key={item.evaluationId}
-                      mode="due"
-                      internName={item.internName}
-                      typeLabel={resolveEvaluationTypeLabel(item.type)}
-                      badgeLabel={t('dashboard.supervisor.evaluations.badgeDue')}
-                      actionLabel={t('dashboard.supervisor.evaluate')}
-                      onAction={() => openEvaluationModal(item)}
-                      isActionDisabled={evaluationsState.isSubmitting}
-                    />
+                    <Fragment key={item.evaluationId}>
+                      <EvaluationRow
+                        mode="due"
+                        internName={item.internName}
+                        typeLabel={resolveEvaluationTypeLabel(item.type)}
+                        badgeLabel={t('dashboard.supervisor.evaluations.badgeDue')}
+                        actionLabel={t('dashboard.supervisor.evaluate')}
+                        onAction={() => openEvaluationModal(item)}
+                        isActionDisabled={evaluationsState.isSubmitting}
+                      />
+                      <div className="supervisor-evaluation-status-row">
+                        <StatusBadge label={item.status} tone={item.status === 'draft' ? 'warning' : 'info'} size="sm" />
+                      </div>
+                    </Fragment>
                   ))}
                 </div>
               )}
@@ -486,15 +501,19 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
               ) : (
                 <div>
                   {evaluationsState.status.completed.map((item) => (
-                    <EvaluationRow
-                      key={item.evaluationId}
-                      mode="completed"
-                      internName={item.internName}
-                      typeLabel={resolveEvaluationTypeLabel(item.type)}
-                      badgeLabel={t('dashboard.supervisor.evaluations.badgeCompleted')}
-                      averageScoreLabel={t('dashboard.evaluation.score')}
-                      averageScore={item.averageScore}
-                    />
+                    <Fragment key={item.evaluationId}>
+                      <EvaluationRow
+                        mode="completed"
+                        internName={item.internName}
+                        typeLabel={resolveEvaluationTypeLabel(item.type)}
+                        badgeLabel={t('dashboard.supervisor.evaluations.badgeCompleted')}
+                        averageScoreLabel={t('dashboard.evaluation.score')}
+                        averageScore={item.averageScore}
+                      />
+                      <div className="supervisor-evaluation-status-row">
+                        <StatusBadge label={item.status} tone={item.status === 'submitted' ? 'success' : 'info'} size="sm" />
+                      </div>
+                    </Fragment>
                   ))}
                 </div>
               )}
@@ -518,6 +537,24 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
           <p className="supervisor-evaluation-type">
             {activeEvaluation ? resolveEvaluationTypeLabel(activeEvaluation.type) : ''}
           </p>
+
+          {activeEvaluation && (
+            <div className="form-field">
+              <label htmlFor="evaluation-deliverable">Deliverable</label>
+              <select
+                id="evaluation-deliverable"
+                value={selectedDeliverableId}
+                onChange={(event) => updateEvaluationDeliverableId(event.target.value)}
+                disabled={evaluationsState.isSubmitting}
+              >
+                {evaluationDeliverableOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {[
             { key: 'technical', label: t('dashboard.evaluation.technical') },
@@ -549,6 +586,19 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
             )
           })}
 
+          <div className="supervisor-evaluation-overall">
+            <span>{t('dashboard.evaluation.score')}</span>
+            <strong>{evaluationOverallScore ?? '-'}</strong>
+          </div>
+
+          {activeEvaluation && (
+            <StatusBadge
+              label={activeEvaluation.status}
+              tone={activeEvaluation.status === 'draft' ? 'warning' : 'success'}
+              size="sm"
+            />
+          )}
+
           <div className="form-field">
             <label htmlFor="evaluation-comment">{t('dashboard.evaluation.comments')}</label>
             <textarea
@@ -569,6 +619,11 @@ export function SupervisorDashboardView({ state }: SupervisorDashboardViewProps)
             <DashboardButton type="submit" variant="primary" size="sm" loading={evaluationsState.isSubmitting}>
               {t('dashboard.form.submit')}
             </DashboardButton>
+            {activeEvaluation?.status === 'submitted' && activeEvaluation.deliverableStatus === 'approved' && (
+              <DashboardButton type="button" variant="secondary" size="sm" onClick={() => { void releaseEvaluation() }}>
+                Release to intern
+              </DashboardButton>
+            )}
           </div>
         </form>
       </Modal>
