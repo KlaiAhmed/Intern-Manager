@@ -210,7 +210,7 @@ public sealed class StagesControllerTests
         Assert.Equal(internId, mission.InternId);
         Assert.Equal(DomainStatuses.Mission.Active, mission.Status);
         Assert.Equal(internId, deliverable.InternId);
-        Assert.True(task.IsComplete);
+        Assert.Equal(DomainStatuses.Task.Done, task.Status);
         Assert.NotNull(task.CompletedAt);
         Assert.Contains(dbContext.InternProfiles, profile => profile.InternId == internId && profile.StartDate == request.StartDate);
         Assert.Contains(dbContext.MissionHistoryEntries, entry => entry.MissionId == missionId && entry.Field == "internIds");

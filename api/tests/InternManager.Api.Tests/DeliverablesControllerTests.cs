@@ -2,9 +2,11 @@ using System.IO;
 using System.Security.Claims;
 using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Controllers;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Requests;
 using InternManager.Api.Models.Responses;
 using InternManager.Api.Services;
 using InternManager.Api.Services.Interfaces;
@@ -161,36 +163,247 @@ public sealed class DeliverablesControllerCleanupTests
     }
 
     [Fact]
-    public async Task Controller_SubmitDeliverable_NoFile_ReturnsBadRequest()
+    public async Task SubmitDeliverable_FileAndGitHubUrl_ReturnsUnprocessableEntity()
     {
-        var controller = new DeliverablesController(
-            null!,
-            null!,
-            new FakeFileStorageService(),
-            null!,
-            null!,
-            NullLogger<DeliverablesController>.Instance);
-
-        var httpContext = new DefaultHttpContext();
-        httpContext.User = new System.Security.Claims.ClaimsPrincipal(
-            new System.Security.Claims.ClaimsIdentity(
-            [
-                new System.Security.Claims.Claim("userId", Guid.NewGuid().ToString())
-            ],
-            "TestAuth"));
-
-        controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = httpContext
-        };
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId);
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
 
         var result = await controller.SubmitDeliverable(
-            Guid.NewGuid(),
-            new SubmitDeliverableForm { File = null },
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                FileUrl = "/uploads/deliverables/submission.pdf",
+                GitHubUrl = "https://github.com/axia/intern-portal",
+                RowVersion = 1
+            },
             CancellationToken.None);
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        var response = Assert.IsType<UnprocessableEntityObjectResult>(result);
+        Assert.Equal("You must provide either a file URL or a GitHub URL, but not both.", GetMessage(response.Value));
+    }
+
+    [Fact]
+    public async Task SubmitDeliverable_EmptySubmission_ReturnsUnprocessableEntity()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId);
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
+
+        var result = await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest { RowVersion = 1 },
+            CancellationToken.None);
+
+        var response = Assert.IsType<UnprocessableEntityObjectResult>(result);
+        Assert.Equal("You must provide either a file URL or a GitHub URL, but not both.", GetMessage(response.Value));
+    }
+
+    [Fact]
+    public async Task SubmitDeliverable_IncompleteTasks_ReturnsUnprocessableEntityWithCount()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId);
+        await AddTaskAsync(dbContext, internId, deliverableId, DomainStatuses.Task.Todo);
+        await AddTaskAsync(dbContext, internId, deliverableId, DomainStatuses.Task.Done);
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
+
+        var result = await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                GitHubUrl = "https://github.com/axia/intern-portal",
+                RowVersion = 1
+            },
+            CancellationToken.None);
+
+        var response = Assert.IsType<UnprocessableEntityObjectResult>(result);
+        Assert.Contains("1 task(s) are not complete", GetMessage(response.Value), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SubmitDeliverable_ValidFirstSubmission_CreatesCurrentVersionHistoryAndNotification()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var supervisorId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId, supervisorId: supervisorId);
+        var controller = CreateController(
+            dbContext,
+            new FakeFileStorageService(),
+            internId,
+            "Intern",
+            new NotificationService(dbContext));
+
+        var result = await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                GitHubUrl = "https://github.com/axia/intern-portal",
+                Message = "Ready for review",
+                RowVersion = 1
+            },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<InternDeliverableResponse>(ok.Value);
+        Assert.Equal(DomainStatuses.Deliverable.AwaitingReview, response.Status);
+        Assert.Equal(2, response.RowVersion);
+
+        var updatedDeliverable = await dbContext.Deliverables.AsNoTracking().SingleAsync(item => item.Id == deliverableId);
+        Assert.Equal(DomainStatuses.Deliverable.AwaitingReview, updatedDeliverable.Status);
+        Assert.Equal(2, updatedDeliverable.RowVersion);
+
+        var version = await dbContext.DeliverableVersions.AsNoTracking().SingleAsync(item => item.DeliverableId == deliverableId);
+        Assert.Equal(1, version.VersionNumber);
+        Assert.True(version.IsCurrentVersion);
+        Assert.Equal(DomainStatuses.DeliverableVersion.Submitted, version.Status);
+
+        Assert.Contains(
+            await dbContext.EntityHistoryEntries.AsNoTracking().ToListAsync(),
+            entry => entry.EntityId == deliverableId && entry.Action == "deliverable.submitted");
+        Assert.Contains(
+            await dbContext.Notifications.AsNoTracking().ToListAsync(),
+            notification => notification.UserId == supervisorId && notification.Type == "deliverable.submitted");
+    }
+
+    [Fact]
+    public async Task SubmitDeliverable_ValidResubmission_FlipsCurrentVersion()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId);
+
+        var deliverable = await dbContext.Deliverables.SingleAsync(item => item.Id == deliverableId);
+        deliverable.Status = DomainStatuses.Deliverable.ChangesRequested;
+        deliverable.Version = 1;
+        deliverable.RowVersion = 4;
+        dbContext.DeliverableVersions.Add(new DeliverableVersion
+        {
+            Id = Guid.NewGuid(),
+            DeliverableId = deliverableId,
+            VersionNumber = 1,
+            IsCurrentVersion = true,
+            GitHubUrl = "https://github.com/axia/intern-portal",
+            Status = DomainStatuses.DeliverableVersion.Rejected,
+            SubmittedAt = DateTime.UtcNow.AddDays(-1),
+            SubmittedByUserId = internId
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
+
+        var result = await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                GitHubUrl = "https://github.com/axia/intern-portal-api",
+                RowVersion = 4
+            },
+            CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+
+        var versions = await dbContext.DeliverableVersions
+            .AsNoTracking()
+            .Where(item => item.DeliverableId == deliverableId)
+            .OrderBy(item => item.VersionNumber)
+            .ToListAsync();
+
+        Assert.Equal(2, versions.Count);
+        Assert.False(versions[0].IsCurrentVersion);
+        Assert.True(versions[1].IsCurrentVersion);
+        Assert.Equal(2, versions[1].VersionNumber);
+    }
+
+    [Fact]
+    public async Task SubmitDeliverable_StaleRowVersion_ReturnsConflict()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId);
+        var deliverable = await dbContext.Deliverables.SingleAsync(item => item.Id == deliverableId);
+        deliverable.RowVersion = 3;
+        await dbContext.SaveChangesAsync();
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
+
+        var result = await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                GitHubUrl = "https://github.com/axia/intern-portal",
+                RowVersion = 1
+            },
+            CancellationToken.None);
+
+        var conflict = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("conflict", GetStringProperty(conflict.Value, "error"));
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task SubmitDeliverable_CoSupervisorNotification_RespectsReviewFlag(
+        bool coSupervisorCanReview,
+        bool shouldNotifyCoSupervisor)
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var supervisorId = Guid.NewGuid();
+        var coSupervisorId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(
+            dbContext,
+            internId,
+            supervisorId: supervisorId,
+            coSupervisorId: coSupervisorId,
+            coSupervisorCanReview: coSupervisorCanReview);
+        var controller = CreateController(
+            dbContext,
+            new FakeFileStorageService(),
+            internId,
+            "Intern",
+            new NotificationService(dbContext));
+
+        await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                GitHubUrl = "https://github.com/axia/intern-portal",
+                RowVersion = 1
+            },
+            CancellationToken.None);
+
+        var coSupervisorNotificationExists = await dbContext.Notifications
+            .AsNoTracking()
+            .AnyAsync(notification => notification.UserId == coSupervisorId && notification.Type == "deliverable.submitted");
+
+        Assert.Equal(shouldNotifyCoSupervisor, coSupervisorNotificationExists);
+    }
+
+    [Fact]
+    public async Task SubmitDeliverable_ZeroTaskDeliverable_Succeeds()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(dbContext, internId);
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
+
+        var result = await controller.SubmitDeliverable(
+            deliverableId,
+            new SubmitDeliverableRequest
+            {
+                FileUrl = "/uploads/deliverables/submission.pdf",
+                RowVersion = 1
+            },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<InternDeliverableResponse>(ok.Value);
+        Assert.Equal(DomainStatuses.Deliverable.AwaitingReview, response.Status);
     }
 
     [Fact]
@@ -432,6 +645,27 @@ public sealed class DeliverablesControllerCleanupTests
         Assert.IsType<ForbidResult>(result);
     }
 
+    [Fact]
+    public async Task SubmitDeliverableVersion_ArchivedMission_IsForbidden()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var deliverableId = await SeedDeliverableAsync(
+            dbContext,
+            internId,
+            missionStatus: DomainStatuses.Mission.Archived);
+
+        var controller = CreateController(dbContext, new FakeFileStorageService(), internId, "Intern");
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => controller.SubmitDeliverableVersion(
+            deliverableId,
+            new SubmitDeliverableVersionForm
+            {
+                GitHubUrl = "https://github.com/axia/intern-portal"
+            },
+            CancellationToken.None));
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -452,6 +686,7 @@ public sealed class DeliverablesControllerCleanupTests
             null!,
             fileStorageService,
             new NoopDeliverablesService(),
+            new MissionPolicyService(dbContext),
             new NoopNotificationService(),
             NullLogger<DeliverablesController>.Instance);
 
@@ -486,9 +721,13 @@ public sealed class DeliverablesControllerCleanupTests
         AppDbContext dbContext,
         Guid internId,
         Guid? supervisorId = null,
+        Guid? coSupervisorId = null,
+        bool coSupervisorCanReview = false,
+        bool coSupervisorCanEval = false,
         string missionStatus = DomainStatuses.Mission.Active)
     {
         var effectiveSupervisorId = supervisorId ?? Guid.NewGuid();
+        var effectiveCoSupervisorId = coSupervisorId;
         var missionId = Guid.NewGuid();
         var deliverableId = Guid.NewGuid();
         var now = DateTime.UtcNow;
@@ -520,10 +759,29 @@ public sealed class DeliverablesControllerCleanupTests
                 UpdatedAt = now
             });
 
+        if (effectiveCoSupervisorId.HasValue)
+        {
+            dbContext.Users.Add(new User
+            {
+                Id = effectiveCoSupervisorId.Value,
+                FirstName = "CoSupervisor",
+                LastName = "User",
+                Email = $"{effectiveCoSupervisorId.Value:N}@cosupervisor.example.com",
+                PasswordHash = "hash",
+                Role = UserRole.Supervisor,
+                Status = UserStatus.Active,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
         dbContext.Missions.Add(new Mission
         {
             Id = missionId,
             SupervisorId = effectiveSupervisorId,
+            CoSupervisorId = effectiveCoSupervisorId,
+            CoSupervisorCanReview = coSupervisorCanReview,
+            CoSupervisorCanEval = coSupervisorCanEval,
             InternId = internId,
             Title = "Dashboard redesign",
             Description = "Build intern dashboard",
@@ -638,13 +896,21 @@ public sealed class DeliverablesControllerCleanupTests
             throw new NotSupportedException();
         }
 
-        public Task<DeliverableValidationResponse> ValidateDeliverableAsync(
-            Guid supervisorId,
+        public Task<DeliverableReviewResponse> ApproveDeliverableAsync(
+            Guid actorId,
             Guid deliverableId,
-            string? status,
-            string? action,
-            string? comment,
-            string actorName,
+            int rowVersion,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<DeliverableReviewResponse> RejectDeliverableAsync(
+            Guid actorId,
+            Guid deliverableId,
+            string reason,
+            IReadOnlyCollection<Guid> taskIdsToReopen,
+            int rowVersion,
             CancellationToken cancellationToken)
         {
             throw new NotSupportedException();

@@ -4,6 +4,7 @@ using System.Text.Json;
 using FluentValidation;
 using FluentValidation.Results;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Middleware;
 using InternManager.Api.Models.FeatureFlags;
@@ -241,7 +242,9 @@ public sealed class UtilitiesAndMiddlewareTests
     [Theory]
     [InlineData(typeof(ArgumentException), StatusCodes.Status400BadRequest, "Invalid request.")]
     [InlineData(typeof(KeyNotFoundException), StatusCodes.Status404NotFound, "Resource not found.")]
+    [InlineData(typeof(NotFoundException), StatusCodes.Status404NotFound, "Resource not found.")]
     [InlineData(typeof(UnauthorizedAccessException), StatusCodes.Status403Forbidden, "Forbidden.")]
+    [InlineData(typeof(ForbiddenException), StatusCodes.Status403Forbidden, "Forbidden.")]
     [InlineData(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Operation conflict.")]
     [InlineData(typeof(Exception), StatusCodes.Status500InternalServerError, "Internal Server Error.")]
     public async Task GlobalExceptionMiddleware_MapsKnownExceptionsToProblemDetails(

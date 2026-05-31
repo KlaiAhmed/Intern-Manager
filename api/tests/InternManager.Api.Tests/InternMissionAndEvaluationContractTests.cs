@@ -5,10 +5,12 @@ using InternManager.Api.Controllers;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Models.Responses;
+using InternManager.Api.Services;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace InternManager.Api.Tests;
 
@@ -107,8 +109,8 @@ public sealed class InternMissionAndEvaluationContractTests
         });
 
         dbContext.Deliverables.AddRange(
-            CreateDeliverable(missionId, supervisorId, internId, "First", 50),
-            CreateDeliverable(missionId, supervisorId, internId, "Second", 100));
+            CreateDeliverable(missionId, supervisorId, internId, "First", 50, DomainStatuses.Deliverable.AwaitingReview),
+            CreateDeliverable(missionId, supervisorId, internId, "Second", 100, DomainStatuses.Deliverable.Approved));
 
         await dbContext.SaveChangesAsync();
 
@@ -185,7 +187,8 @@ public sealed class InternMissionAndEvaluationContractTests
         var controller = new EvaluationsController(
             dbContext,
             new EmptySupervisorScopeService(),
-            new EmptyEvaluationStatusService())
+            new EmptyEvaluationStatusService(),
+            new MissionPolicyService(dbContext))
         {
             ControllerContext = new ControllerContext
             {
@@ -208,6 +211,103 @@ public sealed class InternMissionAndEvaluationContractTests
         Assert.Equal(10, evaluation.Criteria.DeliverableQuality);
         Assert.Equal("Samir Supervisor", evaluation.SupervisorName);
         Assert.Null(typeof(InternEvaluationResponse).GetProperty("Scores"));
+    }
+
+    [Fact]
+    public async Task GetEvaluationById_ReturnsNotFoundForUnreleasedInternEvaluation()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var supervisorId = Guid.NewGuid();
+        var evaluationId = Guid.NewGuid();
+
+        dbContext.Users.AddRange(
+            CreateUser(internId, UserRole.Intern, "Amina", "Intern"),
+            CreateUser(supervisorId, UserRole.Supervisor, "Samir", "Supervisor"));
+
+        dbContext.Evaluations.Add(new Evaluation
+        {
+            Id = evaluationId,
+            InternId = internId,
+            SupervisorId = supervisorId,
+            Type = "mid-term",
+            Status = DomainStatuses.Evaluation.Submitted,
+            IsReleasedToIntern = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var controller = new EvaluationsController(
+            dbContext,
+            new EmptySupervisorScopeService(),
+            new EmptyEvaluationStatusService(),
+            new MissionPolicyService(dbContext))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = CreateHttpContext(internId, UserRole.Intern)
+            }
+        };
+
+        var result = await controller.GetEvaluationById(evaluationId, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task GetEvaluationById_RawSerializedJsonDoesNotIncludePrivateNotesForInterns()
+    {
+        await using var dbContext = CreateDbContext();
+        var internId = Guid.NewGuid();
+        var supervisorId = Guid.NewGuid();
+        var evaluationId = Guid.NewGuid();
+
+        dbContext.Users.AddRange(
+            CreateUser(internId, UserRole.Intern, "Amina", "Intern"),
+            CreateUser(supervisorId, UserRole.Supervisor, "Samir", "Supervisor"));
+
+        dbContext.Evaluations.Add(new Evaluation
+        {
+            Id = evaluationId,
+            InternId = internId,
+            SupervisorId = supervisorId,
+            Type = "mid-term",
+            Status = DomainStatuses.Evaluation.Submitted,
+            IsReleasedToIntern = true,
+            ReleasedAt = DateTime.UtcNow.AddDays(-1),
+            Technical = 9,
+            Autonomy = 8,
+            Communication = 7,
+            DeadlineRespect = 10,
+            DeliverableQuality = 9,
+            Comments = "Solid work",
+            OverallScore = 9.0m,
+            PrivateNotes = "Internal only",
+            CreatedAt = DateTime.UtcNow.AddDays(-5)
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var controller = new EvaluationsController(
+            dbContext,
+            new EmptySupervisorScopeService(),
+            new EmptyEvaluationStatusService(),
+            new MissionPolicyService(dbContext))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = CreateHttpContext(internId, UserRole.Intern)
+            }
+        };
+
+        var result = await controller.GetEvaluationById(evaluationId, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = JsonSerializer.Serialize(ok.Value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.DoesNotContain("privateNotes", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"comments\":\"Solid work\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
     private static AppDbContext CreateDbContext()
@@ -264,7 +364,8 @@ public sealed class InternMissionAndEvaluationContractTests
         Guid supervisorId,
         Guid internId,
         string title,
-        int progress)
+        int progress,
+        string status)
     {
         return new Deliverable
         {
@@ -273,8 +374,8 @@ public sealed class InternMissionAndEvaluationContractTests
             SupervisorId = supervisorId,
             InternId = internId,
             Title = title,
-            Status = DomainStatuses.Deliverable.Pending,
-            Progress = progress,
+            Status = status,
+            RawProgress = progress,
             CreatedAt = DateTime.UtcNow
         };
     }

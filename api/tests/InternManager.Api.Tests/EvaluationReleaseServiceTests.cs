@@ -107,7 +107,12 @@ public sealed class EvaluationReleaseServiceTests
             SupervisorId = Guid.NewGuid(),
             Type = "mid-term",
             Status = status,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Deliverable = new Deliverable
+            {
+                Id = Guid.NewGuid(),
+                Status = DomainStatuses.Deliverable.Approved
+            }
         };
     }
 

@@ -3,6 +3,7 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Controllers;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Services;
 using InternManager.Api.Services.Interfaces;
 using InternManager.Api.Tests.TestSupport;
 using Microsoft.AspNetCore.Http;
@@ -23,8 +24,8 @@ public sealed class TasksControllerBehaviorTests
             TestUsers.Create(internId, UserRole.Intern),
             TestUsers.Create(supervisorId, UserRole.Supervisor));
         dbContext.InternTasks.AddRange(
-            new InternTask { Id = Guid.NewGuid(), InternId = internId, Title = "B", IsComplete = true, CreatedAt = DateTime.UtcNow },
-            new InternTask { Id = Guid.NewGuid(), InternId = internId, Title = "A", IsComplete = false, DueDate = DateTime.UtcNow.AddDays(1), CreatedAt = DateTime.UtcNow });
+            new InternTask { Id = Guid.NewGuid(), InternId = internId, Title = "B", Status = DomainStatuses.Task.Done, CreatedAt = DateTime.UtcNow },
+            new InternTask { Id = Guid.NewGuid(), InternId = internId, Title = "A", Status = DomainStatuses.Task.Todo, DueDate = DateTime.UtcNow.AddDays(1), CreatedAt = DateTime.UtcNow });
         await dbContext.SaveChangesAsync();
 
         var internController = CreateController(dbContext, internId, UserRole.Intern);
@@ -41,33 +42,26 @@ public sealed class TasksControllerBehaviorTests
     }
 
     [Fact]
-    public async Task SyncTasksFromDeliverables_AuditsOnlyWhenTasksAreCreated()
+    public async Task CompleteTask_TogglesTaskDeliverableAndAudit()
     {
         await using var dbContext = TestDbContext.Create();
         var internId = Guid.NewGuid();
-        var workflow = new FakeTaskWorkflowService { CreatedCount = 0 };
-        var controller = CreateController(dbContext, internId, UserRole.Intern, workflow);
-
-        var noChanges = await controller.SyncTasksFromDeliverables(CancellationToken.None);
-        workflow.CreatedCount = 2;
-        var created = await controller.SyncTasksFromDeliverables(CancellationToken.None);
-
-        Assert.Equal("No tasks to synchronize.", Assert.IsType<InternManager.Api.Models.Responses.ActionResponse>(Assert.IsType<OkObjectResult>(noChanges).Value).Message);
-        Assert.Equal("Created 2 task(s).", Assert.IsType<InternManager.Api.Models.Responses.ActionResponse>(Assert.IsType<OkObjectResult>(created).Value).Message);
-        Assert.Contains(dbContext.AuditLogs, log => log.Action == "task.sync");
-    }
-
-    [Fact]
-    public async Task CompleteTask_UpdatesTaskDeliverableAndAudit()
-    {
-        await using var dbContext = TestDbContext.Create();
-        var internId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
         var deliverableId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = Guid.NewGuid(),
+            InternId = internId,
+            Title = "Mission",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
         dbContext.Deliverables.Add(new Deliverable
         {
             Id = deliverableId,
-            MissionId = Guid.NewGuid(),
+            MissionId = missionId,
             SupervisorId = Guid.NewGuid(),
             InternId = internId,
             Title = "Deliverable",
@@ -85,14 +79,19 @@ public sealed class TasksControllerBehaviorTests
         await dbContext.SaveChangesAsync();
         var controller = CreateController(dbContext, internId, UserRole.Intern);
 
-        var missing = await controller.CompleteTask(Guid.NewGuid(), CancellationToken.None);
-        var result = await controller.CompleteTask(taskId, CancellationToken.None);
+        var request = new CompleteTaskRequest { RowVersion = 1 };
+        var missing = await controller.CompleteTask(Guid.NewGuid(), request, CancellationToken.None);
+        var result = await controller.CompleteTask(taskId, request, CancellationToken.None);
+        var revertedTask = await dbContext.InternTasks.SingleAsync(task => task.Id == taskId);
+        var revert = await controller.CompleteTask(taskId, new CompleteTaskRequest { RowVersion = revertedTask.RowVersion }, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(missing);
         Assert.IsType<OkObjectResult>(result);
-        Assert.True((await dbContext.InternTasks.SingleAsync(task => task.Id == taskId)).IsComplete);
-        Assert.Equal(100, (await dbContext.Deliverables.SingleAsync(deliverable => deliverable.Id == deliverableId)).Progress);
+        Assert.IsType<OkObjectResult>(revert);
+        Assert.Equal(DomainStatuses.Task.Todo, (await dbContext.InternTasks.SingleAsync(task => task.Id == taskId)).Status);
+        Assert.Equal(0m, (await dbContext.Deliverables.SingleAsync(deliverable => deliverable.Id == deliverableId)).RawProgress);
         Assert.Contains(dbContext.AuditLogs, log => log.Action == "task.complete");
+        Assert.Contains(dbContext.AuditLogs, log => log.Action == "task.reverted");
     }
 
     [Fact]
@@ -102,13 +101,23 @@ public sealed class TasksControllerBehaviorTests
         var supervisorId = Guid.NewGuid();
         var internId = Guid.NewGuid();
         var deliverableId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
         dbContext.Users.AddRange(
             TestUsers.Create(supervisorId, UserRole.Supervisor),
             TestUsers.Create(internId, UserRole.Intern));
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = supervisorId,
+            InternId = internId,
+            Title = "Mission",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
         dbContext.Deliverables.Add(new Deliverable
         {
             Id = deliverableId,
-            MissionId = Guid.NewGuid(),
+            MissionId = missionId,
             SupervisorId = supervisorId,
             InternId = internId,
             Title = "Deliverable",
@@ -146,17 +155,121 @@ public sealed class TasksControllerBehaviorTests
         Assert.Contains(notifications.Queued, item => item.UserId == internId && item.Type == "task.assigned");
     }
 
+    [Fact]
+    public async Task AssignTask_TriggersFirstTaskTransitionWhenDeliverableIsDraft()
+    {
+        await using var dbContext = TestDbContext.Create();
+        var supervisorId = Guid.NewGuid();
+        var internId = Guid.NewGuid();
+        var deliverableId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        dbContext.Users.AddRange(
+            TestUsers.Create(supervisorId, UserRole.Supervisor),
+            TestUsers.Create(internId, UserRole.Intern));
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = supervisorId,
+            InternId = internId,
+            Title = "Mission",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+        dbContext.Deliverables.Add(new Deliverable
+        {
+            Id = deliverableId,
+            MissionId = missionId,
+            SupervisorId = supervisorId,
+            InternId = internId,
+            Title = "Deliverable",
+            Status = DomainStatuses.Deliverable.Draft,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var deliverableState = new FakeDeliverableStateService();
+        var controller = CreateController(dbContext, supervisorId, UserRole.Supervisor, deliverableState: deliverableState);
+
+        var result = await controller.AssignTask(new AssignTaskRequest
+        {
+            InternId = internId,
+            DeliverableId = deliverableId,
+            Title = "Task"
+        }, CancellationToken.None);
+
+        Assert.IsType<CreatedResult>(result);
+        Assert.Equal(new[] { nameof(IDeliverableStateService.OnFirstTaskCreatedAsync) }, deliverableState.Calls);
+        Assert.Equal(new[] { deliverableId }, deliverableState.DeliverableIds);
+    }
+
+    [Fact]
+    public async Task AssignTask_TriggersReviewInterruptionWhenDeliverableIsAwaitingReview()
+    {
+        await using var dbContext = TestDbContext.Create();
+        var supervisorId = Guid.NewGuid();
+        var internId = Guid.NewGuid();
+        var deliverableId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        dbContext.Users.AddRange(
+            TestUsers.Create(supervisorId, UserRole.Supervisor),
+            TestUsers.Create(internId, UserRole.Intern));
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = supervisorId,
+            InternId = internId,
+            Title = "Mission",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+        dbContext.Deliverables.Add(new Deliverable
+        {
+            Id = deliverableId,
+            MissionId = missionId,
+            SupervisorId = supervisorId,
+            InternId = internId,
+            Title = "Deliverable",
+            Status = DomainStatuses.Deliverable.AwaitingReview,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var deliverableState = new FakeDeliverableStateService();
+        var controller = CreateController(dbContext, supervisorId, UserRole.Supervisor, deliverableState: deliverableState);
+
+        var result = await controller.AssignTask(new AssignTaskRequest
+        {
+            InternId = internId,
+            DeliverableId = deliverableId,
+            Title = "Task"
+        }, CancellationToken.None);
+
+        Assert.IsType<CreatedResult>(result);
+        Assert.Equal(new[] { nameof(IDeliverableStateService.OnTaskAddedWhileInReviewAsync) }, deliverableState.Calls);
+        Assert.Equal(new[] { deliverableId }, deliverableState.DeliverableIds);
+    }
+
     private static TasksController CreateController(
         AppDbContext dbContext,
         Guid userId,
         UserRole role,
         FakeTaskWorkflowService? workflow = null,
-        RecordingNotificationService? notifications = null)
+        RecordingNotificationService? notifications = null,
+        FakeDeliverableStateService? deliverableState = null)
     {
+        notifications ??= new RecordingNotificationService();
+        var progressService = new FakeDeliverableProgressService();
+        var taskState = new TaskStateService(progressService, notifications);
+        deliverableState ??= new FakeDeliverableStateService();
+
         return new TasksController(
             dbContext,
-            notifications ?? new RecordingNotificationService(),
-            workflow ?? new FakeTaskWorkflowService())
+            notifications,
+            workflow ?? new FakeTaskWorkflowService(),
+            taskState,
+            deliverableState,
+            new MissionPolicyService(dbContext),
+            progressService)
         {
             ControllerContext = TestUsers.ControllerContext(userId, role, $"{role.ToString().ToLowerInvariant()}@example.com")
         };
@@ -171,16 +284,60 @@ public sealed class TasksControllerBehaviorTests
     {
         public bool CanAssign { get; set; } = true;
 
-        public int CreatedCount { get; set; }
-
         public Task<bool> CanSupervisorAssignInternAsync(Guid supervisorId, Guid internId, CancellationToken cancellationToken)
         {
             return Task.FromResult(CanAssign);
         }
+    }
 
-        public Task<int> EnsureTasksFromDeliverablesAsync(Guid internId, CancellationToken cancellationToken)
+    private sealed class FakeDeliverableStateService : IDeliverableStateService
+    {
+        public List<string> Calls { get; } = [];
+
+        public List<Guid> DeliverableIds { get; } = [];
+
+        public Task OnFirstTaskCreatedAsync(Guid deliverableId, AppDbContext db)
         {
-            return Task.FromResult(CreatedCount);
+            Calls.Add(nameof(OnFirstTaskCreatedAsync));
+            DeliverableIds.Add(deliverableId);
+            return Task.CompletedTask;
+        }
+
+        public Task OnTaskAddedWhileInReviewAsync(Guid deliverableId, AppDbContext db)
+        {
+            Calls.Add(nameof(OnTaskAddedWhileInReviewAsync));
+            DeliverableIds.Add(deliverableId);
+            return Task.CompletedTask;
+        }
+
+        public Task ReopenApprovedAsync(Guid deliverableId, Guid actorId, string reason, AppDbContext db) => Task.CompletedTask;
+    }
+
+    private sealed class FakeDeliverableProgressService : IDeliverableProgressService
+    {
+        public async Task RecalculateAsync(Guid deliverableId, AppDbContext db)
+        {
+            var deliverable = await db.Deliverables.FindAsync(deliverableId);
+            if (deliverable is null)
+            {
+                return;
+            }
+
+            var taskStatuses = await db.InternTasks
+                .Where(task => task.DeliverableId == deliverableId &&
+                               task.Status != DomainStatuses.Task.Cancelled)
+                .Select(task => task.Status)
+                .ToListAsync();
+
+            if (taskStatuses.Count == 0)
+            {
+                deliverable.RawProgress = 0m;
+            }
+            else
+            {
+                var doneCount = taskStatuses.Count(status => status == DomainStatuses.Task.Done);
+                deliverable.RawProgress = Math.Round((decimal)doneCount / taskStatuses.Count * 100m, 2, MidpointRounding.AwayFromZero);
+            }
         }
     }
 
