@@ -33,6 +33,12 @@ public sealed class EvaluationListItemResponse
 
     public string Comments { get; init; } = string.Empty;
 
+    public decimal? OverallScore { get; init; }
+
+    public DateTime? ReleasedAt { get; init; }
+
+    public string? PrivateNotes { get; init; }
+
     public EvaluationCriteriaResponse Criteria { get; init; } = new();
 }
 
@@ -50,6 +56,33 @@ public sealed class EvaluationDetailResponse
 
     public string Comments { get; init; } = string.Empty;
 
+    public decimal? OverallScore { get; init; }
+
+    public DateTime? ReleasedAt { get; init; }
+
+    public string? PrivateNotes { get; init; }
+
+    public EvaluationCriteriaResponse Criteria { get; init; } = new();
+}
+
+public sealed class InternEvaluationDetailResponse
+{
+    public Guid Id { get; init; }
+
+    public Guid InternId { get; init; }
+
+    public string Type { get; init; } = string.Empty;
+
+    public string Status { get; init; } = string.Empty;
+
+    public DateTime? SubmittedAt { get; init; }
+
+    public string Comments { get; init; } = string.Empty;
+
+    public decimal? OverallScore { get; init; }
+
+    public DateTime? ReleasedAt { get; init; }
+
     public EvaluationCriteriaResponse Criteria { get; init; } = new();
 }
 
@@ -59,7 +92,11 @@ public sealed class InternEvaluationResponse
 
     public string Type { get; init; } = string.Empty;
 
+    public string Status { get; init; } = string.Empty;
+
     public EvaluationCriteriaResponse Criteria { get; init; } = new();
+
+    public decimal? OverallScore { get; init; }
 
     public bool IsReleasedToIntern { get; init; }
 
