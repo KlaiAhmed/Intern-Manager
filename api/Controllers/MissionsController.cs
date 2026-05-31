@@ -1,9 +1,11 @@
 using System.Text.Json;
 using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Requests;
 using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -22,7 +24,11 @@ namespace InternManager.Api.Controllers;
 [Route("api/missions")]
 // RBAC policy: endpoints available to Supervisor must also be available to Admin and SuperAdmin.
 [Authorize]
-public sealed class MissionsController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
+public sealed class MissionsController(
+    AppDbContext dbContext,
+    INotificationService notificationService,
+    IMissionPolicyService missionPolicyService,
+    IMissionStateService missionStateService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des missions du superviseur connecté.
@@ -254,6 +260,9 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
         {
             Id = Guid.NewGuid(),
             SupervisorId = supervisorId.Value,
+            CoSupervisorId = request.CoSupervisorId,
+            CoSupervisorCanReview = request.CoSupervisorCanReview,
+            CoSupervisorCanEval = request.CoSupervisorCanEval,
             InternId = null,
             Title = request.Title.Trim(),
             Description = request.Description?.Trim() ?? string.Empty,
@@ -283,7 +292,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
                 Status = DomainStatuses.Deliverable.Pending,
                 FileUrl = string.Empty,
                 Version = 1,
-                Progress = 0,
+                RawProgress = 0m,
                 DueDate = DateTime.UtcNow.AddDays(7 * (index + 1)),
                 CreatedAt = DateTime.UtcNow
             };
@@ -342,7 +351,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// <response code="403">Accès refusé (pas le propriétaire).</response>
     /// <response code="404">Mission non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetMissionById")]
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
     [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -356,12 +365,17 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return Unauthorized();
         }
 
+        await missionPolicyService.CanViewMissionAsync(
+            currentSupervisorId.Value,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            id);
+
         var mission = await dbContext.Missions
             .AsNoTracking()
             .Include(item => item.Intern)
             .Include(item => item.InternAssignments)
                 .ThenInclude(assignment => assignment.Intern)
-            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (mission is null)
         {
@@ -423,7 +437,7 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     /// </summary>
     /// <remarks>
     /// Cette route permet de modifier le titre, la description, les compétences,
-    /// les outils, le niveau ou le statut d une mission. Seuls les champs fournis
+    /// les outils ou le niveau d une mission. Seuls les champs fournis
     /// sont mis à jour. Un historique des modifications est conservé.
     /// </remarks>
     /// <param name="id">Identifiant unique de la mission à modifier.</param>
@@ -449,12 +463,26 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return Unauthorized();
         }
 
+        await missionPolicyService.CanViewMissionAsync(
+            currentSupervisorId.Value,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            id);
+
+        await missionPolicyService.AssertMissionNotArchivedAsync(id);
+
         var mission = await dbContext.Missions
-            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (mission is null)
         {
             return NotFound(new { message = "Mission not found." });
+        }
+
+        var isCompletedMission = string.Equals(mission.Status, DomainStatuses.Mission.Completed, StringComparison.OrdinalIgnoreCase); // Completed missions are terminal and must not be patched.
+        var isCancelledMission = string.Equals(mission.Status, DomainStatuses.Mission.Cancelled, StringComparison.OrdinalIgnoreCase); // Cancelled missions are terminal and must not be patched.
+        if (isCompletedMission || isCancelledMission) // Reject terminal mission edits before applying any update.
+        {
+            return Conflict(new { message = "Cannot modify a completed or cancelled mission." }); // Return a non-2xx response for terminal mission edits.
         }
 
         var historyEntries = new List<MissionHistoryEntry>();
@@ -517,71 +545,37 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             }
         }
 
-        if (request.Status is not null)
+        if (mission.CoSupervisorId != request.CoSupervisorId)
         {
-            var normalizedStatus = request.Status.Trim().ToLowerInvariant();
-            if (!IsAllowedMissionStatus(normalizedStatus))
-            {
-                return BadRequest(new { message = "Invalid mission status." });
-            }
+            historyEntries.Add(BuildHistoryEntry(
+                mission.Id,
+                "coSupervisorId",
+                mission.CoSupervisorId?.ToString(),
+                request.CoSupervisorId?.ToString(),
+                currentSupervisorId));
+            mission.CoSupervisorId = request.CoSupervisorId;
+        }
 
-            if (normalizedStatus == DomainStatuses.Mission.Active)
-            {
-                return StatusCode(StatusCodes.Status409Conflict, new
-                {
-                    message = "Mission activation is handled by POST /api/stages/assign to enforce lifecycle transitions."
-                });
-            }
+        if (request.CoSupervisorCanReview.HasValue && mission.CoSupervisorCanReview != request.CoSupervisorCanReview.Value)
+        {
+            historyEntries.Add(BuildHistoryEntry(
+                mission.Id,
+                "coSupervisorCanReview",
+                mission.CoSupervisorCanReview.ToString(),
+                request.CoSupervisorCanReview.Value.ToString(),
+                currentSupervisorId));
+            mission.CoSupervisorCanReview = request.CoSupervisorCanReview.Value;
+        }
 
-            if (normalizedStatus == DomainStatuses.Mission.Completed)
-            {
-                var assignedInternIds = await ResolveMissionAssignedInternIdsAsync(mission.Id, cancellationToken);
-
-                if (assignedInternIds.Count == 0 && mission.InternId.HasValue)
-                {
-                    assignedInternIds = [mission.InternId.Value];
-                }
-
-                var internStatuses = assignedInternIds.Count == 0
-                    ? []
-                    : await dbContext.Users
-                    .AsNoTracking()
-                    .Where(item => assignedInternIds.Contains(item.Id) && item.Role == UserRole.Intern)
-                    .Select(item => new
-                    {
-                        item.Id,
-                        item.VerificationStatus
-                    })
-                    .ToListAsync(cancellationToken);
-
-                var hasInactiveIntern = assignedInternIds.Count > 0 &&
-                    (internStatuses.Count != assignedInternIds.Count ||
-                     internStatuses.Any(item => item.VerificationStatus != InternVerificationStatus.ACTIVE));
-
-                if (hasInactiveIntern)
-                {
-                    return StatusCode(StatusCodes.Status409Conflict, new
-                    {
-                        message = "Only ACTIVE interns can transition to COMPLETED."
-                    });
-                }
-
-                foreach (var assignedInternId in assignedInternIds)
-                {
-                    notificationService.QueueNotification(
-                        assignedInternId,
-                        "intern.status.completed",
-                        "Internship completed",
-                        "Congratulations. Your internship status is now COMPLETED.",
-                        $"mission:{mission.Id}");
-                }
-            }
-
-            if (!string.Equals(mission.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
-            {
-                historyEntries.Add(BuildHistoryEntry(mission.Id, "status", mission.Status, normalizedStatus, currentSupervisorId));
-                mission.Status = normalizedStatus;
-            }
+        if (request.CoSupervisorCanEval.HasValue && mission.CoSupervisorCanEval != request.CoSupervisorCanEval.Value)
+        {
+            historyEntries.Add(BuildHistoryEntry(
+                mission.Id,
+                "coSupervisorCanEval",
+                mission.CoSupervisorCanEval.ToString(),
+                request.CoSupervisorCanEval.Value.ToString(),
+                currentSupervisorId));
+            mission.CoSupervisorCanEval = request.CoSupervisorCanEval.Value;
         }
 
         if (historyEntries.Count == 0)
@@ -621,6 +615,144 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             internId = updatedInternIds.Count > 0 ? updatedInternIds[0] : (Guid?)null,
             internIds = updatedInternIds
         });
+    }
+
+    /// <summary>
+    /// Met une mission en pause.
+    /// </summary>
+    [HttpPost("{id:guid}/pause", Name = "PauseMission")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> PauseMission(Guid id, CancellationToken cancellationToken)
+    {
+        var actorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!actorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await missionPolicyService.CanViewMissionAsync(
+                actorId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                id);
+        }
+        catch (ForbiddenException)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+
+        try
+        {
+            await missionStateService.PauseAsync(id, actorId.Value, dbContext);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return Ok();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+    }
+
+    /// <summary>
+    /// Reprend une mission en pause.
+    /// </summary>
+    [HttpPost("{id:guid}/resume", Name = "ResumeMission")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResumeMission(Guid id, CancellationToken cancellationToken)
+    {
+        var actorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!actorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await missionPolicyService.CanViewMissionAsync(
+                actorId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                id);
+        }
+        catch (ForbiddenException)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+
+        try
+        {
+            await missionStateService.ResumeAsync(id, actorId.Value, dbContext);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return Ok();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+    }
+
+    /// <summary>
+    /// Archive une mission.
+    /// </summary>
+    [HttpPost("{id:guid}/archive", Name = "ArchiveMission")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ArchiveMission(Guid id, CancellationToken cancellationToken)
+    {
+        var actorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!actorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await missionPolicyService.CanViewMissionAsync(
+                actorId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                id);
+        }
+        catch (ForbiddenException)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+
+        try
+        {
+            await missionStateService.ArchiveAsync(id, actorId.Value, dbContext);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return Ok();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
     }
 
 /// <summary>
@@ -721,6 +853,8 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             return Unauthorized();
         }
 
+        await missionPolicyService.AssertMissionNotArchivedAsync(id);
+
         var mission = await dbContext.Missions
             .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == supervisorId.Value, cancellationToken);
 
@@ -743,6 +877,19 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
 
             if (tasks.Count > 0)
             {
+                foreach (var task in tasks)
+                {
+                    dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+                    {
+                        Id = Guid.NewGuid(),
+                        EntityType = "Task",
+                        EntityId = task.Id,
+                        Action = "task.deleted",
+                        ActorId = supervisorId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+
                 dbContext.InternTasks.RemoveRange(tasks);
             }
         }
@@ -784,7 +931,8 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
             DomainStatuses.Mission.Template or
             DomainStatuses.Mission.Paused or
             DomainStatuses.Mission.Completed or
-            DomainStatuses.Mission.Cancelled;
+            DomainStatuses.Mission.Cancelled or
+            DomainStatuses.Mission.Archived;
     }
 
     private static bool TryResolveOptionalInternId(string? rawInternId, out Guid? internId)
@@ -843,37 +991,3 @@ public sealed class MissionsController(AppDbContext dbContext, INotificationServ
     }
 
 }
-
-public sealed class CreateMissionRequest
-{
-    public string Title { get; init; } = string.Empty;
-
-    public string Description { get; init; } = string.Empty;
-
-    public string[] Skills { get; init; } = Array.Empty<string>();
-
-    public string Tools { get; init; } = string.Empty;
-
-    public string Level { get; init; } = string.Empty;
-
-    public string[] Deliverables { get; init; } = Array.Empty<string>();
-
-    public string InternId { get; init; } = string.Empty;
-
-    public string[] InternIds { get; init; } = Array.Empty<string>();
-}
-
-public sealed class UpdateMissionRequest
-{
-    public string? Title { get; init; }
-
-    public string? Description { get; init; }
-
-    public string[]? Skills { get; init; }
-
-    public string? Tools { get; init; }
-
-    public string? Level { get; init; }
-
-public string? Status { get; init; }
- }

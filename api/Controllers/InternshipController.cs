@@ -82,8 +82,8 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
                 .ToListAsync(cancellationToken);
 
         var progress = missionDeliverables.Count == 0
-            ? 0
-            : (int)Math.Round(missionDeliverables.Average(item => Math.Clamp(item.Progress, 0, 100)));
+            ? 0.0
+            : missionDeliverables.Average(item => DisplayProgressHelper.ComputeDisplayProgress(item.RawProgress, item.Status));
 
         var startDate = profile?.StartDate;
         var endDate = profile?.EndDate;
@@ -167,7 +167,8 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             .Select(deliverable => new
             {
                 deliverable.MissionId,
-                deliverable.Progress
+                deliverable.RawProgress,
+                deliverable.Status
             })
             .ToListAsync(cancellationToken);
 
@@ -175,7 +176,7 @@ public sealed class InternshipController(AppDbContext dbContext) : ControllerBas
             .GroupBy(item => item.MissionId)
             .ToDictionary(
                 group => group.Key,
-                group => (int)Math.Round(group.Average(item => Math.Clamp(item.Progress, 0, 100))));
+                group => (int)Math.Round(group.Average(item => DisplayProgressHelper.ComputeDisplayProgress(item.RawProgress, item.Status))));
 
         var response = new InternMissionHistoryResponse
         {

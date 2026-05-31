@@ -1,4 +1,5 @@
-﻿using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Constants;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
@@ -71,8 +72,8 @@ public sealed class SupervisorStatsController(
     /// Récupère le nombre de livrables en attente du superviseur.
     /// </summary>
     /// <remarks>
-    /// Cette route retourne le nombre de livrables avec le statut "pending"
-    /// ou "submitted" qui sont assignés au superviseur connecté.
+    /// Cette route retourne le nombre de livrables avec les statuts DomainStatuses.Deliverable.Pending
+    /// ou DomainStatuses.Deliverable.Submitted qui sont assignés au superviseur connecté.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Le nombre de livrables en attente.</returns>
@@ -95,7 +96,7 @@ public sealed class SupervisorStatsController(
         var count = await dbContext.Deliverables
             .AsNoTracking()
             .CountAsync(deliverable => deliverable.SupervisorId == supervisorId.Value &&
-                                        (deliverable.Status == "pending" || deliverable.Status == "submitted"),
+                                        (deliverable.Status == DomainStatuses.Deliverable.Pending || deliverable.Status == DomainStatuses.Deliverable.Submitted),
                         cancellationToken);
 
         return Ok(new { count });
@@ -228,8 +229,8 @@ public sealed class SupervisorStatsController(
             .Where(deliverable => deliverable.SupervisorId == supervisorId.Value &&
                                   deliverable.DueDate.HasValue &&
                                   deliverable.DueDate.Value < utcNow &&
-                                  deliverable.Status != "accepted" &&
-                                  deliverable.Status != "rejected")
+                                  deliverable.Status != DomainStatuses.Deliverable.Accepted &&
+                                  deliverable.Status != DomainStatuses.Deliverable.Rejected)
             .Select(deliverable => deliverable.InternId)
             .Where(internId => internId.HasValue)
             .Select(internId => internId!.Value)

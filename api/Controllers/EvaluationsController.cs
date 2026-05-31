@@ -9,6 +9,7 @@ using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
@@ -25,7 +26,8 @@ namespace InternManager.Api.Controllers;
 public sealed class EvaluationsController(
     AppDbContext dbContext,
     ISupervisorScopeService supervisorScopeService,
-    IEvaluationStatusService evaluationStatusService) : ControllerBase
+    IEvaluationStatusService evaluationStatusService,
+    IMissionPolicyService missionPolicyService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des évaluations.
@@ -160,7 +162,7 @@ public sealed class EvaluationsController(
     /// <response code="403">Accès refusé.</response>
     [HttpGet("pending", Name = "ListPendingEvaluations")]
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor,Intern")]
     [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -209,7 +211,7 @@ public sealed class EvaluationsController(
         var query = dbContext.Evaluations
             .AsNoTracking()
             .Where(evaluation => evaluation.SupervisorId == effectiveSupervisorId &&
-                                 evaluation.Status == DomainStatuses.Evaluation.Pending &&
+                                (evaluation.Status == DomainStatuses.Evaluation.Pending || evaluation.Status == DomainStatuses.Evaluation.Draft) &&
                                  assignedInternIds.Contains(evaluation.InternId));
 
         var total = await query.CountAsync(cancellationToken);
@@ -333,7 +335,7 @@ public sealed class EvaluationsController(
                     SupervisorId = currentSupervisorId.Value,
                     InternId = internId,
                     Type = requiredType,
-                    Status = DomainStatuses.Evaluation.Pending,
+                    Status = DomainStatuses.Evaluation.Draft,
                     CreatedAt = DateTime.UtcNow
                 });
 
@@ -385,24 +387,24 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     [HttpPost(Name = "SubmitEvaluation")]
-    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
     [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(typeof(EvaluationDetailResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(EvaluationSupervisorResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SubmitEvaluation([FromBody] SubmitEvaluationRequest request, CancellationToken cancellationToken)
     {
-        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!currentSupervisorId.HasValue)
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
         {
             return Unauthorized();
         }
 
-        if (request.InternId == Guid.Empty)
+        if (request.DeliverableId is null || request.DeliverableId == Guid.Empty)
         {
-            return BadRequest(new { message = "internId is required." });
+            return BadRequest(new { message = "deliverableId is required." });
         }
 
         var normalizedType = NormalizeEvaluationType(request.Type);
@@ -411,14 +413,46 @@ public sealed class EvaluationsController(
             return BadRequest(new { message = "type must be 'mid-term' or 'end'." });
         }
 
-        #pragma warning disable CS0618 // Type or member is obsolete
-        if (!TryResolveCriteria(request.Criteria, request.Scores, out var criteria, out var criteriaError))
-#pragma warning restore CS0618 // Type or member is obsolete
+        var deliverable = await dbContext.Deliverables
+            .AsNoTracking()
+            .Include(item => item.Mission)
+            .Include(item => item.Intern)
+            .FirstOrDefaultAsync(item => item.Id == request.DeliverableId.Value, cancellationToken);
+
+        if (deliverable is null)
         {
-            return BadRequest(new { message = criteriaError });
+            return BadRequest(new { message = "Deliverable not found." });
         }
 
-        if (!AreScoresInRange(criteria))
+        if (deliverable.Mission is null)
+        {
+            return BadRequest(new { message = "Deliverable must belong to a mission." });
+        }
+
+        if (!deliverable.InternId.HasValue)
+        {
+            return BadRequest(new { message = "Deliverable must be assigned to an intern before evaluation." });
+        }
+
+        if (await dbContext.Evaluations.AsNoTracking().AnyAsync(item => item.DeliverableId == deliverable.Id, cancellationToken))
+        {
+            return Conflict(new { message = "An evaluation already exists for this deliverable." });
+        }
+
+        var actorRole = UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty;
+        if (!User.IsInRole("Admin") && !User.IsInRole("Manager") && !User.IsInRole("SuperAdmin"))
+        {
+            await missionPolicyService.CanEvaluateAsync(currentUserId.Value, actorRole, deliverable.MissionId);
+            await missionPolicyService.AssertMissionNotArchivedAsync(deliverable.MissionId);
+        }
+
+        var criteria = request.Criteria ?? request.Scores;
+        if (request.Criteria is not null && request.Scores is not null && !AreCriteriaEquivalent(request.Criteria, request.Scores))
+        {
+            return BadRequest(new { message = "Provide either criteria or scores, not conflicting values for both." });
+        }
+
+        if (criteria is not null && !AreScoresInRange(criteria))
         {
             return BadRequest(new Dictionary<string, string>
             {
@@ -426,67 +460,198 @@ public sealed class EvaluationsController(
             });
         }
 
-        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
-        if (!isAdminScope)
+        var evaluation = new Evaluation
         {
-            var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(currentSupervisorId.Value, cancellationToken);
-            if (!assignedInternIds.Contains(request.InternId))
-            {
-                return Forbid();
-            }
+            Id = Guid.NewGuid(),
+            SupervisorId = currentUserId.Value,
+            InternId = deliverable.InternId.Value,
+            DeliverableId = deliverable.Id,
+            Type = normalizedType,
+            Status = DomainStatuses.Evaluation.Draft,
+            IsReleasedToIntern = false,
+            Comments = request.Comments?.Trim() ?? string.Empty,
+            PrivateNotes = request.PrivateNotes?.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        if (criteria is not null)
+        {
+            ApplyCriteria(evaluation, criteria);
+            evaluation.OverallScore = HasAllCriteria(criteria) ? CalculateOverallScore(evaluation) : null;
         }
 
-        var internExists = await dbContext.Users
-            .AsNoTracking()
-            .AnyAsync(user => user.Id == request.InternId && user.Role == UserRole.Intern, cancellationToken);
+        dbContext.Evaluations.Add(evaluation);
+        dbContext.EntityHistoryEntries.Add(CreateHistoryEntry(
+            "Evaluation",
+            evaluation.Id,
+            "evaluation.created",
+            currentUserId,
+            deliverable.Id.ToString()));
 
-        if (!internExists)
+        try
         {
-            return BadRequest(new { message = "Intern not found." });
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsDuplicateDeliverableEvaluation(exception))
+        {
+            return Conflict(new { message = "An evaluation already exists for this deliverable." });
+        }
+
+        return CreatedAtAction(nameof(GetEvaluationById), new { id = evaluation.Id }, BuildSupervisorResponse(evaluation));
+    }
+
+    [HttpPost("{id:guid}/submit", Name = "SubmitEvaluationDraft")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(typeof(EvaluationSupervisorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> FinalizeEvaluation(Guid id, CancellationToken cancellationToken)
+    {
+        var actorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!actorId.HasValue)
+        {
+            return Unauthorized();
         }
 
         var evaluation = await dbContext.Evaluations
-            .FirstOrDefaultAsync(item => item.SupervisorId == currentSupervisorId.Value &&
-                                         item.InternId == request.InternId &&
-                                         item.Type == normalizedType,
-                                 cancellationToken);
+            .Include(item => item.Deliverable)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (evaluation is null)
         {
-            evaluation = new Evaluation
-            {
-                Id = Guid.NewGuid(),
-                SupervisorId = currentSupervisorId.Value,
-                InternId = request.InternId,
-                Type = normalizedType,
-                Status = DomainStatuses.Evaluation.Pending,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            dbContext.Evaluations.Add(evaluation);
+            return NotFound(new { message = "Evaluation not found." });
         }
 
-        evaluation.Technical = criteria.Technical;
-        evaluation.Autonomy = criteria.Autonomy;
-        evaluation.Communication = criteria.Communication;
-        evaluation.DeadlineRespect = criteria.DeadlineRespect;
-        evaluation.DeliverableQuality = criteria.DeliverableQuality;
-        evaluation.Comments = request.Comments?.Trim() ?? string.Empty;
+        if (!string.Equals(evaluation.Status, DomainStatuses.Evaluation.Draft, StringComparison.OrdinalIgnoreCase))
+        {
+            return UnprocessableEntity(new { message = "Evaluation cannot be submitted from its current state." });
+        }
+
+        if (!evaluation.OverallScore.HasValue)
+        {
+            return UnprocessableEntity(new { message = "All five criteria scores must be provided before submitting." });
+        }
+
+        if (!User.IsInRole("Admin") && !User.IsInRole("Manager") && !User.IsInRole("SuperAdmin"))
+        {
+            var missionId = await ResolveEvaluationMissionIdAsync(evaluation, actorId.Value, cancellationToken);
+            if (!missionId.HasValue)
+            {
+                return Forbid();
+            }
+
+            await missionPolicyService.CanEvaluateAsync(
+                actorId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                missionId.Value);
+
+            await missionPolicyService.AssertMissionNotArchivedAsync(missionId.Value);
+        }
+
         evaluation.Status = DomainStatuses.Evaluation.Submitted;
         evaluation.SubmittedAt = DateTime.UtcNow;
 
+        dbContext.EntityHistoryEntries.Add(CreateHistoryEntry(
+            "Evaluation",
+            evaluation.Id,
+            "evaluation.submitted",
+            actorId,
+            null));
+
         dbContext.AuditLogs.Add(new AuditLog
         {
-            ActorUserId = currentSupervisorId,
+            ActorUserId = actorId,
             Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "evaluation.submit",
+            Action = "evaluation.submitted",
             Entity = $"evaluation:{evaluation.Id}",
             Timestamp = DateTime.UtcNow
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return CreatedAtAction(nameof(GetEvaluationById), new { id = evaluation.Id }, ToDetailResponse(evaluation));
+        return Ok(BuildSupervisorResponse(evaluation));
+    }
+
+    [HttpPost("{id:guid}/release", Name = "ReleaseEvaluation")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
+    [EnableRateLimiting("write-heavy")]
+    [ProducesResponseType(typeof(EvaluationSupervisorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ReleaseEvaluation(Guid id, CancellationToken cancellationToken)
+    {
+        var actorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!actorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var evaluation = await dbContext.Evaluations
+            .Include(item => item.Deliverable)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (evaluation is null)
+        {
+            return NotFound(new { message = "Evaluation not found." });
+        }
+
+        if (!string.Equals(evaluation.Status, DomainStatuses.Evaluation.Submitted, StringComparison.OrdinalIgnoreCase))
+        {
+            return UnprocessableEntity(new { message = "Evaluation must be submitted before releasing." });
+        }
+
+        evaluation.Deliverable ??= await dbContext.Deliverables
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == evaluation.DeliverableId, cancellationToken);
+
+        if (evaluation.Deliverable is null)
+        {
+            return UnprocessableEntity(new { message = "The linked deliverable could not be found." });
+        }
+
+        if (!string.Equals(evaluation.Deliverable.Status, DomainStatuses.Deliverable.Approved, StringComparison.OrdinalIgnoreCase))
+        {
+            return UnprocessableEntity(new { message = "The deliverable must be approved before releasing its evaluation." });
+        }
+
+        evaluation.IsReleasedToIntern = true;
+        evaluation.ReleasedAt = DateTime.UtcNow;
+        evaluation.ReleasedByUserId = actorId.Value;
+        evaluation.Status = DomainStatuses.Evaluation.Released;
+
+        dbContext.EntityHistoryEntries.Add(CreateHistoryEntry(
+            "Evaluation",
+            evaluation.Id,
+            "evaluation.released",
+            actorId,
+            null));
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = actorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "evaluation.released",
+            Entity = $"Evaluation:{evaluation.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        dbContext.Notifications.Add(new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = evaluation.InternId,
+            Type = "evaluation.released",
+            Title = "Your evaluation is available",
+            Message = $"Your evaluation for '{evaluation.Deliverable.Title}' has been released.",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(BuildSupervisorResponse(evaluation));
     }
 
     /// <summary>
@@ -506,45 +671,52 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Évaluation non trouvée.</response>
     [HttpPatch("{id:guid}", Name = "UpdateEvaluation")]
-    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor")]
     [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(typeof(EvaluationDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EvaluationSupervisorResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateEvaluation(Guid id, [FromBody] UpdateEvaluationRequest request, CancellationToken cancellationToken)
     {
-        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!currentSupervisorId.HasValue)
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
         {
             return Unauthorized();
         }
 
         var evaluation = await dbContext.Evaluations
-            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
+            .Include(item => item.Deliverable)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (evaluation is null)
         {
             return NotFound(new { message = "Evaluation not found." });
         }
 
-        var hasChanges = false;
-
-        if (request.Type is not null)
+        if (!string.Equals(evaluation.Status, DomainStatuses.Evaluation.Draft, StringComparison.OrdinalIgnoreCase))
         {
-            var normalizedType = NormalizeEvaluationType(request.Type);
-            if (normalizedType is null)
+            return UnprocessableEntity(new { message = "Evaluation cannot be edited after submission." });
+        }
+
+        if (!User.IsInRole("Admin") && !User.IsInRole("Manager") && !User.IsInRole("SuperAdmin"))
+        {
+            var missionId = await ResolveEvaluationMissionIdAsync(evaluation, currentUserId.Value, cancellationToken);
+            if (!missionId.HasValue)
             {
-                return BadRequest(new { message = "type must be 'mid-term' or 'end'." });
+                return Forbid();
             }
 
-            if (!string.Equals(evaluation.Type, normalizedType, StringComparison.OrdinalIgnoreCase))
-            {
-                evaluation.Type = normalizedType;
-                hasChanges = true;
-            }
+            await missionPolicyService.CanEvaluateAsync(
+                currentUserId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                missionId.Value);
+
+            await missionPolicyService.AssertMissionNotArchivedAsync(missionId.Value);
         }
+
+        var changed = false;
 
         if (request.Criteria is not null)
         {
@@ -556,57 +728,38 @@ public sealed class EvaluationsController(
                 });
             }
 
-            evaluation.Technical = request.Criteria.Technical;
-            evaluation.Autonomy = request.Criteria.Autonomy;
-            evaluation.Communication = request.Criteria.Communication;
-            evaluation.DeadlineRespect = request.Criteria.DeadlineRespect;
-            evaluation.DeliverableQuality = request.Criteria.DeliverableQuality;
-            hasChanges = true;
+            ApplyCriteria(evaluation, request.Criteria);
+            evaluation.OverallScore = CalculateOverallScore(evaluation);
+            changed = true;
         }
 
         if (request.Comments is not null)
         {
-            var normalizedComments = request.Comments.Trim();
-            if (!string.Equals(evaluation.Comments, normalizedComments, StringComparison.Ordinal))
-            {
-                evaluation.Comments = normalizedComments;
-                hasChanges = true;
-            }
+            evaluation.Comments = request.Comments.Trim();
+            changed = true;
         }
 
-        if (request.Status is not null)
+        if (request.PrivateNotes is not null)
         {
-            var normalizedStatus = request.Status.Trim().ToLowerInvariant();
-            if (normalizedStatus is not (DomainStatuses.Evaluation.Pending or DomainStatuses.Evaluation.Submitted))
-            {
-                return BadRequest(new { message = "status must be 'pending' or 'submitted'." });
-            }
-
-            if (!string.Equals(evaluation.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase))
-            {
-                evaluation.Status = normalizedStatus;
-                evaluation.SubmittedAt = normalizedStatus == DomainStatuses.Evaluation.Submitted ? DateTime.UtcNow : null;
-                hasChanges = true;
-            }
+            evaluation.PrivateNotes = request.PrivateNotes.Trim();
+            changed = true;
         }
 
-        if (!hasChanges)
+        if (!changed)
         {
-            return Ok(ToDetailResponse(evaluation));
+            return Ok(BuildSupervisorResponse(evaluation));
         }
 
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = currentSupervisorId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "evaluation.update",
-            Entity = $"evaluation:{evaluation.Id}",
-            Timestamp = DateTime.UtcNow
-        });
+        dbContext.EntityHistoryEntries.Add(CreateHistoryEntry(
+            "Evaluation",
+            evaluation.Id,
+            "evaluation.updated",
+            currentUserId,
+            null));
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(ToDetailResponse(evaluation));
+        return Ok(BuildSupervisorResponse(evaluation));
     }
 
     /// <summary>
@@ -624,44 +777,125 @@ public sealed class EvaluationsController(
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="404">Évaluation non trouvée.</response>
     [HttpGet("{id:guid}", Name = "GetEvaluationById")]
-    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
-    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Supervisor,Intern")]
     [EnableRateLimiting("read-frequent")]
-    [ProducesResponseType(typeof(EvaluationDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EvaluationSupervisorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EvaluationInternResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetEvaluationById(Guid id, CancellationToken cancellationToken)
     {
-        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!currentSupervisorId.HasValue)
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
         {
             return Unauthorized();
         }
 
+        var actorRole = UserContextHelper.ResolveCurrentUserRole(User);
+
         var evaluation = await dbContext.Evaluations
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id && item.SupervisorId == currentSupervisorId.Value, cancellationToken);
+            .Include(item => item.Deliverable)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (evaluation is null)
         {
             return NotFound();
         }
 
-        return Ok(ToDetailResponse(evaluation));
+        if (actorRole == UserRole.Intern)
+        {
+            if (evaluation.InternId != currentUserId.Value || !evaluation.IsReleasedToIntern)
+            {
+                return NotFound();
+            }
+
+            return Ok(BuildInternResponse(evaluation));
+        }
+
+        if (!User.IsInRole("Admin") && !User.IsInRole("Manager") && !User.IsInRole("SuperAdmin"))
+        {
+            var missionId = await ResolveEvaluationMissionIdAsync(evaluation, currentUserId.Value, cancellationToken);
+            if (!missionId.HasValue)
+            {
+                return Forbid();
+            }
+
+            await missionPolicyService.CanEvaluateAsync(
+                currentUserId.Value,
+                actorRole?.ToString() ?? string.Empty,
+                missionId.Value);
+
+            await missionPolicyService.AssertMissionNotArchivedAsync(missionId.Value);
+        }
+
+        return Ok(BuildSupervisorResponse(evaluation));
     }
 
-    private static EvaluationDetailResponse ToDetailResponse(Evaluation evaluation)
+    private static EvaluationSupervisorResponse BuildSupervisorResponse(Evaluation evaluation)
     {
-        return new EvaluationDetailResponse
+        return new EvaluationSupervisorResponse
         {
             Id = evaluation.Id,
-            InternId = evaluation.InternId,
-            Type = evaluation.Type,
+            DeliverableId = evaluation.DeliverableId ?? Guid.Empty,
             Status = evaluation.Status,
-            SubmittedAt = evaluation.SubmittedAt,
-            Comments = evaluation.Comments,
-            Criteria = ToCriteriaResponse(evaluation)
+            TechnicalScore = evaluation.Technical,
+            AutonomyScore = evaluation.Autonomy,
+            CommunicationScore = evaluation.Communication,
+            DeadlineRespectScore = evaluation.DeadlineRespect,
+            DeliverableQualityScore = evaluation.DeliverableQuality,
+            OverallScore = evaluation.OverallScore,
+            Comments = string.IsNullOrWhiteSpace(evaluation.Comments) ? null : evaluation.Comments,
+            PrivateNotes = evaluation.PrivateNotes,
+            IsReleasedToIntern = evaluation.IsReleasedToIntern,
+            ReleasedAt = evaluation.ReleasedAt
         };
+    }
+
+    private static EvaluationInternResponse BuildInternResponse(Evaluation evaluation)
+    {
+        return new EvaluationInternResponse
+        {
+            Id = evaluation.Id,
+            TechnicalScore = evaluation.Technical,
+            AutonomyScore = evaluation.Autonomy,
+            CommunicationScore = evaluation.Communication,
+            DeadlineRespectScore = evaluation.DeadlineRespect,
+            DeliverableQualityScore = evaluation.DeliverableQuality,
+            OverallScore = evaluation.OverallScore ?? CalculateOverallScore(evaluation) ?? 0m,
+            Comments = string.IsNullOrWhiteSpace(evaluation.Comments) ? null : evaluation.Comments,
+            ReleasedAt = evaluation.ReleasedAt ?? DateTime.UtcNow
+        };
+    }
+
+    private async Task<Mission?> ResolveMissionForEvaluationAsync(Guid actorUserId, Guid internId, CancellationToken cancellationToken)
+    {
+        return await dbContext.Missions
+            .AsNoTracking()
+            .Where(mission => mission.InternId == internId &&
+                              (mission.SupervisorId == actorUserId || mission.CoSupervisorId == actorUserId))
+            .OrderByDescending(mission => mission.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<Guid?> ResolveEvaluationMissionIdAsync(Evaluation evaluation, Guid actorUserId, CancellationToken cancellationToken)
+    {
+        if (evaluation.DeliverableId.HasValue)
+        {
+            var missionId = await dbContext.Deliverables
+                .AsNoTracking()
+                .Where(deliverable => deliverable.Id == evaluation.DeliverableId.Value)
+                .Select(deliverable => (Guid?)deliverable.MissionId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (missionId.HasValue)
+            {
+                return missionId;
+            }
+        }
+
+        var mission = await ResolveMissionForEvaluationAsync(actorUserId, evaluation.InternId, cancellationToken);
+        return mission?.Id;
     }
 
     private static EvaluationCriteriaResponse ToCriteriaResponse(Evaluation evaluation)
@@ -732,6 +966,7 @@ public sealed class EvaluationsController(
             {
                 Id = evaluation.Id,
                 Type = NormalizeTypeForIntern(evaluation.Type),
+                Status = evaluation.Status,
                 Criteria = new EvaluationCriteriaResponse
                 {
                     Technical = evaluation.Technical,
@@ -740,6 +975,7 @@ public sealed class EvaluationsController(
                     DeadlineRespect = evaluation.DeadlineRespect,
                     DeliverableQuality = evaluation.DeliverableQuality
                 },
+                OverallScore = evaluation.OverallScore,
                 IsReleasedToIntern = evaluation.IsReleasedToIntern,
                 ReleasedAt = evaluation.ReleasedAt,
                 Date = evaluation.SubmittedAt ?? evaluation.CreatedAt,
@@ -761,11 +997,11 @@ public sealed class EvaluationsController(
 
     private static bool AreScoresInRange(EvaluationCriteriaRequest criteria)
     {
-        return criteria.Technical is >= 0 and <= 10 &&
-               criteria.Autonomy is >= 0 and <= 10 &&
-               criteria.Communication is >= 0 and <= 10 &&
-               criteria.DeadlineRespect is >= 0 and <= 10 &&
-               criteria.DeliverableQuality is >= 0 and <= 10;
+         return (!criteria.Technical.HasValue || criteria.Technical is >= 0 and <= 10) &&
+             (!criteria.Autonomy.HasValue || criteria.Autonomy is >= 0 and <= 10) &&
+             (!criteria.Communication.HasValue || criteria.Communication is >= 0 and <= 10) &&
+             (!criteria.DeadlineRespect.HasValue || criteria.DeadlineRespect is >= 0 and <= 10) &&
+             (!criteria.DeliverableQuality.HasValue || criteria.DeliverableQuality is >= 0 and <= 10);
     }
 
     private static bool TryResolveCriteria(
@@ -802,6 +1038,74 @@ public sealed class EvaluationsController(
                left.Communication == right.Communication &&
                left.DeadlineRespect == right.DeadlineRespect &&
                left.DeliverableQuality == right.DeliverableQuality;
+    }
+
+    private static void ApplyCriteria(Evaluation evaluation, EvaluationCriteriaRequest criteria)
+    {
+        if (criteria.Technical.HasValue)
+        {
+            evaluation.Technical = criteria.Technical.Value;
+        }
+
+        if (criteria.Autonomy.HasValue)
+        {
+            evaluation.Autonomy = criteria.Autonomy.Value;
+        }
+
+        if (criteria.Communication.HasValue)
+        {
+            evaluation.Communication = criteria.Communication.Value;
+        }
+
+        if (criteria.DeadlineRespect.HasValue)
+        {
+            evaluation.DeadlineRespect = criteria.DeadlineRespect.Value;
+        }
+
+        if (criteria.DeliverableQuality.HasValue)
+        {
+            evaluation.DeliverableQuality = criteria.DeliverableQuality.Value;
+        }
+    }
+
+    private static bool HasAllCriteria(EvaluationCriteriaRequest criteria)
+    {
+        return criteria.Technical.HasValue &&
+               criteria.Autonomy.HasValue &&
+               criteria.Communication.HasValue &&
+               criteria.DeadlineRespect.HasValue &&
+               criteria.DeliverableQuality.HasValue;
+    }
+
+    private static decimal? CalculateOverallScore(Evaluation evaluation)
+    {
+        return Math.Round(
+            (evaluation.Technical +
+             evaluation.Autonomy +
+             evaluation.Communication +
+             evaluation.DeadlineRespect +
+             evaluation.DeliverableQuality) / 5.0m,
+            2);
+    }
+
+    private static EntityHistoryEntry CreateHistoryEntry(string entityType, Guid entityId, string action, Guid? actorId, string? note = null)
+    {
+        return new EntityHistoryEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = entityType,
+            EntityId = entityId,
+            Action = action,
+            ActorId = actorId,
+            Note = note,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static bool IsDuplicateDeliverableEvaluation(DbUpdateException exception)
+    {
+        return exception.InnerException is SqlException sqlException &&
+               (sqlException.Number is 2601 or 2627);
     }
 
     private static string? NormalizeEvaluationType(string? rawType)
@@ -846,7 +1150,7 @@ public sealed class EvaluationsController(
 
 public sealed class SubmitEvaluationRequest
 {
-    public Guid InternId { get; init; }
+    public Guid? DeliverableId { get; init; }
 
     public string Type { get; init; } = string.Empty;
 
@@ -856,28 +1160,28 @@ public sealed class SubmitEvaluationRequest
     public EvaluationCriteriaRequest? Scores { get; init; }
 
     public string Comments { get; init; } = string.Empty;
+
+    public string? PrivateNotes { get; init; }
 }
 
 public sealed class UpdateEvaluationRequest
 {
-    public string? Type { get; init; }
-
     public EvaluationCriteriaRequest? Criteria { get; init; }
 
     public string? Comments { get; init; }
 
-    public string? Status { get; init; }
+    public string? PrivateNotes { get; init; }
 }
 
 public sealed class EvaluationCriteriaRequest
 {
-    public int Technical { get; init; }
+    public int? Technical { get; init; }
 
-    public int Autonomy { get; init; }
+    public int? Autonomy { get; init; }
 
-    public int Communication { get; init; }
+    public int? Communication { get; init; }
 
-    public int DeadlineRespect { get; init; }
+    public int? DeadlineRespect { get; init; }
 
-    public int DeliverableQuality { get; init; }
+    public int? DeliverableQuality { get; init; }
 }

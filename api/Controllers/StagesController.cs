@@ -1,3 +1,4 @@
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
@@ -141,6 +142,16 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
 
         mission.Status = "active";
 
+        dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = "Mission",
+            EntityId = mission.Id,
+            Action = "mission.started",
+            ActorId = actorUserId,
+            CreatedAt = DateTime.UtcNow
+        });
+
         dbContext.MissionInternAssignments.Add(new MissionInternAssignment
         {
             MissionId = mission.Id,
@@ -176,13 +187,26 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
 
             if (linkedTasks.Count > 0)
             {
+                foreach (var task in linkedTasks)
+                {
+                    dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+                    {
+                        Id = Guid.NewGuid(),
+                        EntityType = "Task",
+                        EntityId = task.Id,
+                        Action = "task.deleted",
+                        ActorId = actorUserId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+
                 dbContext.InternTasks.RemoveRange(linkedTasks);
             }
 
             foreach (var deliverable in deliverables)
             {
-                var isComplete = deliverable.Progress >= 100 ||
-                                 deliverable.Status.Equals("accepted", StringComparison.OrdinalIgnoreCase);
+                var isComplete = deliverable.Status == DomainStatuses.Deliverable.Approved ||
+                                 deliverable.Status.Equals(DomainStatuses.Deliverable.Accepted, StringComparison.OrdinalIgnoreCase);
 
                 dbContext.InternTasks.Add(new InternTask
                 {
@@ -191,7 +215,7 @@ public sealed class StagesController(AppDbContext dbContext, INotificationServic
                     DeliverableId = deliverable.Id,
                     Title = deliverable.Title,
                     DueDate = deliverable.DueDate,
-                    IsComplete = isComplete,
+                    Status = isComplete ? DomainStatuses.Task.Done : DomainStatuses.Task.Todo,
                     CompletedAt = isComplete ? DateTime.UtcNow : null,
                     CreatedAt = DateTime.UtcNow
                 });

@@ -1,5 +1,7 @@
+using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Attributes;
+using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
@@ -17,13 +19,19 @@ namespace InternManager.Api.Controllers;
 /// <param name="dbContext">Contexte EF Core pour accéder aux données.</param>
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
 /// <param name="taskWorkflowService">Service métier pour la gestion du workflow des tâches.</param>
+/// <param name="taskStateService">Service métier pour faire évoluer l'état des tâches.</param>
+/// <param name="deliverableStateService">Service métier pour faire évoluer l'état des livrables.</param>
+/// <param name="missionPolicyService">Service métier pour valider les règles de mission.</param>
 [ApiController]
 [Route("api/tasks")]
 [Authorize]
 public sealed class TasksController(
     AppDbContext dbContext,
     INotificationService notificationService,
-    ITaskWorkflowService taskWorkflowService) : ControllerBase
+    ITaskWorkflowService taskWorkflowService,
+    ITaskStateService taskStateService,
+    IDeliverableStateService deliverableStateService,
+    IMissionPolicyService missionPolicyService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des tâches du stagiaire connecté.
@@ -83,7 +91,7 @@ public sealed class TasksController(
         var total = await query.CountAsync(cancellationToken);
 
         var data = await query
-            .OrderBy(task => task.IsComplete)
+            .OrderBy(task => task.Status == DomainStatuses.Task.Done)
             .ThenBy(task => task.DueDate)
             .ThenBy(task => task.CreatedAt)
             .Skip((safePage - 1) * safeLimit)
@@ -93,68 +101,15 @@ public sealed class TasksController(
                 id = task.Id,
                 title = task.Title,
                 dueDate = task.DueDate,
-                isComplete = task.IsComplete,
-                completed = task.IsComplete
+                status = task.Status,
+                rowVersion = task.RowVersion
             })
             .ToListAsync(cancellationToken);
 
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
 
-    /// <summary>
-    /// Synchronise les tâches avec les livrables.
-    /// </summary>
-    /// <remarks>
-    /// Cette route crée automatiquement des tâches pour les livrables qui n en ont pas encore.
-    /// Elle est utile après l assignation d un nouveau livrable par le superviseur.
-    /// Les tâches existantes ne sont pas modifiées.
-    /// </remarks>
-    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
-    /// <returns>Un message indiquant le nombre de tâches créées.</returns>
-    /// <response code="200">Synchronisation réussie.</response>
-    /// <response code="401">Utilisateur non connecté.</response>
-    /// <response code="403">Accès refusé.</response>
-    [HttpPost("/api/intern/me/tasks/sync", Name = "SyncMyTasks")]
-    [FeatureCard(DashboardCard.Tasks)]
-    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
-    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
-    [ProducesResponseType(typeof(ActionResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> SyncTasksFromDeliverables(CancellationToken cancellationToken)
-    {
-        var internId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!internId.HasValue)
-        {
-            return Unauthorized();
-        }
-
-        var createdCount = await taskWorkflowService.EnsureTasksFromDeliverablesAsync(internId.Value, cancellationToken);
-        if (createdCount == 0)
-        {
-            return Ok(new ActionResponse
-            {
-                Success = true,
-                Message = "No tasks to synchronize."
-            });
-        }
-
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = internId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "task.sync",
-            Entity = $"intern:{internId.Value} created:{createdCount}",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return Ok(new ActionResponse
-        {
-            Success = true,
-            Message = $"Created {createdCount} task(s)."
-        });
-    }
+    // REMOVED: legacy task-from-deliverable sync (Phase 1 - 1:1 anti-pattern eliminated)
 
     /// <summary>
     /// Marque une tâche comme terminée.
@@ -164,6 +119,7 @@ public sealed class TasksController(
     /// Si la tâche est liée à un livrable, sa progression passe à 100%.
     /// </remarks>
     /// <param name="id">Identifiant unique de la tâche.</param>
+    /// <param name="request">Corps de la requête contenant le numéro de version attendu.</param>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
     /// <returns>Les informations de la tâche mise à jour.</returns>
     /// <response code="200">Tâche marquée comme terminée.</response>
@@ -178,7 +134,8 @@ public sealed class TasksController(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> CompleteTask(Guid id, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CompleteTask(Guid id, [FromBody] CompleteTaskRequest request, CancellationToken cancellationToken)
     {
         var internId = UserContextHelper.ResolveCurrentUserId(User);
         if (!internId.HasValue)
@@ -187,6 +144,8 @@ public sealed class TasksController(
         }
 
         var task = await dbContext.InternTasks
+            .Include(item => item.Deliverable)
+                .ThenInclude(deliverable => deliverable!.Mission)
             .FirstOrDefaultAsync(item => item.Id == id && item.InternId == internId.Value, cancellationToken);
 
         if (task is null)
@@ -194,18 +153,61 @@ public sealed class TasksController(
             return NotFound(new { message = "Task not found." });
         }
 
-        task.IsComplete = true;
-        task.CompletedAt = DateTime.UtcNow;
-
-        if (task.DeliverableId.HasValue)
+        if (string.Equals(task.Status, DomainStatuses.Task.Done, StringComparison.OrdinalIgnoreCase))
         {
-            var deliverable = await dbContext.Deliverables
-                .FirstOrDefaultAsync(item => item.Id == task.DeliverableId.Value, cancellationToken);
-
-            if (deliverable is not null)
+            try
             {
-                deliverable.Progress = 100;
+                await taskStateService.RevertToTodoAsync(
+                    task.Id,
+                    internId.Value,
+                    request.RowVersion,
+                    dbContext);
             }
+            catch (ConcurrencyException)
+            {
+                return Conflict(new { message = "The task was modified concurrently. Please refresh and try again." });
+            }
+
+            dbContext.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = internId,
+                Actor = UserContextHelper.ResolveCurrentActorName(User),
+                Action = "task.reverted",
+                Entity = $"task:{task.Id}",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Ok(new
+            {
+                id = task.Id,
+                status = task.Status
+            });
+        }
+
+        await missionPolicyService.CanMarkTaskDoneAsync(
+            internId.Value,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            task.Id);
+
+        if (task.Deliverable?.MissionId is Guid missionId)
+        {
+            await missionPolicyService.AssertMissionNotArchivedAsync(missionId);
+        }
+
+        try
+        {
+            await taskStateService.MarkDoneAsync(
+                task.Id,
+                internId.Value,
+                request.RowVersion,
+                isSupervisorOverride: false,
+                dbContext);
+        }
+        catch (ConcurrencyException)
+        {
+            return Conflict(new { message = "The task was modified concurrently. Please refresh and try again." });
         }
 
         dbContext.AuditLogs.Add(new AuditLog
@@ -222,8 +224,7 @@ public sealed class TasksController(
         return Ok(new
         {
             id = task.Id,
-            isComplete = true,
-            completed = true
+            status = task.Status
         });
     }
 
@@ -287,11 +288,14 @@ public sealed class TasksController(
         }
 
         Guid? deliverableId = null;
+        Guid? missionId = null;
+        Deliverable? deliverable = null;
         if (request.DeliverableId.HasValue && request.DeliverableId.Value != Guid.Empty)
         {
-            var deliverable = await dbContext.Deliverables
+            deliverable = await dbContext.Deliverables
                 .AsNoTracking()
-                .FirstOrDefaultAsync(item => item.Id == request.DeliverableId.Value && item.SupervisorId == supervisorId.Value, cancellationToken);
+                .Include(item => item.Mission)
+                .FirstOrDefaultAsync(item => item.Id == request.DeliverableId.Value, cancellationToken);
 
             if (deliverable is null)
             {
@@ -304,6 +308,33 @@ public sealed class TasksController(
             }
 
             deliverableId = deliverable.Id;
+            missionId = deliverable.MissionId;
+        }
+        else if (!isAdminScope)
+        {
+            var mission = await dbContext.Missions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item =>
+                    (item.SupervisorId == supervisorId.Value || item.CoSupervisorId == supervisorId.Value) &&
+                    item.InternId == request.InternId,
+                    cancellationToken);
+
+            if (mission is null)
+            {
+                return BadRequest(new { message = "Mission not found for current supervisor." });
+            }
+
+            missionId = mission.Id;
+        }
+
+        if (missionId.HasValue)
+        {
+            await missionPolicyService.CanCreateTaskAsync(
+                supervisorId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                missionId.Value);
+
+            await missionPolicyService.AssertMissionNotArchivedAsync(missionId.Value);
         }
 
         var normalizedDueDate = request.DueDate.HasValue
@@ -312,17 +343,16 @@ public sealed class TasksController(
                 : request.DueDate.Value.ToUniversalTime())
             : (DateTime?)null;
 
-var task = new InternTask
-{
-    Id = Guid.NewGuid(),
-    InternId = request.InternId,
-    DeliverableId = deliverableId,
-    Title = request.Title.Trim(),
-    Description = request.Description?.Trim(),
-    DueDate = normalizedDueDate,
-    IsComplete = false,
-    CreatedAt = DateTime.UtcNow
-};
+        var task = new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = request.InternId,
+            DeliverableId = deliverableId,
+            Title = request.Title.Trim(),
+            Description = request.Description?.Trim(),
+            DueDate = normalizedDueDate,
+            CreatedAt = DateTime.UtcNow
+        };
 
         dbContext.InternTasks.Add(task);
 
@@ -335,12 +365,34 @@ var task = new InternTask
             Timestamp = DateTime.UtcNow
         });
 
+        dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = "Task",
+            EntityId = task.Id,
+            Action = "task.assigned",
+            ActorId = supervisorId.Value,
+            CreatedAt = DateTime.UtcNow
+        });
+
         notificationService.QueueNotification(
             task.InternId,
             "task.assigned",
             "New task assigned",
             $"Task '{task.Title}' has been assigned to you.",
-            $"task:{task.Id}");
+            task.Id.ToString());
+
+        if (task.DeliverableId.HasValue && deliverable is not null)
+        {
+            if (deliverable.Status == DomainStatuses.Deliverable.Draft)
+            {
+                await deliverableStateService.OnFirstTaskCreatedAsync(task.DeliverableId.Value, dbContext);
+            }
+            else if (deliverable.Status == DomainStatuses.Deliverable.AwaitingReview)
+            {
+                await deliverableStateService.OnTaskAddedWhileInReviewAsync(task.DeliverableId.Value, dbContext);
+            }
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -350,10 +402,15 @@ var task = new InternTask
             internId = task.InternId,
             title = task.Title,
             dueDate = task.DueDate,
-            isComplete = task.IsComplete
+            status = task.Status
         });
     }
 
+}
+
+public sealed class CompleteTaskRequest
+{
+    public int RowVersion { get; init; }
 }
 
 public sealed class AssignTaskRequest

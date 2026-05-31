@@ -367,6 +367,24 @@ public sealed class AuthController(
 
         await authService.LogoutAsync(userId, refreshToken, cancellationToken);
 
+        try
+        {
+            dbContext.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = userId,
+                Actor = UserContextHelper.ResolveCurrentActorName(User),
+                Action = "auth.logout",
+                Entity = userId.HasValue ? $"user:{userId.Value}" : "user:anonymous",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Audit logging must never block logout.
+        }
+
         ClearAuthCookies(Response);
         return Ok();
     }

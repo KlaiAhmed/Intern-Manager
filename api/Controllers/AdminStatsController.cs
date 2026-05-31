@@ -668,8 +668,8 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
     /// Récupère le nombre de livrables en attente.
     /// </summary>
     /// <remarks>
-    /// Cette route retourne le nombre de livrables avec le statut "pending"
-    /// ou "submitted" qui n ont pas encore été traités.
+    /// Cette route retourne le nombre de livrables avec les statuts DomainStatuses.Deliverable.Pending
+    /// ou DomainStatuses.Deliverable.Submitted qui n ont pas encore été traités.
     /// Accessible aux administrateurs et aux managers.
     /// </remarks>
     /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
@@ -687,7 +687,7 @@ public sealed class AdminStatsController(AppDbContext dbContext, IMemoryCache ca
     {
         var count = await dbContext.Deliverables
             .AsNoTracking()
-            .CountAsync(deliverable => deliverable.Status == "pending" || deliverable.Status == "submitted", cancellationToken);
+            .CountAsync(deliverable => deliverable.Status == DomainStatuses.Deliverable.Pending || deliverable.Status == DomainStatuses.Deliverable.Submitted, cancellationToken);
 
         return Ok(new { count });
     }

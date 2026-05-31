@@ -2,9 +2,11 @@ using System.Data;
 using InternManager.Api.Common.Constants;
 using InternManager.Api.Common.Attributes;
 using InternManager.Api.Common.Enums;
+using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Requests;
 using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +24,9 @@ namespace InternManager.Api.Controllers;
 /// <param name="environment">Environnement d hébergement pour accéder aux fichiers.</param>
 /// <param name="fileStorageService">Service de stockage de fichiers.</param>
 /// <param name="deliverablesService">Service métier des livrables.</param>
+/// <param name="missionPolicyService">Service de politique de mission.</param>
+/// <param name="taskStateService">Service d’état des tâches.</param>
+/// <param name="deliverableProgressService">Service de recalcul de progression des livrables.</param>
 /// <param name="notificationService">Service pour envoyer des notifications.</param>
 /// <param name="logger">Logger pour les événements du contrôleur.</param>
 [ApiController]
@@ -32,6 +37,9 @@ public sealed class DeliverablesController(
     IWebHostEnvironment environment,
     IFileStorageService fileStorageService,
     IDeliverablesService deliverablesService,
+    IMissionPolicyService missionPolicyService,
+    ITaskStateService taskStateService,
+    IDeliverableProgressService deliverableProgressService,
     INotificationService notificationService,
     ILogger<DeliverablesController> logger) : ControllerBase
 {
@@ -168,22 +176,41 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
 
         var total = await query.CountAsync(cancellationToken);
 
-        var data = await query
+        var deliverableRows = await query
             .OrderBy(deliverable => deliverable.DueDate)
             .ThenByDescending(deliverable => deliverable.CreatedAt)
             .Skip((safePage - 1) * safeLimit)
             .Take(safeLimit)
             .Select(deliverable => new
             {
-                id = deliverable.Id,
-                title = deliverable.Title,
-                dueDate = deliverable.DueDate,
-                status = NormalizeStatusForIntern(deliverable.Status),
-                version = deliverable.Version,
-                supervisorComment = deliverable.SupervisorComment,
-                progress = Math.Clamp(deliverable.Progress, 0, 100)
+                deliverable.Id,
+                deliverable.MissionId,
+                deliverable.Title,
+                deliverable.DueDate,
+                deliverable.Status,
+                deliverable.Version,
+                deliverable.SupervisorComment,
+                deliverable.RawProgress,
+                deliverable.Weight,
+                deliverable.RowVersion
             })
             .ToListAsync(cancellationToken);
+
+        var data = deliverableRows
+            .Select(deliverable => new InternDeliverableResponse
+            {
+                Id = deliverable.Id,
+                MissionId = deliverable.MissionId,
+                Title = deliverable.Title,
+                DueDate = deliverable.DueDate,
+                Status = NormalizeStatusForIntern(deliverable.Status),
+                Version = deliverable.Version,
+                SupervisorComment = deliverable.SupervisorComment,
+                Progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status),
+                Weight = deliverable.Weight,
+                RowVersion = deliverable.RowVersion
+            })
+            .ToList();
 
         return Ok(new { data, total, page = safePage, limit = safeLimit });
     }
@@ -399,21 +426,26 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
             return Forbid();
         }
 
+        if (deliverable.RowVersion != request.RowVersion)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new
+            {
+                error = "conflict",
+                message = "This record was modified. Please refresh."
+            });
+        }
+
+        await missionPolicyService.CanSubmitEvidenceAsync(
+            internId.Value,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            deliverable.MissionId,
+            cancellationToken);
+
+        await missionPolicyService.AssertMissionNotArchivedAsync(deliverable.MissionId);
+
         if (deliverable.Mission is null || !IsActiveMission(deliverable.Mission))
         {
             return StatusCode(StatusCodes.Status409Conflict, new { message = "Deliverable is not associated with an active mission." });
-        }
-
-        var belongsToCurrentInternMission = deliverable.Mission.InternId == internId.Value ||
-            await dbContext.MissionInternAssignments
-                .AsNoTracking()
-                .AnyAsync(
-                    assignment => assignment.MissionId == deliverable.MissionId && assignment.InternId == internId.Value,
-                    cancellationToken);
-
-        if (!belongsToCurrentInternMission)
-        {
-            return Forbid();
         }
 
         StoredFileInfo? storedFile = null;
@@ -430,104 +462,121 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
                 cancellationToken);
         }
 
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
-        try
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            if (dbContext.Database.IsRelational())
+            await using var transaction = dbContext.Database.IsRelational()
+                ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                : null;
+
+            try
             {
-                transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            }
+                var latestVersionNumber = await dbContext.DeliverableVersions
+                    .AsNoTracking()
+                    .Where(version => version.DeliverableId == deliverable.Id)
+                    .Select(version => (int?)version.VersionNumber)
+                    .MaxAsync(cancellationToken);
 
-            var latestVersionNumber = await dbContext.DeliverableVersions
-                .AsNoTracking()
-                .Where(version => version.DeliverableId == deliverable.Id)
-                .Select(version => (int?)version.VersionNumber)
-                .MaxAsync(cancellationToken);
+                var nextVersionNumber = ComputeNextVersionNumber(deliverable, latestVersionNumber);
+                var submittedAt = DateTime.UtcNow;
 
-            var nextVersionNumber = ComputeNextVersionNumber(deliverable, latestVersionNumber);
-            var submittedAt = DateTime.UtcNow;
+                var existingVersions = await dbContext.DeliverableVersions
+                    .Where(version => version.DeliverableId == deliverable.Id)
+                    .ToListAsync(cancellationToken);
 
-            var version = new DeliverableVersion
-            {
-                Id = Guid.NewGuid(),
-                DeliverableId = deliverable.Id,
-                VersionNumber = nextVersionNumber,
-                FileUrl = storedFile?.Url,
-                GitHubUrl = normalizedGitHubUrl,
-                GitHubBranch = normalizedGitHubBranch,
-                Message = normalizedMessage,
-                Status = DomainStatuses.Deliverable.Submitted,
-                SupervisorComment = null,
-                SubmittedAt = submittedAt,
-                SubmittedByUserId = intern.Id
-            };
-
-            dbContext.DeliverableVersions.Add(version);
-
-            deliverable.Version = nextVersionNumber;
-            deliverable.FileUrl = storedFile?.Url ?? string.Empty;
-            deliverable.SubmittedDate = submittedAt;
-            deliverable.Status = DomainStatuses.Deliverable.Submitted;
-            deliverable.SupervisorComment = null;
-
-            var linkedTasks = await dbContext.InternTasks
-                .Where(task => task.DeliverableId == deliverable.Id && task.InternId == internId.Value)
-                .ToListAsync(cancellationToken);
-
-            foreach (var task in linkedTasks)
-            {
-                task.IsComplete = true;
-                task.CompletedAt = submittedAt;
-            }
-
-            dbContext.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = internId,
-                Actor = UserContextHelper.ResolveCurrentActorName(User),
-                Action = "deliverable.version.submit",
-                Entity = $"deliverable:{deliverable.Id} version:{version.VersionNumber}",
-                Timestamp = submittedAt
-            });
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
-
-            return Created(
-                $"/api/deliverables/{deliverable.Id}/versions/{version.Id}",
-                ToVersionResponse(version, intern));
-        }
-        catch
-        {
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
-            if (storedFile is not null)
-            {
-                try
+                foreach (var existingVersion in existingVersions)
                 {
-                    await fileStorageService.DeleteAsync(storedFile.Url, cancellationToken);
+                    existingVersion.IsCurrentVersion = false;
                 }
-                catch (Exception cleanupException)
-                {
-                    logger.LogWarning(cleanupException, "Failed to delete stored deliverable file after version submission failure.");
-                }
-            }
 
-            throw;
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
+                var version = new DeliverableVersion
+                {
+                    Id = Guid.NewGuid(),
+                    DeliverableId = deliverable.Id,
+                    VersionNumber = nextVersionNumber,
+                    IsCurrentVersion = true,
+                    FileUrl = storedFile?.Url,
+                    GitHubUrl = normalizedGitHubUrl,
+                    GitHubBranch = normalizedGitHubBranch,
+                    Message = normalizedMessage,
+                    Status = DomainStatuses.DeliverableVersion.Submitted,
+                    SupervisorComment = null,
+                    SubmittedAt = submittedAt,
+                    SubmittedByUserId = intern.Id
+                };
+
+                dbContext.DeliverableVersions.Add(version);
+
+                deliverable.Version = nextVersionNumber;
+                deliverable.FileUrl = storedFile?.Url ?? string.Empty;
+                deliverable.SubmittedDate = submittedAt;
+                deliverable.Status = DomainStatuses.Deliverable.AwaitingReview;
+                deliverable.SupervisorComment = null;
+                deliverable.RowVersion += 1;
+
+                var linkedTasks = await dbContext.InternTasks
+                    .Where(task => task.DeliverableId == deliverable.Id && task.Status != DomainStatuses.Task.Done)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var task in linkedTasks)
+                {
+                    await taskStateService.MarkDoneAsync(task.Id, internId.Value, task.RowVersion, isSupervisorOverride: false, dbContext);
+                }
+
+                await deliverableProgressService.RecalculateAsync(deliverable.Id, dbContext);
+
+                dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+                {
+                    Id = Guid.NewGuid(),
+                    EntityType = "Deliverable",
+                    EntityId = deliverable.Id,
+                    Action = "deliverable.submitted",
+                    ActorId = internId.Value,
+                    CreatedAt = submittedAt
+                });
+
+                dbContext.AuditLogs.Add(new AuditLog
+                {
+                    ActorUserId = internId,
+                    Actor = UserContextHelper.ResolveCurrentActorName(User),
+                    Action = "deliverable.version.submit",
+                    Entity = $"deliverable:{deliverable.Id} version:{version.VersionNumber}",
+                    Timestamp = submittedAt
+                });
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+
+                return Created(
+                    $"/api/deliverables/{deliverable.Id}/versions/{version.Id}",
+                    ToVersionResponse(version, intern));
             }
-        }
+            catch
+            {
+                if (transaction is not null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+
+                if (storedFile is not null)
+                {
+                    try
+                    {
+                        await fileStorageService.DeleteAsync(storedFile.Url, cancellationToken);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        logger.LogWarning(cleanupException, "Failed to delete stored deliverable file after version submission failure.");
+                    }
+                }
+
+                throw;
+            }
+        });
     }
 
     /// <summary>
@@ -552,6 +601,7 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
 
         var deliverable = await dbContext.Deliverables
             .AsNoTracking()
+            .Include(item => item.Mission)
             .FirstOrDefaultAsync(item => item.Id == deliverableId, cancellationToken);
 
         if (deliverable is null)
@@ -560,8 +610,13 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
         }
 
         var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
-        var isSupervisorScope = User.IsInRole("Supervisor") && deliverable.SupervisorId == currentUserId.Value;
-        var isInternScope = User.IsInRole("Intern") && deliverable.InternId == currentUserId.Value;
+        var isSupervisorScope = User.IsInRole("Supervisor") &&
+            (deliverable.SupervisorId == currentUserId.Value ||
+             (deliverable.Mission?.CoSupervisorId == currentUserId.Value &&
+              deliverable.Mission.CoSupervisorCanReview));
+        var isInternScope = User.IsInRole("Intern") &&
+            (deliverable.InternId == currentUserId.Value ||
+             deliverable.Mission?.InternId == currentUserId.Value);
 
         if (!isAdminScope && !isSupervisorScope && !isInternScope)
         {
@@ -583,9 +638,9 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
                 Id = deliverable.Id,
                 MissionId = deliverable.MissionId,
                 Title = deliverable.Title,
-                Status = deliverable.Status,
+                Status = NormalizeStatusForIntern(deliverable.Status),
                 Version = deliverable.Version,
-                Progress = deliverable.Progress,
+                Progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status),
                 DueDate = deliverable.DueDate,
                 SubmittedDate = deliverable.SubmittedDate,
                 SupervisorComment = deliverable.SupervisorComment
@@ -621,14 +676,15 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
     // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
     [Authorize(Roles = "SuperAdmin,Admin,Intern")]
     [EnableRateLimiting("upload")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(InternDeliverableResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> SubmitDeliverable(
         Guid id,
-        [FromForm] SubmitDeliverableForm request,
+        [FromBody] SubmitDeliverableRequest request,
         CancellationToken cancellationToken)
     {
         var internId = UserContextHelper.ResolveCurrentUserId(User);
@@ -637,166 +693,236 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
             return Unauthorized();
         }
 
-        if (request.File is null || request.File.Length == 0)
-        {
-            return BadRequest(new { message = "File is required." });
-        }
-
-        if (request.File.Length > MaxUploadBytes)
-        {
-            return BadRequest(new { message = "File exceeds the 10 MB limit." });
-        }
-
-        var fileExtension = Path.GetExtension(request.File.FileName);
-        if (string.IsNullOrWhiteSpace(fileExtension) || !AllowedExtensions.Contains(fileExtension))
-        {
-            return BadRequest(new { message = "File extension is not allowed." });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.File.ContentType) || !AllowedMimeTypes.Contains(request.File.ContentType))
-        {
-            return BadRequest(new { message = "File content type is not allowed." });
-        }
+        var normalizedFileUrl = NormalizeOptionalText(request.FileUrl);
+        var normalizedGitHubUrl = NormalizeOptionalText(request.GitHubUrl);
+        var normalizedGitHubBranch = NormalizeOptionalText(request.GitHubBranch);
+        var normalizedMessage = NormalizeOptionalText(request.Message);
 
         var deliverable = await dbContext.Deliverables
-            .FirstOrDefaultAsync(item => item.Id == id && item.InternId == internId.Value, cancellationToken);
+            .Include(item => item.Mission)
+            .Include(item => item.Intern)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (deliverable is null)
         {
             return NotFound(new { message = "Deliverable not found." });
         }
 
-var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads", "deliverables");
- Directory.CreateDirectory(uploadsDirectory);
-
- var storedFileName = $"{deliverable.Id}_{Guid.NewGuid():N}{fileExtension}";
- var destinationPath = Path.Combine(uploadsDirectory, storedFileName);
-
- var latestVersionNumber = await dbContext.DeliverableVersions
-            .AsNoTracking()
-            .Where(version => version.DeliverableId == deliverable.Id)
-            .Select(version => (int?)version.VersionNumber)
-            .MaxAsync(cancellationToken) ?? 0;
-
-        var hadPreviousSubmission = deliverable.SubmittedDate.HasValue || !string.IsNullOrWhiteSpace(deliverable.FileUrl);
-        var nextVersionNumber = hadPreviousSubmission
-            ? Math.Max(Math.Max(1, deliverable.Version) + 1, latestVersionNumber + 1)
-            : Math.Max(Math.Max(1, deliverable.Version), latestVersionNumber + 1);
-
-        dbContext.DeliverableVersions.Add(new DeliverableVersion
+        if (deliverable.InternId != internId.Value)
         {
-            Id = Guid.NewGuid(),
-            DeliverableId = deliverable.Id,
-            VersionNumber = nextVersionNumber,
-            FileUrl = $"/uploads/deliverables/{storedFileName}".Replace('\\', '/'),
-            Status = DomainStatuses.Deliverable.Submitted,
-            SupervisorComment = null,
-            SubmittedAt = DateTime.UtcNow,
-            SubmittedByUserId = internId.Value
-        });
-
-        deliverable.Version = nextVersionNumber;
-        deliverable.FileUrl = $"/uploads/deliverables/{storedFileName}".Replace('\\', '/');
-        deliverable.SubmittedDate = DateTime.UtcNow;
-        deliverable.Status = DomainStatuses.Deliverable.Submitted;
-        deliverable.SupervisorComment = null;
-
-        var linkedTasks = await dbContext.InternTasks
-            .Where(task => task.DeliverableId == deliverable.Id && task.InternId == internId.Value)
-            .ToListAsync(cancellationToken);
-
-        foreach (var task in linkedTasks)
-        {
-            task.IsComplete = true;
-            task.CompletedAt = DateTime.UtcNow;
+            return Forbid();
         }
 
-dbContext.AuditLogs.Add(new AuditLog
- {
- ActorUserId = internId,
- Actor = UserContextHelper.ResolveCurrentActorName(User),
- Action = "deliverable.submit",
- Entity = $"deliverable:{deliverable.Id}",
- Timestamp = DateTime.UtcNow
- });
+        await missionPolicyService.CanSubmitEvidenceAsync(
+            internId.Value,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            deliverable.MissionId,
+            cancellationToken);
 
- var tempPath = Path.Combine(uploadsDirectory, $"{Guid.NewGuid():N}.tmp");
- await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
- {
- await request.File.CopyToAsync(stream, cancellationToken);
- }
+        await missionPolicyService.AssertMissionNotArchivedAsync(deliverable.MissionId);
 
- await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
- try
- {
- await dbContext.SaveChangesAsync(cancellationToken);
- // FIX C4: move file before committing DB changes.
- System.IO.File.Move(tempPath, destinationPath, overwrite: true);
- await transaction.CommitAsync(cancellationToken);
- }
- catch
- {
- // Best-effort cleanup: each step is wrapped in its own try/catch
- // so that a cleanup failure never masks the original exception.
- try
- {
- await transaction.RollbackAsync(cancellationToken);
- }
- catch (Exception rollbackEx)
- {
- logger.LogWarning(rollbackEx, "Transaction rollback failed after original error");
- }
-
- // FIX C4: remove any moved file on rollback to avoid orphaned blobs.
- try
- {
- if (System.IO.File.Exists(destinationPath))
- {
- System.IO.File.Delete(destinationPath);
- }
- }
- catch (Exception cleanupEx)
- {
- logger.LogWarning(cleanupEx, "Failed to delete destination file after error");
- }
-
- try
- {
- if (System.IO.File.Exists(tempPath))
- {
- System.IO.File.Delete(tempPath);
- }
- }
- catch (Exception cleanupEx)
- {
- logger.LogWarning(cleanupEx, "Failed to delete temp file after error");
- }
-
- throw;
- }
- finally
- {
- try
- {
- if (System.IO.File.Exists(tempPath))
- {
- System.IO.File.Delete(tempPath);
- }
- }
- catch (Exception cleanupEx)
- {
- logger.LogWarning(cleanupEx, "Failed to clean up temp file in finally block");
- }
- }
-
-        var result = new
+        if (deliverable.Mission is null || !IsActiveMission(deliverable.Mission))
         {
-            id = deliverable.Id,
-            version = deliverable.Version,
-            status = DomainStatuses.Deliverable.Submitted
-        };
+            return StatusCode(StatusCodes.Status409Conflict, new { message = "Deliverable is not associated with an active mission." });
+        }
 
-        return Created($"/api/deliverables/{deliverable.Id}", result);
+        if (IsAwaitingReviewStatus(deliverable.Status))
+        {
+            return UnprocessableEntity(new { message = "Deliverable is already pending review." });
+        }
+
+        if (IsApprovedStatus(deliverable.Status))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "This deliverable has been approved." });
+        }
+
+        if (!IsSubmittableStatus(deliverable.Status))
+        {
+            return UnprocessableEntity(new { message = "Deliverable cannot be submitted in its current status." });
+        }
+
+        var hasFileUrl = !string.IsNullOrWhiteSpace(normalizedFileUrl);
+        var hasGitHubUrl = !string.IsNullOrWhiteSpace(normalizedGitHubUrl);
+
+        if (hasFileUrl == hasGitHubUrl)
+        {
+            return UnprocessableEntity(new { message = "You must provide either a file URL or a GitHub URL, but not both." });
+        }
+
+        if (normalizedFileUrl is { Length: > MaxGitHubUrlLength })
+        {
+            return UnprocessableEntity(new { message = "File URL cannot exceed 2048 characters." });
+        }
+
+        if (normalizedGitHubUrl is { Length: > MaxGitHubUrlLength })
+        {
+            return UnprocessableEntity(new { message = "GitHub URL cannot exceed 2048 characters." });
+        }
+
+        if (hasGitHubUrl && !IsRepoLevelGitHubUrl(normalizedGitHubUrl!))
+        {
+            return UnprocessableEntity(new { message = "GitHub URL must be a repository-level URL such as https://github.com/owner/repo." });
+        }
+
+        if (!hasGitHubUrl && normalizedGitHubBranch is not null)
+        {
+            return UnprocessableEntity(new { message = "GitHub branch requires a GitHub URL submission." });
+        }
+
+        if (normalizedGitHubBranch is { Length: > MaxGitHubBranchLength })
+        {
+            return UnprocessableEntity(new { message = "GitHub branch cannot exceed 200 characters." });
+        }
+
+        if (normalizedMessage is { Length: > MaxSubmissionMessageLength })
+        {
+            return UnprocessableEntity(new { message = "Message cannot exceed 2000 characters." });
+        }
+
+        var incompleteTaskCount = await dbContext.InternTasks
+            .AsNoTracking()
+            .CountAsync(
+                task => task.DeliverableId == deliverable.Id &&
+                    task.InternId == internId.Value &&
+                    task.Status != DomainStatuses.Task.Done,
+                cancellationToken);
+
+        if (incompleteTaskCount > 0)
+        {
+            return UnprocessableEntity(new
+            {
+                message = $"All tasks must be completed before submission. {incompleteTaskCount} task(s) are not complete."
+            });
+        }
+
+        if (deliverable.RowVersion != request.RowVersion)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new
+            {
+                error = "conflict",
+                message = "This record was modified. Please refresh."
+            });
+        }
+
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = dbContext.Database.IsRelational()
+                ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                : null;
+
+            try
+            {
+                var latestVersionNumber = await dbContext.DeliverableVersions
+                    .AsNoTracking()
+                    .Where(version => version.DeliverableId == deliverable.Id)
+                    .Select(version => (int?)version.VersionNumber)
+                    .MaxAsync(cancellationToken) ?? 0;
+
+                var existingVersions = await dbContext.DeliverableVersions
+                    .Where(version => version.DeliverableId == deliverable.Id)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var existingVersion in existingVersions)
+                {
+                    existingVersion.IsCurrentVersion = false;
+                }
+
+                var submittedAt = DateTime.UtcNow;
+                var nextVersionNumber = latestVersionNumber + 1;
+
+                dbContext.DeliverableVersions.Add(new DeliverableVersion
+                {
+                    Id = Guid.NewGuid(),
+                    DeliverableId = deliverable.Id,
+                    VersionNumber = nextVersionNumber,
+                    IsCurrentVersion = true,
+                    FileUrl = normalizedFileUrl,
+                    GitHubUrl = normalizedGitHubUrl,
+                    GitHubBranch = normalizedGitHubBranch,
+                    Message = normalizedMessage,
+                    Status = DomainStatuses.DeliverableVersion.Submitted,
+                    SupervisorComment = null,
+                    SubmittedAt = submittedAt,
+                    SubmittedByUserId = internId.Value
+                });
+
+                deliverable.Status = DomainStatuses.Deliverable.AwaitingReview;
+                deliverable.SubmittedDate = submittedAt;
+                deliverable.FileUrl = normalizedFileUrl ?? string.Empty;
+                deliverable.SupervisorComment = null;
+                deliverable.Version = nextVersionNumber;
+                deliverable.RowVersion += 1;
+
+                dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+                {
+                    Id = Guid.NewGuid(),
+                    EntityType = "Deliverable",
+                    EntityId = deliverable.Id,
+                    Action = "deliverable.submitted",
+                    ActorId = internId.Value,
+                    CreatedAt = submittedAt
+                });
+
+                var internName = deliverable.Intern is null
+                    ? "An intern"
+                    : $"{deliverable.Intern.FirstName} {deliverable.Intern.LastName}".Trim();
+                if (string.IsNullOrWhiteSpace(internName))
+                {
+                    internName = "An intern";
+                }
+
+                var notificationMessage = $"{internName} submitted '{deliverable.Title}'";
+                notificationService.QueueNotification(
+                    deliverable.Mission.SupervisorId,
+                    "deliverable.submitted",
+                    "New submission awaiting review",
+                    notificationMessage,
+                    deliverable.Id.ToString());
+
+                if (deliverable.Mission.CoSupervisorCanReview && deliverable.Mission.CoSupervisorId.HasValue)
+                {
+                    notificationService.QueueNotification(
+                        deliverable.Mission.CoSupervisorId.Value,
+                        "deliverable.submitted",
+                        "New submission awaiting review",
+                        notificationMessage,
+                        deliverable.Id.ToString());
+                }
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+
+                var response = new InternDeliverableResponse
+                {
+                    Id = deliverable.Id,
+                    MissionId = deliverable.MissionId,
+                    Title = deliverable.Title,
+                    DueDate = deliverable.DueDate,
+                    Status = NormalizeStatusForIntern(deliverable.Status),
+                    Version = deliverable.Version,
+                    SupervisorComment = deliverable.SupervisorComment,
+                    Progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status),
+                    Weight = deliverable.Weight,
+                    RowVersion = deliverable.RowVersion
+                };
+
+                return Ok(response);
+            }
+            catch
+            {
+                if (transaction is not null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+
+                throw;
+            }
+        });
     }
 
     /// <summary>
@@ -816,70 +942,7 @@ dbContext.AuditLogs.Add(new AuditLog
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
-    [HttpPatch("/api/intern/me/deliverables/{id:guid}/progress", Name = "UpdateDeliverableProgress")]
-    [FeatureCard(DashboardCard.Deliverables)]
-    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
-    [Authorize(Roles = "SuperAdmin,Admin,Intern")]
-    [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateDeliverableProgress(
-        Guid id,
-        [FromBody] UpdateDeliverableProgressRequest request,
-        CancellationToken cancellationToken)
-    {
-        var internId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!internId.HasValue)
-        {
-            return Unauthorized();
-        }
 
-        if (request.Progress < 0 || request.Progress > 100)
-        {
-            return BadRequest(new { message = "progress must be between 0 and 100." });
-        }
-
-        var deliverable = await dbContext.Deliverables
-            .FirstOrDefaultAsync(item => item.Id == id && item.InternId == internId.Value, cancellationToken);
-
-        if (deliverable is null)
-        {
-            return NotFound(new { message = "Deliverable not found." });
-        }
-
-        deliverable.Progress = request.Progress;
-
-        var linkedTasks = await dbContext.InternTasks
-            .Where(task => task.DeliverableId == deliverable.Id && task.InternId == internId.Value)
-            .ToListAsync(cancellationToken);
-
-        foreach (var task in linkedTasks)
-        {
-            var isComplete = request.Progress >= 100;
-            task.IsComplete = isComplete;
-            task.CompletedAt = isComplete ? DateTime.UtcNow : null;
-        }
-
-        dbContext.AuditLogs.Add(new AuditLog
-        {
-            ActorUserId = internId,
-            Actor = UserContextHelper.ResolveCurrentActorName(User),
-            Action = "deliverable.progress.update",
-            Entity = $"deliverable:{deliverable.Id} progress:{deliverable.Progress}",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Ok(new
-        {
-            id = deliverable.Id,
-            progress = deliverable.Progress
-        });
-    }
 
     /// <summary>
     /// Valide ou refuse un livrable soumis.
@@ -900,19 +963,18 @@ dbContext.AuditLogs.Add(new AuditLog
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
     /// <response code="409">Livrable pas encore soumis.</response>
-    [HttpPatch("{id:guid}/validate", Name = "ValidateDeliverable")]
-    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [HttpPost("{id:guid}/approve", Name = "ApproveDeliverable")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [EnableRateLimiting("write-operations")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(DeliverableReviewResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> ValidateDeliverable(
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ApproveDeliverable(
         Guid id,
-        [FromBody] ValidateDeliverableRequest request,
+        [FromBody] ApproveDeliverableRequest request,
         CancellationToken cancellationToken)
     {
         var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
@@ -921,22 +983,34 @@ dbContext.AuditLogs.Add(new AuditLog
             return Unauthorized();
         }
 
+        var permissionResult = await AuthorizeDeliverableReviewAsync(id, currentSupervisorId.Value, cancellationToken);
+        if (permissionResult is not null)
+        {
+            return permissionResult;
+        }
+
         try
         {
-            var response = await deliverablesService.ValidateDeliverableAsync(
+            var response = await deliverablesService.ApproveDeliverableAsync(
                 currentSupervisorId.Value,
                 id,
-                request.Status,
-                request.Action,
-                request.Comment,
-                UserContextHelper.ResolveCurrentActorName(User),
+                request.RowVersion,
                 cancellationToken);
+
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(ConflictPayload());
+            }
 
             return Ok(response);
         }
-        catch (ArgumentException exception)
+        catch (ConcurrencyException)
         {
-            return BadRequest(new { message = exception.Message });
+            return Conflict(ConflictPayload());
         }
         catch (KeyNotFoundException exception)
         {
@@ -944,7 +1018,72 @@ dbContext.AuditLogs.Add(new AuditLog
         }
         catch (InvalidOperationException exception)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = exception.Message });
+            return UnprocessableEntity(new { message = exception.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/reject", Name = "RejectDeliverable")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(typeof(DeliverableReviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> RejectDeliverable(
+        Guid id,
+        [FromBody] RejectDeliverableRequest request,
+        CancellationToken cancellationToken)
+    {
+        var currentSupervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentSupervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var permissionResult = await AuthorizeDeliverableReviewAsync(id, currentSupervisorId.Value, cancellationToken);
+        if (permissionResult is not null)
+        {
+            return permissionResult;
+        }
+
+        try
+        {
+            var response = await deliverablesService.RejectDeliverableAsync(
+                currentSupervisorId.Value,
+                id,
+                request.Reason,
+                request.TaskIdsToReopen,
+                request.RowVersion,
+                cancellationToken);
+
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(ConflictPayload());
+            }
+
+            return Ok(response);
+        }
+        catch (ConcurrencyException)
+        {
+            return Conflict(ConflictPayload());
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (ArgumentException exception)
+        {
+            return UnprocessableEntity(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return UnprocessableEntity(new { message = exception.Message });
         }
     }
 
@@ -1003,14 +1142,21 @@ dbContext.AuditLogs.Add(new AuditLog
             return BadRequest(new { message = "Intern not found." });
         }
 
-        var missionExists = await dbContext.Missions
+        var mission = await dbContext.Missions
             .AsNoTracking()
-            .AnyAsync(mission => mission.Id == request.MissionId && mission.SupervisorId == supervisorId.Value, cancellationToken);
+            .FirstOrDefaultAsync(mission => mission.Id == request.MissionId, cancellationToken);
 
-        if (!missionExists)
+        if (mission is null)
         {
-            return BadRequest(new { message = "Mission not found for current supervisor." });
+            return NotFound(new { message = "Mission not found." });
         }
+
+        await missionPolicyService.CanCreateTaskAsync(
+            supervisorId.Value,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            mission.Id);
+
+        await missionPolicyService.AssertMissionNotArchivedAsync(mission.Id);
 
         var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
         if (!isAdminScope)
@@ -1043,7 +1189,7 @@ var deliverable = new Deliverable
     Description = request.Description?.Trim(),
     Status = DomainStatuses.Deliverable.Pending,
     DueDate = normalizedDueDate,
-    Progress = 0,
+    RawProgress = 0m,
     Version = 1,
     CreatedAt = DateTime.UtcNow
 };
@@ -1075,8 +1221,41 @@ var deliverable = new Deliverable
             title = deliverable.Title,
             dueDate = deliverable.DueDate,
             status = deliverable.Status,
-            progress = deliverable.Progress
+            progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status)
         });
+    }
+
+    private async Task<IActionResult?> AuthorizeDeliverableReviewAsync(
+        Guid deliverableId,
+        Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var deliverable = await dbContext.Deliverables
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == deliverableId, cancellationToken);
+
+        if (deliverable is null)
+        {
+            return NotFound(new { message = "Deliverable not found." });
+        }
+
+        await missionPolicyService.CanReviewDeliverableAsync(
+            actorId,
+            UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+            deliverable.MissionId);
+
+        await missionPolicyService.AssertMissionNotArchivedAsync(deliverable.MissionId);
+
+        return null;
+    }
+
+    private static object ConflictPayload()
+    {
+        return new
+        {
+            error = "conflict",
+            message = "This record was modified by another request. Please refresh and try again."
+        };
     }
 
     private static DeliverableVersionResponse ToVersionResponse(DeliverableVersion version, User? submittedByUser)
@@ -1086,6 +1265,7 @@ var deliverable = new Deliverable
             Id = version.Id,
             DeliverableId = version.DeliverableId,
             VersionNumber = version.VersionNumber,
+            IsCurrentVersion = version.IsCurrentVersion,
             FileUrl = version.FileUrl,
             GitHubUrl = version.GitHubUrl,
             GitHubBranch = version.GitHubBranch,
@@ -1175,6 +1355,32 @@ var deliverable = new Deliverable
         return string.Equals(mission.Status, DomainStatuses.Mission.Active, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsSubmittableStatus(string rawStatus)
+    {
+        var status = rawStatus.Trim().ToLowerInvariant();
+
+        return status is
+            DomainStatuses.Deliverable.Draft or
+            DomainStatuses.Deliverable.InProgress or
+            DomainStatuses.Deliverable.ChangesRequested or
+            DomainStatuses.Deliverable.Pending or
+            DomainStatuses.Deliverable.Rejected;
+    }
+
+    private static bool IsAwaitingReviewStatus(string rawStatus)
+    {
+        var status = rawStatus.Trim().ToLowerInvariant();
+
+        return status is DomainStatuses.Deliverable.AwaitingReview or DomainStatuses.Deliverable.Submitted;
+    }
+
+    private static bool IsApprovedStatus(string rawStatus)
+    {
+        var status = rawStatus.Trim().ToLowerInvariant();
+
+        return status is DomainStatuses.Deliverable.Approved or DomainStatuses.Deliverable.Accepted;
+    }
+
     private static int ComputeNextVersionNumber(Deliverable deliverable, int? latestVersionNumber)
     {
         if (latestVersionNumber.HasValue)
@@ -1205,33 +1411,20 @@ var deliverable = new Deliverable
 
         return normalizedStatus switch
         {
-            DomainStatuses.Deliverable.Pending => "not_submitted",
-            DomainStatuses.Deliverable.Submitted => DomainStatuses.Deliverable.Submitted,
-            DomainStatuses.Deliverable.Accepted => DomainStatuses.Deliverable.Accepted,
-            DomainStatuses.Deliverable.Rejected => DomainStatuses.Deliverable.Rejected,
+            DomainStatuses.Deliverable.Pending => DomainStatuses.Deliverable.Draft,
+            DomainStatuses.Deliverable.Submitted => DomainStatuses.Deliverable.AwaitingReview,
+            DomainStatuses.Deliverable.Accepted => DomainStatuses.Deliverable.Approved,
+            DomainStatuses.Deliverable.Rejected => DomainStatuses.Deliverable.ChangesRequested,
             _ => normalizedStatus
         };
     }
 
 }
-
-public sealed class ValidateDeliverableRequest
-{
-    public string? Status { get; init; }
-
-    public string? Action { get; init; }
-
-    public string? Comment { get; init; }
-}
-
-public sealed class SubmitDeliverableForm
-{
-    public IFormFile? File { get; init; }
-}
-
 public sealed class SubmitDeliverableVersionForm
 {
     public IFormFile? File { get; init; }
+
+    public long RowVersion { get; set; }
 
     public string? GitHubUrl { get; init; }
 
@@ -1276,6 +1469,8 @@ public sealed class DeliverableVersionResponse
 
     public int VersionNumber { get; init; }
 
+    public bool IsCurrentVersion { get; init; }
+
     public string? FileUrl { get; init; }
 
     public string? GitHubUrl { get; init; }
@@ -1302,11 +1497,6 @@ public sealed class DeliverableVersionSubmittedByResponse
     public string Name { get; init; } = string.Empty;
 
     public string Email { get; init; } = string.Empty;
-}
-
-public sealed class UpdateDeliverableProgressRequest
-{
-    public int Progress { get; init; }
 }
 
 public sealed class AssignDeliverableRequest

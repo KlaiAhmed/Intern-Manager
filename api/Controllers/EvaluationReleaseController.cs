@@ -1,8 +1,11 @@
 using InternManager.Api.Common.Utilities;
+using InternManager.Api.Data;
+using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Controllers;
 
@@ -10,9 +13,12 @@ namespace InternManager.Api.Controllers;
 /// Contrôleur dédié à la publication des évaluations côté intern.
 /// </summary>
 [ApiController]
-[Route("api/evaluations")]
+[Route("api/evaluation-release")]
 [Authorize]
-public sealed class EvaluationReleaseController(IEvaluationReleaseService evaluationReleaseService) : ControllerBase
+public sealed class EvaluationReleaseController(
+    AppDbContext dbContext,
+    IEvaluationReleaseService evaluationReleaseService,
+    IMissionPolicyService missionPolicyService) : ControllerBase
 {
     /// <summary>
     /// Publie une évaluation pour l intern.
@@ -33,6 +39,41 @@ public sealed class EvaluationReleaseController(IEvaluationReleaseService evalua
         }
 
         var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+
+        if (!isAdminScope)
+        {
+            var evaluation = await dbContext.Evaluations
+                .AsNoTracking()
+                .Include(item => item.Deliverable)
+                .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+            if (evaluation is null)
+            {
+                return NotFound(new { message = "Evaluation not found." });
+            }
+
+            var mission = await ResolveMissionForEvaluationAsync(actorUserId.Value, evaluation.InternId, cancellationToken);
+            if (evaluation.DeliverableId.HasValue && mission is null)
+            {
+                mission = await dbContext.Deliverables
+                    .AsNoTracking()
+                    .Where(deliverable => deliverable.Id == evaluation.DeliverableId.Value)
+                    .Select(deliverable => new Mission { Id = deliverable.MissionId })
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            if (mission is null)
+            {
+                return Forbid();
+            }
+
+            await missionPolicyService.CanEvaluateAsync(
+                actorUserId.Value,
+                UserContextHelper.ResolveCurrentUserRole(User)?.ToString() ?? string.Empty,
+                mission.Id);
+
+            await missionPolicyService.AssertMissionNotArchivedAsync(mission.Id);
+        }
 
         try
         {
@@ -57,6 +98,16 @@ public sealed class EvaluationReleaseController(IEvaluationReleaseService evalua
         {
             return Conflict(new { message = exception.Message });
         }
+    }
+
+    private async Task<Mission?> ResolveMissionForEvaluationAsync(Guid actorUserId, Guid internId, CancellationToken cancellationToken)
+    {
+        return await dbContext.Missions
+            .AsNoTracking()
+            .Where(mission => mission.InternId == internId &&
+                              (mission.SupervisorId == actorUserId || mission.CoSupervisorId == actorUserId))
+            .OrderByDescending(mission => mission.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     /// <summary>

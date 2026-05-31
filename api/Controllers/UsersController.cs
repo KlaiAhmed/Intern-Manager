@@ -383,6 +383,12 @@ public sealed class UsersController(AppDbContext dbContext, UserDeletionService 
                 }
 
                 updatedFields.Add("role");
+
+                dbContext.AuditLogs.Add(CreateAuditLog(
+                    UserContextHelper.ResolveCurrentUserId(User),
+                    UserContextHelper.ResolveCurrentActorName(User),
+                    "user.role.updated",
+                    $"user:{user.Id} {previousRole}->{parsedRole}"));
             }
         }
 

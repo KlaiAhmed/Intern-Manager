@@ -37,9 +37,9 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
     [ProducesResponseType(typeof(PagedResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetNotifications(
-        [FromQuery] bool unreadOnly = false,
+        [FromQuery] bool all = false,
         [FromQuery] int page = 1,
-        [FromQuery] int limit = 20,
+        [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         var userId = UserContextHelper.ResolveCurrentUserId(User);
@@ -49,14 +49,14 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
         }
 
         var safePage = Math.Max(page, 1);
-        var safeLimit = Math.Clamp(limit, 1, 100);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
 
         var query = dbContext.Notifications
             .AsNoTracking()
             .Where(notification => notification.UserId == userId.Value)
             .AsQueryable();
 
-        if (unreadOnly)
+        if (!all)
         {
             query = query.Where(notification => !notification.IsRead);
         }
@@ -65,8 +65,8 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
 
         var data = await query
             .OrderByDescending(notification => notification.CreatedAt)
-            .Skip((safePage - 1) * safeLimit)
-            .Take(safeLimit)
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
             .Select(notification => new
             {
                 id = notification.Id,
@@ -80,7 +80,7 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(new { data, total, page = safePage, limit = safeLimit });
+        return Ok(new { data, total, page = safePage, pageSize = safePageSize });
     }
 
     /// <summary>
@@ -100,6 +100,7 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
     [EnableRateLimiting("read-frequent")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> MarkAsRead(Guid id, CancellationToken cancellationToken)
     {
@@ -110,11 +111,16 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
         }
 
         var notification = await dbContext.Notifications
-            .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId.Value, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         if (notification is null)
         {
             return NotFound(new { message = "Notification not found." });
+        }
+
+        if (notification.UserId != userId.Value)
+        {
+            return Forbid();
         }
 
         if (!notification.IsRead)
@@ -130,5 +136,37 @@ public sealed class NotificationsController(AppDbContext dbContext) : Controller
             isRead = notification.IsRead,
             readAt = notification.ReadAt
         });
+    }
+
+    [HttpPatch("read-all", Name = "MarkAllNotificationsRead")]
+    [EnableRateLimiting("read-frequent")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MarkAllAsRead(CancellationToken cancellationToken)
+    {
+        var userId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var unreadNotifications = await dbContext.Notifications
+            .Where(notification => notification.UserId == userId.Value && !notification.IsRead)
+            .ToListAsync(cancellationToken);
+
+        if (unreadNotifications.Count > 0)
+        {
+            var now = DateTime.UtcNow;
+
+            foreach (var notification in unreadNotifications)
+            {
+                notification.IsRead = true;
+                notification.ReadAt = now;
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return Ok(new { updatedCount = unreadNotifications.Count });
     }
 }

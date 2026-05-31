@@ -1,4 +1,5 @@
-﻿using InternManager.Api.Common.Enums;
+﻿using InternManager.Api.Common.Constants;
+using InternManager.Api.Common.Enums;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Responses;
@@ -127,11 +128,11 @@ public sealed class SupervisorInternsController(
                 progress = (int)Math.Round(
                     dbContext.Deliverables
                         .Where(deliverable => deliverable.SupervisorId == supervisorId.Value && deliverable.InternId == user.Id)
-                        .Select(deliverable => (double?)(deliverable.Progress < 0
-                            ? 0
-                            : deliverable.Progress > 100
-                                ? 100
-                                : deliverable.Progress))
+                        .Select(deliverable => (double?)(deliverable.RawProgress < 0m
+                            ? 0d
+                            : deliverable.RawProgress > 100m
+                                ? 100d
+                                : (double)deliverable.RawProgress))
                         .Average() ?? 0d),
                 lastJournalDate = dbContext.JournalEntries
                     .Where(entry => entry.InternId == user.Id)
@@ -142,8 +143,10 @@ public sealed class SupervisorInternsController(
                                         deliverable.InternId == user.Id &&
                                         deliverable.DueDate.HasValue &&
                                         deliverable.DueDate.Value < utcNow &&
-                                        deliverable.Status != "accepted" &&
-                                        deliverable.Status != "rejected")
+                                        deliverable.Status != DomainStatuses.Deliverable.Accepted &&
+                                        deliverable.Status != DomainStatuses.Deliverable.Rejected &&
+                                        deliverable.Status != DomainStatuses.Deliverable.Approved &&
+                                        deliverable.Status != DomainStatuses.Deliverable.Cancelled)
             })
             .ToListAsync(cancellationToken);
 
