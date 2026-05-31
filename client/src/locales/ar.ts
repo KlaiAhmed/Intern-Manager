@@ -52,8 +52,8 @@ export const commonAr = {
   'auth.reset.sendCode': 'ارسال رمز اعادة التعيين',
   'auth.reset.backToLogin': 'العودة لتسجيل الدخول',
   'auth.reset.checkEmail': 'تحقق من بريدك الالكتروني',
-  'auth.reset.codeSentTo': 'لقد ارسلنا رمزا مكونا من 6 ارقام الى {{email}}',
-  'auth.reset.codeLabel': 'ادخل الرمز المكون من 6 ارقام',
+  'auth.reset.codeSentTo': 'لقد ارسلنا رمزا مكونا من 8 ارقام الى {{email}}', // Backend reset code has 8 digits.
+  'auth.reset.codeLabel': 'ادخل الرمز المكون من 8 ارقام', // Backend reset code has 8 digits.
   'auth.reset.verifyCode': 'تحقق من الرمز',
   'auth.reset.resendCode': 'اعادة ارسال الرمز',
   'auth.reset.resendIn': 'اعادة الارسال خلال {{seconds}}ث',

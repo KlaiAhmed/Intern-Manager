@@ -203,10 +203,6 @@ export const dashboardFr = {
   'dashboard.intern.deliverables.historyFailed': 'Impossible de charger l’historique des versions.',
   'dashboard.intern.deliverables.versionNumber': 'Version {{version}}',
   'dashboard.intern.deliverables.fileSubmission': 'Soumission par fichier',
-  'dashboard.intern.deliverables.status.not_submitted': 'Non soumis',
-  'dashboard.intern.deliverables.status.submitted': 'Soumis',
-  'dashboard.intern.deliverables.status.accepted': 'Accepté',
-  'dashboard.intern.deliverables.status.rejected': 'Rejeté',
 
   'dashboard.intern.mission.details': 'Détails de la mission',
   'dashboard.intern.mission.emptyTitle': 'Aucune mission active',

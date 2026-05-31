@@ -329,10 +329,6 @@ export const dashboardEn = {
   'dashboard.intern.deliverables.historyFailed': 'Unable to load version history.',
   'dashboard.intern.deliverables.versionNumber': 'Version {{version}}',
   'dashboard.intern.deliverables.fileSubmission': 'File submission',
-  'dashboard.intern.deliverables.status.not_submitted': 'Not submitted',
-  'dashboard.intern.deliverables.status.submitted': 'Submitted',
-  'dashboard.intern.deliverables.status.accepted': 'Accepted',
-  'dashboard.intern.deliverables.status.rejected': 'Rejected',
 
   'dashboard.intern.mission.details': 'Mission details',
   'dashboard.intern.mission.emptyTitle': 'No active mission',

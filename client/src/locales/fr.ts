@@ -52,8 +52,8 @@ export const commonFr = {
   'auth.reset.sendCode': 'Envoyer le code de reinitialisation',
   'auth.reset.backToLogin': 'Retour a la connexion',
   'auth.reset.checkEmail': 'Verifiez votre email',
-  'auth.reset.codeSentTo': 'Nous avons envoye un code a 6 chiffres a {{email}}',
-  'auth.reset.codeLabel': 'Entrez le code a 6 chiffres',
+  'auth.reset.codeSentTo': 'Nous avons envoye un code a 8 chiffres a {{email}}', // Backend reset code has 8 digits.
+  'auth.reset.codeLabel': 'Entrez le code a 8 chiffres', // Backend reset code has 8 digits.
   'auth.reset.verifyCode': 'Verifier le code',
   'auth.reset.resendCode': 'Renvoyer le code',
   'auth.reset.resendIn': 'Renvoyer dans {{seconds}}s',

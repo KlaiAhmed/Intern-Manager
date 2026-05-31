@@ -203,10 +203,6 @@ export const dashboardAr = {
   'dashboard.intern.deliverables.historyFailed': 'تعذر تحميل سجل الإصدارات.',
   'dashboard.intern.deliverables.versionNumber': 'الإصدار {{version}}',
   'dashboard.intern.deliverables.fileSubmission': 'تقديم ملف',
-  'dashboard.intern.deliverables.status.not_submitted': 'غير مقدم',
-  'dashboard.intern.deliverables.status.submitted': 'مقدم',
-  'dashboard.intern.deliverables.status.accepted': 'مقبول',
-  'dashboard.intern.deliverables.status.rejected': 'مرفوض',
 
   'dashboard.intern.mission.details': 'تفاصيل المهمة',
   'dashboard.intern.mission.emptyTitle': 'لا توجد مهمة نشطة',
