@@ -127,14 +127,13 @@ export interface InternTaskResponse {
   id: Guid
   title: string
   dueDate: IsoDateTimeString | null
-  isComplete: boolean
-  completed: boolean
+  status: string
+  rowVersion: number
 }
 
 export interface CompleteInternTaskResponse {
   id: Guid
-  isComplete: true
-  completed: true
+  status: string
 }
 
 export interface InternDeliverableResponse {
@@ -145,21 +144,9 @@ export interface InternDeliverableResponse {
   version: number
   supervisorComment: string | null
   progress: number
-}
-
-export interface SubmitDeliverableResponse {
-  id: Guid
-  version: number
-  status: 'submitted'
-}
-
-export interface UpdateDeliverableProgressRequest {
-  progress: number
-}
-
-export interface UpdateDeliverableProgressResponse {
-  id: Guid
-  progress: number
+  missionId: Guid
+  weight: number
+  rowVersion: number
 }
 
 export interface DeliverableVersionSubmittedByResponse {
@@ -202,6 +189,7 @@ export interface DeliverableVersionHistoryResponse {
 
 export interface SubmitDeliverableVersionRequest {
   deliverableId: Guid
+  rowVersion: number
   file?: File | null
   gitHubUrl?: string | null
   gitHubBranch?: string | null
@@ -256,7 +244,9 @@ export interface EvaluationCriteriaResponse {
 export interface InternEvaluationResponse {
   id: Guid
   type: InternEvaluationType
+  status: string
   criteria: EvaluationCriteriaResponse
+  overallScore: number | null
   isReleasedToIntern: boolean
   releasedAt: IsoDateTimeString | null
   date: IsoDateTimeString

@@ -30,7 +30,7 @@ export interface Task {
   id: string
   title: string
   dueDate: string | null
-  completed: boolean
+  status: string
   priority?: 'high' | 'medium' | 'low'
 }
 

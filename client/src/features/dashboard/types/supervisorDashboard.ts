@@ -63,6 +63,16 @@ export interface SupervisorValidationQueueItem {
   status: string
   version: number
   fileUrl: string
+  rowVersion: number
+  rawProgress: number
+  tasks: SupervisorValidationQueueTask[]
+}
+
+export interface SupervisorValidationQueueTask {
+  id: string
+  title: string
+  status: string
+  rowVersion: number
 }
 
 export interface SupervisorMeetingItem {
@@ -97,16 +107,25 @@ export interface SupervisorDeliverableForm {
 export interface SupervisorEvaluationDueItem {
   evaluationId: string
   internId: string
+  deliverableId: string
   internName: string
   type: string
+  status: string
+  deliverableTitle: string
+  deliverableStatus: string
 }
 
 export interface SupervisorEvaluationCompletedItem {
   evaluationId: string
   internId: string
+  deliverableId: string
   internName: string
   type: string
+  status: string
+  deliverableTitle: string
+  deliverableStatus: string
   averageScore: number
+  overallScore: number | null
   submittedAt: string
 }
 

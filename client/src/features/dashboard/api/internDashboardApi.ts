@@ -28,10 +28,7 @@ import type {
   ReferentialResponse,
   ReplaceInternSkillsRequest,
   ReplaceInternSkillsResponse,
-  SubmitDeliverableResponse,
   SubmitDeliverableVersionRequest,
-  UpdateDeliverableProgressRequest,
-  UpdateDeliverableProgressResponse,
   UpdateInternProfileRequest,
 } from '../types/intern.types'
 
@@ -201,6 +198,8 @@ function buildDeliverableVersionFormData(request: SubmitDeliverableVersionReques
     formData.append('message', request.message)
   }
 
+  formData.append('rowVersion', String(request.rowVersion))
+
   return formData
 }
 
@@ -231,17 +230,10 @@ export const internDashboardApi = {
     return requestJson<InternDashboardPagedResponse<InternTaskResponse>>(buildListPath('/api/intern/me/tasks', params))
   },
 
-  syncTasks(): Promise<InternDashboardActionResponse> {
-    return requestJson<InternDashboardActionResponse>('/api/intern/me/tasks/sync', {
-      method: 'POST',
-      body: {},
-    })
-  },
-
-  completeTask(taskId: string): Promise<CompleteInternTaskResponse> {
-    return requestJson<CompleteInternTaskResponse>(`/api/tasks/${taskId}/complete`, {
+  completeTask(params: { taskId: string; rowVersion: number }): Promise<CompleteInternTaskResponse> {
+    return requestJson<CompleteInternTaskResponse>(`/api/tasks/${params.taskId}/complete`, {
       method: 'PATCH',
-      body: {},
+      body: { rowVersion: params.rowVersion },
     })
   },
 
@@ -253,9 +245,11 @@ export const internDashboardApi = {
     deliverableId: string,
     file: File,
     options: UploadOptions = {},
-  ): Promise<SubmitDeliverableResponse> {
-    return uploadWithProgress<SubmitDeliverableResponse>({
-      path: `/api/deliverables/${deliverableId}/submit`,
+  ): Promise<DeliverableVersionResponse> {
+    // TODO: this function cannot send rowVersion and will always 409.
+    // Pass a full SubmitDeliverableVersionRequest to fix it.
+    return uploadWithProgress<DeliverableVersionResponse>({
+      path: `/api/deliverables/${deliverableId}/versions`,
       formData: buildFileFormData(file),
       onProgress: options.onProgress,
       signal: options.signal,
@@ -276,16 +270,6 @@ export const internDashboardApi = {
 
   getDeliverableVersions(deliverableId: string): Promise<DeliverableVersionHistoryResponse> {
     return requestJson<DeliverableVersionHistoryResponse>(`/api/deliverables/${deliverableId}/versions`)
-  },
-
-  updateDeliverableProgress(
-    deliverableId: string,
-    request: UpdateDeliverableProgressRequest,
-  ): Promise<UpdateDeliverableProgressResponse> {
-    return requestJson<UpdateDeliverableProgressResponse>(`/api/intern/me/deliverables/${deliverableId}/progress`, {
-      method: 'PATCH',
-      body: request,
-    })
   },
 
   getJournalEntries(limit = 10): Promise<InternJournalEntriesResponse> {
