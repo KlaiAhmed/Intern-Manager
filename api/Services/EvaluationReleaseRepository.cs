@@ -14,6 +14,7 @@ public sealed class EvaluationReleaseRepository(AppDbContext dbContext) : IEvalu
     public Task<Evaluation?> GetByIdAsync(Guid evaluationId, CancellationToken cancellationToken)
     {
         return dbContext.Evaluations
+            .Include(e => e.Deliverable)
             .FirstOrDefaultAsync(item => item.Id == evaluationId, cancellationToken);
     }
 

@@ -11,12 +11,17 @@ public interface IDeliverablesService
         int limit,
         CancellationToken cancellationToken);
 
-    Task<DeliverableValidationResponse> ValidateDeliverableAsync(
-        Guid supervisorId,
+    Task<DeliverableReviewResponse> ApproveDeliverableAsync(
+        Guid actorId,
         Guid deliverableId,
-        string? status,
-        string? action,
-        string? comment,
-        string actorName,
+        int rowVersion,
+        CancellationToken cancellationToken);
+
+    Task<DeliverableReviewResponse> RejectDeliverableAsync(
+        Guid actorId,
+        Guid deliverableId,
+        string reason,
+        IReadOnlyCollection<Guid> taskIdsToReopen,
+        int rowVersion,
         CancellationToken cancellationToken);
 }

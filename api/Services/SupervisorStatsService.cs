@@ -16,12 +16,12 @@ public sealed class SupervisorStatsService(
         var deliverableProgressValues = await dbContext.Deliverables
             .AsNoTracking()
             .Where(deliverable => deliverable.SupervisorId == supervisorId)
-            .Select(deliverable => deliverable.Progress)
+            .Select(deliverable => deliverable.RawProgress)
             .ToListAsync(cancellationToken);
 
         var averageProgress = deliverableProgressValues.Count == 0
             ? 0d
-            : deliverableProgressValues.Average(progress => Math.Clamp(progress, 0, 100));
+            : deliverableProgressValues.Average(progress => Math.Clamp((double)progress, 0d, 100d));
 
 return Math.Round(averageProgress, 2);
  }

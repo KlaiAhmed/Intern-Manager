@@ -1,4 +1,3 @@
-using InternManager.Api.Common.Constants;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Interfaces;
@@ -8,6 +7,7 @@ namespace InternManager.Api.Services;
 
 public sealed class TaskWorkflowService(AppDbContext dbContext, ISupervisorScopeService supervisorScopeService) : ITaskWorkflowService
 {
+    // REMOVED: legacy task-from-deliverable sync (Phase 1 - 1:1 anti-pattern eliminated)
     public async Task<bool> CanSupervisorAssignInternAsync(Guid supervisorId, Guid internId, CancellationToken cancellationToken)
     {
         var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(supervisorId, cancellationToken);
@@ -30,54 +30,5 @@ public sealed class TaskWorkflowService(AppDbContext dbContext, ISupervisorScope
                 .AnyAsync(meeting => meeting.InternId == internId, cancellationToken);
 
         return !hasAnyAssignment;
-    }
-
-    public async Task<int> EnsureTasksFromDeliverablesAsync(Guid internId, CancellationToken cancellationToken)
-    {
-        var existingDeliverableIds = await dbContext.InternTasks
-            .AsNoTracking()
-            .Where(task => task.InternId == internId && task.DeliverableId.HasValue)
-            .Select(task => task.DeliverableId!.Value)
-            .ToListAsync(cancellationToken);
-
-        var existingDeliverableSet = existingDeliverableIds.ToHashSet();
-
-        var missingDeliverables = await dbContext.Deliverables
-            .AsNoTracking()
-            .Where(deliverable => deliverable.InternId == internId && !existingDeliverableSet.Contains(deliverable.Id))
-            .Select(deliverable => new
-            {
-                deliverable.Id,
-                deliverable.Title,
-                deliverable.DueDate,
-                deliverable.Progress,
-                deliverable.Status
-            })
-            .ToListAsync(cancellationToken);
-
-        if (missingDeliverables.Count == 0)
-        {
-            return 0;
-        }
-
-        foreach (var deliverable in missingDeliverables)
-        {
-            var isComplete = deliverable.Progress >= 100 ||
-                             deliverable.Status.Equals(DomainStatuses.Deliverable.Accepted, StringComparison.OrdinalIgnoreCase);
-
-            dbContext.InternTasks.Add(new InternTask
-            {
-                Id = Guid.NewGuid(),
-                InternId = internId,
-                DeliverableId = deliverable.Id,
-                Title = deliverable.Title,
-                DueDate = deliverable.DueDate,
-                IsComplete = isComplete,
-                CompletedAt = isComplete ? DateTime.UtcNow : null,
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-
-        return missingDeliverables.Count;
     }
 }

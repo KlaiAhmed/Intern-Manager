@@ -23,9 +23,24 @@ public sealed class NotificationService(AppDbContext dbContext) : INotificationS
             Type = type.Trim(),
             Title = title?.Trim() ?? string.Empty,
             Message = message.Trim(),
-            RelatedEntity = string.IsNullOrWhiteSpace(relatedEntity) ? null : relatedEntity.Trim(),
+            RelatedEntity = NormalizeRelatedEntity(relatedEntity),
             IsRead = false,
             CreatedAt = DateTime.UtcNow
         });
+    }
+
+    private static string? NormalizeRelatedEntity(string? relatedEntity)
+    {
+        if (string.IsNullOrWhiteSpace(relatedEntity))
+        {
+            return null;
+        }
+
+        var trimmedValue = relatedEntity.Trim();
+        var separatorIndex = trimmedValue.LastIndexOf(':');
+
+        return separatorIndex >= 0 && separatorIndex < trimmedValue.Length - 1
+            ? trimmedValue[(separatorIndex + 1)..].Trim()
+            : trimmedValue;
     }
 }

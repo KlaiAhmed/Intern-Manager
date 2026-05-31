@@ -26,18 +26,23 @@ public sealed class EvaluationReleaseService(
             throw new KeyNotFoundException("Evaluation not found.");
         }
 
-        if (!isAdminScope)
+        if (evaluation.Deliverable?.Status != DomainStatuses.Deliverable.Approved)
         {
-            var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(actorUserId, cancellationToken);
-            if (!assignedInternIds.Contains(evaluation.InternId))
-            {
-                throw new UnauthorizedAccessException("Only assigned supervisor can release this evaluation.");
-            }
+            throw new InvalidOperationException("The linked deliverable must be approved before releasing its evaluation.");
         }
 
         if (!string.Equals(evaluation.Status, DomainStatuses.Evaluation.Submitted, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Only submitted evaluations can be released.");
+        }
+
+        if (!isAdminScope)
+        {
+            var assignedInternIds = await supervisorScopeService.GetAssignedInternIdsAsync(actorUserId, cancellationToken);
+            if (!assignedInternIds.Contains(evaluation.InternId))
+            {
+                throw new UnauthorizedAccessException("You do not have permission to release this evaluation.");
+            }
         }
 
         if (!evaluation.IsReleasedToIntern)
@@ -61,7 +66,7 @@ public sealed class EvaluationReleaseService(
             {
                 InternId = evaluation.InternId,
                 Type = InternNotificationType.EvaluationReleased,
-                Message = "A new evaluation is now available in your dashboard.",
+                Message = $"Your evaluation '{evaluation.Type}' has been released.",
                 RelatedEntityId = null,
                 IsRead = false,
                 CreatedAt = now

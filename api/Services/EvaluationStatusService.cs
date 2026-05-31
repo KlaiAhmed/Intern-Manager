@@ -22,6 +22,7 @@ public sealed class EvaluationStatusService(
 
         var evaluations = await dbContext.Evaluations
             .AsNoTracking()
+            .Include(evaluation => evaluation.Deliverable)
             .Where(evaluation => evaluation.SupervisorId == supervisorId && assignedInternIds.Contains(evaluation.InternId))
             .Select(evaluation => new
             {
@@ -31,27 +32,33 @@ public sealed class EvaluationStatusService(
                 InternLastName = evaluation.Intern != null ? evaluation.Intern.LastName : string.Empty,
                 evaluation.Type,
                 evaluation.Status,
+                evaluation.DeliverableId,
+                DeliverableTitle = evaluation.Deliverable != null ? evaluation.Deliverable.Title : string.Empty,
+                DeliverableStatus = evaluation.Deliverable != null ? evaluation.Deliverable.Status : string.Empty,
                 evaluation.Technical,
                 evaluation.Autonomy,
                 evaluation.Communication,
                 evaluation.DeadlineRespect,
                 evaluation.DeliverableQuality,
+                evaluation.OverallScore,
                 evaluation.CreatedAt
             })
             .ToListAsync(cancellationToken);
 
         var due = evaluations
-            .Where(evaluation => string.Equals(
-                evaluation.Status,
-                DomainStatuses.Evaluation.Pending,
-                StringComparison.OrdinalIgnoreCase))
+            .Where(evaluation => string.Equals(evaluation.Status, DomainStatuses.Evaluation.Draft, StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(evaluation.Status, DomainStatuses.Evaluation.Pending, StringComparison.OrdinalIgnoreCase))
             .OrderBy(evaluation => evaluation.CreatedAt)
             .Select(evaluation => new EvaluationDueItem
             {
                 EvaluationId = evaluation.Id,
                 InternId = evaluation.InternId,
+                DeliverableId = evaluation.DeliverableId ?? Guid.Empty,
                 InternName = $"{evaluation.InternFirstName} {evaluation.InternLastName}".Trim(),
-                Type = NormalizeEvaluationType(evaluation.Type)
+                Type = NormalizeEvaluationType(evaluation.Type),
+                Status = evaluation.Status,
+                DeliverableTitle = evaluation.DeliverableTitle,
+                DeliverableStatus = evaluation.DeliverableStatus
             })
             .ToList();
 
@@ -65,15 +72,21 @@ public sealed class EvaluationStatusService(
             {
                 EvaluationId = evaluation.Id,
                 InternId = evaluation.InternId,
+                DeliverableId = evaluation.DeliverableId ?? Guid.Empty,
                 InternName = $"{evaluation.InternFirstName} {evaluation.InternLastName}".Trim(),
                 Type = NormalizeEvaluationType(evaluation.Type),
-                AverageScore = Math.Round(
-                    (evaluation.Technical +
-                     evaluation.Autonomy +
-                     evaluation.Communication +
-                     evaluation.DeadlineRespect +
-                     evaluation.DeliverableQuality) / 5d,
+                Status = evaluation.Status,
+                DeliverableTitle = evaluation.DeliverableTitle,
+                DeliverableStatus = evaluation.DeliverableStatus,
+                AverageScore = (double)Math.Round(
+                    evaluation.OverallScore ??
+                    ((evaluation.Technical +
+                      evaluation.Autonomy +
+                      evaluation.Communication +
+                      evaluation.DeadlineRespect +
+                      evaluation.DeliverableQuality) / 5m),
                     1),
+                OverallScore = evaluation.OverallScore,
                 SubmittedAt = evaluation.CreatedAt
             })
             .ToList();

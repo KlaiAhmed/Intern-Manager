@@ -90,7 +90,7 @@ public sealed class SupervisorInternsService(
                 .Select(deliverable => new
                 {
                     deliverable.MissionId,
-                    deliverable.Progress,
+                    deliverable.RawProgress,
                     deliverable.Status,
                     deliverable.DueDate
                 })
@@ -114,7 +114,7 @@ public sealed class SupervisorInternsService(
 
             var progress = missionDeliverables.Count == 0
                 ? 0
-                : (int)Math.Round(missionDeliverables.Average(item => (double)Math.Clamp(item.Progress, 0, 100)));
+                : (int)Math.Round(missionDeliverables.Average(item => Math.Clamp((double)item.RawProgress, 0d, 100d)));
 
             var hasLateDeliverable = missionDeliverables.Any(item =>
                 item.DueDate.HasValue &&
