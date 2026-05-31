@@ -58,12 +58,6 @@ export function useInternDeliverables(options: InternQueryHookOptions = {}) {
     },
   })
 
-  const updateProgressMutation = useMutation({
-    mutationFn: ({ deliverableId, progress }: { deliverableId: string; progress: number }) =>
-      internDashboardApi.updateDeliverableProgress(deliverableId, { progress }),
-    onSuccess: invalidateDeliverableWork,
-  })
-
   return {
     deliverables: deliverablesQuery.data?.data ?? [],
     total: deliverablesQuery.data?.total ?? 0,
@@ -71,14 +65,12 @@ export function useInternDeliverables(options: InternQueryHookOptions = {}) {
     deliverablesQuery,
     submitFileMutation,
     submitVersionMutation,
-    updateProgressMutation,
     submitFile: submitFileMutation.mutateAsync,
     submitVersion: submitVersionMutation.mutateAsync,
-    updateProgress: updateProgressMutation.mutateAsync,
     isLoading: deliverablesQuery.isLoading,
     isFetching: deliverablesQuery.isFetching,
     isUploading: submitFileMutation.isPending || submitVersionMutation.isPending,
-    error: deliverablesQuery.error ?? submitFileMutation.error ?? submitVersionMutation.error ?? updateProgressMutation.error,
+    error: deliverablesQuery.error ?? submitFileMutation.error ?? submitVersionMutation.error,
     refetch: deliverablesQuery.refetch,
   }
 }

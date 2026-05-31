@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
-import { useDashboardApi } from '../useDashboardApi'
+import { isDashboardApiError, useDashboardApi } from '../useDashboardApi'
 import type { PagedResponse, SupervisorValidationQueueItem } from '../../types/supervisorDashboard'
 import { toErrorMessage, toNumber, toStringValue } from './utils'
-
-type ValidationAction = 'accept' | 'reject'
 
 interface ValidationQueueApiItem {
   id?: unknown
@@ -16,11 +14,27 @@ interface ValidationQueueApiItem {
   status?: unknown
   version?: unknown
   fileUrl?: unknown
+  rowVersion?: unknown
+  rawProgress?: unknown
+  tasks?: unknown
+}
+
+interface ValidationQueueTaskApiItem {
+  id?: unknown
+  title?: unknown
+  status?: unknown
+  rowVersion?: unknown
 }
 
 interface ValidationActionApiResponse {
   id?: unknown
   status?: unknown
+  rowVersion?: unknown
+  rawProgress?: unknown
+}
+
+function isTaskApiItem(value: unknown): value is ValidationQueueTaskApiItem {
+  return typeof value === 'object' && value !== null
 }
 
 function sortOldestFirst(items: SupervisorValidationQueueItem[]): SupervisorValidationQueueItem[] {
@@ -36,13 +50,14 @@ function sortOldestFirst(items: SupervisorValidationQueueItem[]): SupervisorVali
 
 export function useValidationQueue() {
   const { t } = useI18n()
-  const { get, patch } = useDashboardApi()
+  const { get, post } = useDashboardApi()
 
   const [items, setItems] = useState<SupervisorValidationQueueItem[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionNotice, setActionNotice] = useState<string | null>(null)
   const [submittingItemId, setSubmittingItemId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -51,7 +66,7 @@ export function useValidationQueue() {
 
     try {
       const response = await get<PagedResponse<ValidationQueueApiItem>>(
-        '/api/deliverables?status=submitted&supervisorId=me&page=1&limit=100'
+        '/api/deliverables?status=awaiting_review&supervisorId=me&page=1&limit=100'
       )
 
       const mappedItems = sortOldestFirst(
@@ -66,6 +81,19 @@ export function useValidationQueue() {
             status: toStringValue(item.status, 'submitted'),
             version: Math.max(1, Math.round(toNumber(item.version, 1))),
             fileUrl: toStringValue(item.fileUrl, '#'),
+            rowVersion: Math.max(1, Math.round(toNumber(item.rowVersion, 1))),
+            rawProgress: Math.max(0, Math.min(100, toNumber(item.rawProgress, 0))),
+            tasks: Array.isArray(item.tasks)
+              ? item.tasks
+                  .filter(isTaskApiItem)
+                  .map((task) => ({
+                    id: toStringValue(task.id),
+                    title: toStringValue(task.title),
+                    status: toStringValue(task.status),
+                    rowVersion: Math.max(1, Math.round(toNumber(task.rowVersion, 1))),
+                  }))
+                  .filter((task) => task.id.length > 0)
+              : [],
           }))
           .filter((item) => item.id.length > 0)
       )
@@ -79,32 +107,32 @@ export function useValidationQueue() {
     }
   }, [get, t])
 
-  const validateDeliverable = useCallback(
-    async (item: SupervisorValidationQueueItem, action: ValidationAction, comment: string) => {
-      const normalizedComment = comment.trim()
-      if (action === 'reject' && normalizedComment.length === 0) {
-        const message = t('dashboard.form.commentRequired')
-        setActionError(message)
-        throw new Error(message)
-      }
-
-      setSubmittingItemId(item.id)
+  const approveDeliverable = useCallback(
+    async (deliverableId: string, rowVersion: number) => {
+      setSubmittingItemId(deliverableId)
       setActionError(null)
+      setActionNotice(null)
 
       try {
-        const response = await patch<ValidationActionApiResponse>(`/api/deliverables/${item.id}/validate`, {
-          action,
-          comment: normalizedComment.length > 0 ? normalizedComment : null,
+        const response = await post<ValidationActionApiResponse>(`/api/deliverables/${deliverableId}/approve`, {
+          rowVersion,
         })
 
-        setItems((previousItems) => previousItems.filter((queuedItem) => queuedItem.id !== item.id))
+        setItems((previousItems) => previousItems.filter((queuedItem) => queuedItem.id !== deliverableId))
         setTotal((previousTotal) => (previousTotal > 0 ? previousTotal - 1 : 0))
 
         return {
-          id: toStringValue(response.id, item.id),
-          status: toStringValue(response.status, action === 'accept' ? 'accepted' : 'rejected'),
+          id: toStringValue(response.id, deliverableId),
+          status: toStringValue(response.status, 'approved'),
         }
       } catch (requestError) {
+        if (isDashboardApiError(requestError) && requestError.status === 409) {
+          const message = t('dashboard.supervisor.queue.conflictRefreshing')
+          setActionNotice(message)
+          await refresh()
+          throw new Error(message)
+        }
+
         const message = toErrorMessage(requestError, t('dashboard.error.load'))
         setActionError(message)
         throw new Error(message)
@@ -112,7 +140,52 @@ export function useValidationQueue() {
         setSubmittingItemId(null)
       }
     },
-    [patch, t]
+    [post, refresh, t]
+  )
+
+  const rejectDeliverable = useCallback(
+    async (deliverableId: string, reason: string, taskIdsToReopen: string[], rowVersion: number) => {
+      const normalizedReason = reason.trim()
+      if (normalizedReason.length < 10 || normalizedReason.length > 1000) {
+        const message = t('dashboard.supervisor.queue.rejectReasonLength')
+        setActionError(message)
+        throw new Error(message)
+      }
+
+      setSubmittingItemId(deliverableId)
+      setActionError(null)
+      setActionNotice(null)
+
+      try {
+        const response = await post<ValidationActionApiResponse>(`/api/deliverables/${deliverableId}/reject`, {
+          reason: normalizedReason,
+          taskIdsToReopen,
+          rowVersion,
+        })
+
+        setItems((previousItems) => previousItems.filter((queuedItem) => queuedItem.id !== deliverableId))
+        setTotal((previousTotal) => (previousTotal > 0 ? previousTotal - 1 : 0))
+
+        return {
+          id: toStringValue(response.id, deliverableId),
+          status: toStringValue(response.status, 'in_progress'),
+        }
+      } catch (requestError) {
+        if (isDashboardApiError(requestError) && requestError.status === 409) {
+          const message = t('dashboard.supervisor.queue.conflictRefreshing')
+          setActionNotice(message)
+          await refresh()
+          throw new Error(message)
+        }
+
+        const message = toErrorMessage(requestError, t('dashboard.error.load'))
+        setActionError(message)
+        throw new Error(message)
+      } finally {
+        setSubmittingItemId(null)
+      }
+    },
+    [post, refresh, t]
   )
 
   useEffect(() => {
@@ -125,8 +198,10 @@ export function useValidationQueue() {
     isLoading,
     error,
     actionError,
+    actionNotice,
     submittingItemId,
     refresh,
-    validateDeliverable,
+    approveDeliverable,
+    rejectDeliverable,
   }
 }

@@ -8,7 +8,6 @@ interface TaskCreationApiResponse {
   internId?: unknown
   title?: unknown
   dueDate?: unknown
-  isComplete?: unknown
 }
 
 export function useTaskAssignment() {

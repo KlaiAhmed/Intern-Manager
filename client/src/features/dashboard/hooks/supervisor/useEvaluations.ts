@@ -12,16 +12,25 @@ import { toErrorMessage, toNumber, toStringValue } from './utils'
 interface EvaluationStatusApiDueItem {
   evaluationId?: unknown
   internId?: unknown
+  deliverableId?: unknown
   internName?: unknown
   type?: unknown
+  status?: unknown
+  deliverableTitle?: unknown
+  deliverableStatus?: unknown
 }
 
 interface EvaluationStatusApiCompletedItem {
   evaluationId?: unknown
   internId?: unknown
+  deliverableId?: unknown
   internName?: unknown
   type?: unknown
+  status?: unknown
+  deliverableTitle?: unknown
+  deliverableStatus?: unknown
   averageScore?: unknown
+  overallScore?: unknown
   submittedAt?: unknown
 }
 
@@ -31,10 +40,12 @@ interface EvaluationStatusApiResponse {
 }
 
 interface SubmitEvaluationPayload {
+  deliverableId: string
   internId: string
   type: string
   scores: SupervisorEvaluationScores
   comments: string
+  privateNotes?: string
 }
 
 function normalizeEvaluationType(rawValue: string): string {
@@ -72,8 +83,12 @@ export function useEvaluations() {
         .map((item) => ({
           evaluationId: toStringValue(item.evaluationId),
           internId: toStringValue(item.internId),
+          deliverableId: toStringValue(item.deliverableId),
           internName: toStringValue(item.internName),
           type: normalizeEvaluationType(toStringValue(item.type, 'mid-term')),
+          status: toStringValue(item.status, 'draft'),
+          deliverableTitle: toStringValue(item.deliverableTitle),
+          deliverableStatus: toStringValue(item.deliverableStatus),
         }))
         .filter((item) => item.evaluationId.length > 0)
 
@@ -81,9 +96,14 @@ export function useEvaluations() {
         .map((item) => ({
           evaluationId: toStringValue(item.evaluationId),
           internId: toStringValue(item.internId),
+          deliverableId: toStringValue(item.deliverableId),
           internName: toStringValue(item.internName),
           type: normalizeEvaluationType(toStringValue(item.type, 'mid-term')),
+          status: toStringValue(item.status, 'submitted'),
+          deliverableTitle: toStringValue(item.deliverableTitle),
+          deliverableStatus: toStringValue(item.deliverableStatus),
           averageScore: Number(toNumber(item.averageScore, 0).toFixed(1)),
+          overallScore: item.overallScore == null ? null : Number(toNumber(item.overallScore, 0).toFixed(2)),
           submittedAt: toStringValue(item.submittedAt),
         }))
         .filter((item) => item.evaluationId.length > 0)
@@ -109,12 +129,33 @@ export function useEvaluations() {
 
       try {
         await post('/api/evaluations', {
+          deliverableId: payload.deliverableId,
           internId: payload.internId,
           type: apiType,
           criteria: payload.scores,
           comments: payload.comments,
+          privateNotes: payload.privateNotes ?? null,
         })
 
+        await refresh()
+      } catch (requestError) {
+        const message = toErrorMessage(requestError, t('dashboard.error.load'))
+        setSubmitError(message)
+        throw new Error(message)
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [post, refresh, t]
+  )
+
+  const releaseEvaluation = useCallback(
+    async (evaluationId: string) => {
+      setIsSubmitting(true)
+      setSubmitError(null)
+
+      try {
+        await post(`/api/evaluations/${evaluationId}/release`, {})
         await refresh()
       } catch (requestError) {
         const message = toErrorMessage(requestError, t('dashboard.error.load'))
@@ -139,5 +180,6 @@ export function useEvaluations() {
     submitError,
     refresh,
     submitEvaluation,
+    releaseEvaluation,
   }
 }

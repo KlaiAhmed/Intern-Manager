@@ -25,24 +25,15 @@ export function useInternTasks(options: InternQueryHookOptions = {}) {
     },
   })
 
-  const syncTasksMutation = useMutation({
-    mutationFn: internDashboardApi.syncTasks,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: internDashboardQueryKeys.tasks() })
-    },
-  })
-
   return {
     tasks: tasksQuery.data?.data ?? [],
     total: tasksQuery.data?.total ?? 0,
     tasksQuery,
     completeTaskMutation,
-    syncTasksMutation,
     completeTask: completeTaskMutation.mutateAsync,
-    syncTasks: syncTasksMutation.mutateAsync,
     isLoading: tasksQuery.isLoading,
     isFetching: tasksQuery.isFetching,
-    error: tasksQuery.error ?? completeTaskMutation.error ?? syncTasksMutation.error,
+    error: tasksQuery.error ?? completeTaskMutation.error,
     refetch: tasksQuery.refetch,
   }
 }

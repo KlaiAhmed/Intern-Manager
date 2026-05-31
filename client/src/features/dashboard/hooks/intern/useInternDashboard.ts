@@ -92,7 +92,7 @@ function toDashboardTask(task: InternTaskResponse): Task {
     id: task.id,
     title: task.title,
     dueDate: task.dueDate,
-    completed: task.completed,
+    status: task.status,
   }
 }
 
@@ -337,9 +337,9 @@ export function useInternDashboard() {
     await meetings.nextMeetingQuery.refetch()
   }, [meetings.nextMeetingQuery])
 
-  const handleCompleteTask = async (taskId: string) => {
+  const handleCompleteTask = async (taskId: string, rowVersion: number) => {
     try {
-      await tasks.completeTask(taskId)
+      await tasks.completeTask({ taskId, rowVersion })
     } catch {
       // React Query exposes the mutation error through tasks.error.
     }
