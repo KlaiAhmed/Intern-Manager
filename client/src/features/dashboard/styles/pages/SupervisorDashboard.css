@@ -145,6 +145,12 @@
   margin: 0;
 }
 
+.supervisor-inline-notice {
+  margin: var(--dash-space-sm) 0 0;
+  color: var(--dash-text-secondary);
+  font-size: 0.82rem;
+}
+
 .supervisor-meetings-layout {
   display: flex;
   flex-direction: column;

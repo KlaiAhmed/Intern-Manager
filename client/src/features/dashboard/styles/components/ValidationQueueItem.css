@@ -70,6 +70,39 @@
   color: var(--dash-text-secondary);
 }
 
+.supervisor-validation-task-list {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--dash-space-xs);
+}
+
+.supervisor-validation-task-list legend {
+  margin-bottom: var(--dash-space-xs);
+  color: var(--dash-text-secondary);
+  font-size: 0.8rem;
+}
+
+.supervisor-validation-task-list p {
+  margin: 0;
+  color: var(--dash-text-muted);
+  font-size: 0.78rem;
+}
+
+.supervisor-validation-task-option {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--dash-space-xs);
+}
+
+.supervisor-validation-task-option span {
+  min-width: 0;
+  color: var(--dash-text);
+  font-size: 0.84rem;
+}
+
 .supervisor-validation-reject-composer textarea {
   width: 100%;
   border-radius: var(--dash-radius-md);
@@ -91,6 +124,13 @@
   margin: 0;
   color: var(--dash-error);
   font-size: 0.78rem;
+}
+
+.supervisor-validation-reject-counter {
+  margin: calc(var(--dash-space-xs) * -1) 0 0;
+  color: var(--dash-text-muted);
+  font-size: 0.74rem;
+  text-align: right;
 }
 
 .supervisor-validation-reject-actions {

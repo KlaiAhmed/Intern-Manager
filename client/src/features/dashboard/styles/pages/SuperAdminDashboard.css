@@ -470,6 +470,11 @@
 }
 
 /* Button Styles */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
 .dash-btn {
   display: inline-flex;
   align-items: center;

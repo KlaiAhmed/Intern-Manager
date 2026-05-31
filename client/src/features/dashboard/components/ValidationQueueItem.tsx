@@ -11,11 +11,15 @@ interface ValidationQueueItemProps {
   acceptLabel: string
   rejectLabel: string
   rejectReasonLabel: string
+  rejectReasonLengthLabel: string
   rejectReasonPlaceholder: string
   rejectSubmitLabel: string
+  reopenTasksLabel: string
+  noTasksLabel: string
+  reasonCounterLabel: (count: number) => string
   cancelLabel: string
   onAccept: (item: SupervisorValidationQueueItem) => Promise<void>
-  onReject: (item: SupervisorValidationQueueItem, reason: string) => Promise<void>
+  onReject: (item: SupervisorValidationQueueItem, reason: string, taskIdsToReopen: string[]) => Promise<void>
 }
 
 function formatDate(value: string | null): string {
@@ -45,14 +49,19 @@ export function ValidationQueueItem({
   acceptLabel,
   rejectLabel,
   rejectReasonLabel,
+  rejectReasonLengthLabel,
   rejectReasonPlaceholder,
   rejectSubmitLabel,
+  reopenTasksLabel,
+  noTasksLabel,
+  reasonCounterLabel,
   cancelLabel,
   onAccept,
   onReject,
 }: ValidationQueueItemProps) {
   const [isRejectComposerOpen, setIsRejectComposerOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
   const [localError, setLocalError] = useState<string | null>(null)
 
   const submittedDateLabel = useMemo(() => formatDate(item.submittedDate), [item.submittedDate])
@@ -60,14 +69,20 @@ export function ValidationQueueItem({
 
   const handleRejectSubmit = async () => {
     const reason = rejectReason.trim()
-    if (!reason) {
-      setLocalError(rejectReasonLabel)
+    if (reason.length < 10 || reason.length > 1000) {
+      setLocalError(rejectReasonLengthLabel)
+      return
+    }
+
+    if (item.tasks.length > 0 && selectedTaskIds.length === 0) {
+      setLocalError(reopenTasksLabel)
       return
     }
 
     setLocalError(null)
-    await onReject(item, reason)
+    await onReject(item, reason, selectedTaskIds)
     setRejectReason('')
+    setSelectedTaskIds([])
     setIsRejectComposerOpen(false)
   }
 
@@ -126,15 +141,43 @@ export function ValidationQueueItem({
 
       {isRejectComposerOpen && (
         <div className="supervisor-validation-reject-composer">
+          <fieldset className="supervisor-validation-task-list">
+            <legend>{reopenTasksLabel}</legend>
+            {item.tasks.length === 0 ? (
+              <p>{noTasksLabel}</p>
+            ) : (
+              item.tasks.map((task) => (
+                <label key={task.id} className="supervisor-validation-task-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedTaskIds.includes(task.id)}
+                    disabled={isSubmitting}
+                    onChange={(event) => {
+                      setSelectedTaskIds((previous) =>
+                        event.target.checked
+                          ? [...previous, task.id]
+                          : previous.filter((taskId) => taskId !== task.id)
+                      )
+                    }}
+                  />
+                  <span>{task.title}</span>
+                </label>
+              ))
+            )}
+          </fieldset>
+
           <label htmlFor={`reject-reason-${item.id}`}>{rejectReasonLabel}</label>
           <textarea
             id={`reject-reason-${item.id}`}
             value={rejectReason}
-            onChange={(event) => setRejectReason(event.target.value)}
+            onChange={(event) => setRejectReason(event.target.value.slice(0, 1000))}
             rows={3}
             placeholder={rejectReasonPlaceholder}
+            minLength={10}
+            maxLength={1000}
             disabled={isSubmitting}
           />
+          <p className="supervisor-validation-reject-counter">{reasonCounterLabel(rejectReason.trim().length)}</p>
           {localError && <p className="supervisor-validation-reject-error">{localError}</p>}
           <div className="supervisor-validation-reject-actions">
             <button
@@ -144,6 +187,7 @@ export function ValidationQueueItem({
               onClick={() => {
                 setIsRejectComposerOpen(false)
                 setRejectReason('')
+                setSelectedTaskIds([])
                 setLocalError(null)
               }}
             >

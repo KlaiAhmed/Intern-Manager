@@ -90,6 +90,13 @@
   transform: scale(0.98);
 }
 
+/* Button text container - ensures icon+text align vertically */
+.dash-btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dash-space-sm);
+}
+
 /* Spinner for loading state */
 .dash-btn-spinner {
   width: 16px;
