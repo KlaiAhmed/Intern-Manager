@@ -104,6 +104,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MissionHistoryEntry> MissionHistoryEntries => Set<MissionHistoryEntry>();
 
     /// <summary>
+    /// Table des entrees d historique transversal des entites metier.
+    /// </summary>
+    public DbSet<EntityHistoryEntry> EntityHistoryEntries => Set<EntityHistoryEntry>();
+
+    /// <summary>
     /// Table des jetons de reinitialisation de mot de passe.
     /// </summary>
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -275,6 +280,14 @@ entity.Property(mission => mission.Title)
                 .HasMaxLength(32)
                 .HasDefaultValue("active");
 
+            entity.Property(mission => mission.RawProgress)
+                .HasColumnType("decimal(5,2)")
+                .HasDefaultValue(0m);
+
+            entity.Property(mission => mission.RowVersion)
+                .HasDefaultValue(1)
+                .IsConcurrencyToken();
+
             entity.Property(mission => mission.StartDate);
 
             entity.Property(mission => mission.EndDate);
@@ -392,14 +405,23 @@ entity.Property(mission => mission.Title)
                 .HasMaxLength(32)
                 .HasDefaultValue("pending");
 
+            entity.Property(deliverable => deliverable.RawProgress)
+                .HasColumnType("decimal(5,2)")
+                .HasDefaultValue(0m);
+
+            entity.Property(deliverable => deliverable.RowVersion)
+                .HasDefaultValue(1)
+                .IsConcurrencyToken();
+
+            entity.Property(deliverable => deliverable.Weight)
+                .HasColumnType("decimal(5,2)")
+                .HasDefaultValue(1m);
+
             entity.Property(deliverable => deliverable.FileUrl)
                 .HasMaxLength(2048);
 
             entity.Property(deliverable => deliverable.SupervisorComment)
                 .HasMaxLength(2000);
-
-            entity.Property(deliverable => deliverable.Progress)
-                .HasDefaultValue(0);
 
             entity.Property(deliverable => deliverable.Version)
                 .HasDefaultValue(1);
@@ -432,16 +454,16 @@ entity.Property(mission => mission.Title)
                 .WithOne(version => version.Deliverable)
                 .HasForeignKey(version => version.DeliverableId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(deliverable => deliverable.Tasks)
+                .WithOne(task => task.Deliverable)
+                .HasForeignKey(task => task.DeliverableId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<DeliverableVersion>(entity =>
         {
-            entity.ToTable("DeliverableVersions", table =>
-            {
-                table.HasCheckConstraint(
-                    "CK_DeliverableVersions_SubmissionSource",
-                    "(([FileUrl] IS NOT NULL AND [GitHubUrl] IS NULL) OR ([FileUrl] IS NULL AND [GitHubUrl] IS NOT NULL))");
-            });
+            entity.ToTable("DeliverableVersions");
 
             entity.HasKey(version => version.Id);
 
@@ -511,6 +533,9 @@ entity.Property(mission => mission.Title)
                 .HasMaxLength(32)
                 .HasDefaultValue("pending");
 
+            entity.Property(evaluation => evaluation.OverallScore)
+                .HasColumnType("decimal(5,2)");
+
             entity.Property(evaluation => evaluation.IsReleasedToIntern)
                 .IsRequired()
                 .HasDefaultValue(false);
@@ -527,6 +552,9 @@ entity.Property(mission => mission.Title)
             entity.HasIndex(evaluation => evaluation.InternId);
             entity.HasIndex(evaluation => evaluation.Status);
             entity.HasIndex(evaluation => new { evaluation.InternId, evaluation.IsReleasedToIntern });
+            entity.HasIndex(evaluation => evaluation.DeliverableId)
+                .IsUnique()
+                .HasFilter("[DeliverableId] IS NOT NULL");
 
             entity.HasIndex(evaluation => new { evaluation.SupervisorId, evaluation.InternId, evaluation.Type })
                 .IsUnique();
@@ -540,6 +568,11 @@ entity.Property(mission => mission.Title)
                 .WithMany()
                 .HasForeignKey(evaluation => evaluation.InternId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(evaluation => evaluation.Deliverable)
+                .WithMany()
+                .HasForeignKey(evaluation => evaluation.DeliverableId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(evaluation => evaluation.ReleasedByUser)
                 .WithMany()
@@ -684,8 +717,14 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasMaxLength(250);
 
-            entity.Property(task => task.IsComplete)
-                .HasDefaultValue(false);
+            entity.Property(task => task.Status)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("todo");
+
+            entity.Property(task => task.RowVersion)
+                .HasDefaultValue(1)
+                .IsConcurrencyToken();
 
             entity.Property(task => task.CreatedAt)
                 .IsRequired()
@@ -701,8 +740,45 @@ entity.Property(mission => mission.Title)
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(task => task.Deliverable)
-                .WithMany()
+                .WithMany(deliverable => deliverable.Tasks)
                 .HasForeignKey(task => task.DeliverableId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<EntityHistoryEntry>(entity =>
+        {
+            entity.ToTable("EntityHistoryEntries");
+
+            entity.HasKey(history => history.Id);
+
+            entity.Property(history => history.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(history => history.EntityType)
+                .IsRequired()
+                .HasMaxLength(64);
+
+            entity.Property(history => history.EntityId)
+                .IsRequired();
+
+            entity.Property(history => history.Action)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.Property(history => history.Note)
+                .HasMaxLength(2000);
+
+            entity.Property(history => history.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(history => new { history.EntityType, history.EntityId, history.CreatedAt })
+                .IsDescending(false, false, true);
+
+            entity.HasOne(history => history.Actor)
+                .WithMany()
+                .HasForeignKey(history => history.ActorId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -829,6 +905,9 @@ entity.Property(mission => mission.Title)
 
             entity.HasIndex(notification => notification.UserId);
             entity.HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
+            entity.HasIndex(notification => new { notification.UserId, notification.RelatedEntity, notification.Type })
+                .IsUnique()
+                .HasFilter("[Type] IN ('task.overdue', 'deliverable.overdue', 'mission.deadline_approaching') AND [RelatedEntity] IS NOT NULL");
 
             entity.HasOne(notification => notification.User)
                 .WithMany()

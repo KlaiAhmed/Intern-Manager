@@ -1,4 +1,6 @@
-﻿namespace InternManager.Api.Models.Entities;
+﻿using InternManager.Api.Common.Constants;
+
+namespace InternManager.Api.Models.Entities;
 
 public sealed class Evaluation
 {
@@ -7,6 +9,8 @@ public sealed class Evaluation
     public Guid SupervisorId { get; set; }
 
     public Guid InternId { get; set; }
+
+    public Guid? DeliverableId { get; set; }
 
     public string Type { get; set; } = string.Empty;
 
@@ -22,7 +26,11 @@ public sealed class Evaluation
 
     public string Comments { get; set; } = string.Empty;
 
-    public string Status { get; set; } = "pending";
+    public decimal? OverallScore { get; set; }
+
+    public string? PrivateNotes { get; set; }
+
+    public string Status { get; set; } = DomainStatuses.Evaluation.Pending;
 
     public bool IsReleasedToIntern { get; set; }
 
@@ -37,6 +45,8 @@ public sealed class Evaluation
     public User? Supervisor { get; set; }
 
     public User? Intern { get; set; }
+
+    public Deliverable? Deliverable { get; set; }
 
     public User? ReleasedByUser { get; set; }
 }

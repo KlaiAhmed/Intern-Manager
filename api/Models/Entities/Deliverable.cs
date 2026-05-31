@@ -1,3 +1,5 @@
+using InternManager.Api.Common.Constants;
+
 namespace InternManager.Api.Models.Entities;
 
 public sealed class Deliverable
@@ -14,7 +16,7 @@ public sealed class Deliverable
 
     public string? Description { get; set; }
 
-    public string Status { get; set; } = "pending";
+    public string Status { get; set; } = DomainStatuses.Deliverable.Draft;
 
     public DateTime? SubmittedDate { get; set; }
 
@@ -24,7 +26,13 @@ public sealed class Deliverable
 
     public string? SupervisorComment { get; set; }
 
-    public int Progress { get; set; }
+    public decimal RawProgress { get; set; }
+
+    public int RowVersion { get; set; } = 1;
+
+    public decimal Weight { get; set; } = 1m;
+
+    public DateTime? OverdueNotifiedAt { get; set; }
 
     public DateTime? DueDate { get; set; }
 
@@ -35,6 +43,8 @@ public sealed class Deliverable
     public User? Supervisor { get; set; }
 
     public User? Intern { get; set; }
+
+    public ICollection<InternTask> Tasks { get; set; } = new List<InternTask>();
 
     public ICollection<DeliverableVersion> Versions { get; set; } = new List<DeliverableVersion>();
 }

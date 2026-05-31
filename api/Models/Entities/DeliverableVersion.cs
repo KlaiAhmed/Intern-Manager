@@ -1,3 +1,5 @@
+using InternManager.Api.Common.Constants;
+
 namespace InternManager.Api.Models.Entities;
 
 /// <summary>
@@ -11,6 +13,8 @@ public sealed class DeliverableVersion
 
     public int VersionNumber { get; set; }
 
+    public bool IsCurrentVersion { get; set; }
+
     public string? FileUrl { get; set; }
 
     public string? GitHubUrl { get; set; }
@@ -19,7 +23,7 @@ public sealed class DeliverableVersion
 
     public string? Message { get; set; }
 
-    public string Status { get; set; } = "submitted";
+    public string Status { get; set; } = DomainStatuses.DeliverableVersion.Submitted;
 
     public string? SupervisorComment { get; set; }
 

@@ -8,6 +8,10 @@ public sealed class Mission
 
     public Guid? CoSupervisorId { get; set; }
 
+    public bool CoSupervisorCanReview { get; set; }
+
+    public bool CoSupervisorCanEval { get; set; }
+
     public Guid? InternId { get; set; }
 
     public string Title { get; set; } = string.Empty;
@@ -26,9 +30,15 @@ public sealed class Mission
 
     public string Status { get; set; } = "active";
 
+    public decimal RawProgress { get; set; }
+
+    public int RowVersion { get; set; } = 1;
+
     public DateTime? StartDate { get; set; }
 
     public DateTime? EndDate { get; set; }
+
+    public DateTime? DeadlineNotifiedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
