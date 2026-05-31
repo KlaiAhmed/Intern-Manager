@@ -55,3 +55,6 @@ npm run preview       # serve production build
 - **Startup flow**: `Program.cs` loads `.env`, rejects placeholder JWT KEY, sets `http://localhost:{SERVER_PORT}`, builds SQL Server connection string, runs `Database.MigrateAsync()`, applies `.sql` migration scripts, seeds reference data + dev auth users + SuperAdmin. DB/seed failures are critical startup failures.
 - **Global controller filter**: `FeatureFlagGateFilter` is registered globally via `options.Filters.AddService<FeatureFlagGateFilter>()`.
 - **Test helpers**: `TestSupport/` provides `TestUsers`, `TestDbContext`, `TestFiles` utilities.
+- **Code coverage**: `api/tests/coverage.runsettings` (XPlat Code Coverage, Cobertura format, excludes `Data/Migrations/*.cs` and `Program.cs`).
+- **Dead-code detection**: Client ships `ts-prune` and `unimported` as devDependencies.
+- **Solution file**: `Intern Manager.sln` (space in name) — quote in CLI commands.
