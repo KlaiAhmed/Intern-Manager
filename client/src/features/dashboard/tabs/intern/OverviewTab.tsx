@@ -11,6 +11,8 @@ import type {
 } from '../../types/internDashboard'
 import { InternTabEmpty, InternTabError, InternTabLoading } from './InternTabStates'
 
+const DELIVERABLE_NOT_SUBMITTED = 'not_submitted'
+
 interface OverviewTabProps {
   internship: Internship | null
   loadingInternship: boolean
@@ -85,8 +87,8 @@ export function OverviewTab({
     )
   }
 
-  const completedTasks = tasksState.tasks.filter((task) => task.completed).length
-  const submittedDeliverables = deliverablesState.deliverables.filter((deliverable) => deliverable.status !== 'not_submitted').length
+  const completedTasks = tasksState.tasks.filter((task) => task.status === 'done').length
+  const submittedDeliverables = deliverablesState.deliverables.filter((deliverable) => deliverable.status !== DELIVERABLE_NOT_SUBMITTED).length
   const hasContent = Boolean(
     internship?.missionTitle ||
     tasksState.tasks.length ||

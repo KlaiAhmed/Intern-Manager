@@ -33,10 +33,6 @@ function formatDate(value: string | null | undefined): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
 }
 
-function getStatusLabel(deliverable: InternDeliverableResponse, t: TranslateFn): string {
-  return t(`dashboard.intern.deliverables.status.${deliverable.status}`)
-}
-
 export function DeliverablesTab({
   tasksVisible,
   deliverablesVisible,
@@ -67,14 +63,14 @@ export function DeliverablesTab({
   const loadError = tasksState.tasksQuery.error ?? deliverablesState.deliverablesQuery.error
   const hasContent = visibleTasks.length > 0 || deliverablesState.deliverables.length > 0
 
-  const completeTask = async (taskId: string) => {
+  const completeTask = async (taskId: string, rowVersion: number) => {
     const previousTasks = visibleTasks
     setTaskError(null)
     setOptimisticTasks(applyOptimisticTaskCompletion(previousTasks, taskId))
     setPendingTaskIds((currentIds) => new Set(currentIds).add(taskId))
 
     try {
-      await tasksState.completeTask(taskId)
+      await tasksState.completeTask({ taskId, rowVersion })
     } catch (error) {
       setOptimisticTasks(previousTasks)
       setTaskError(toErrorMessage(error, t('dashboard.intern.deliverables.completeFailed')))
@@ -135,6 +131,7 @@ export function DeliverablesTab({
     try {
       await deliverablesState.submitVersion({
         deliverableId: selectedDeliverable.id,
+        rowVersion: selectedDeliverable.rowVersion,
         file: submissionMode === 'file' ? submissionFile : null,
         gitHubUrl: submissionMode === 'github' ? githubUrl.trim() : null,
         gitHubBranch: submissionMode === 'github' ? githubBranch.trim() || null : null,
@@ -203,9 +200,9 @@ export function DeliverablesTab({
                         <label className="intern-check-row">
                           <input
                             type="checkbox"
-                            checked={task.completed}
-                            disabled={task.completed || tasksReadOnly || isPending}
-                            onChange={() => { void completeTask(task.id) }}
+                            checked={task.status === 'done'}
+                            disabled={task.status === 'done' || tasksReadOnly || isPending}
+                            onChange={() => { void completeTask(task.id, task.rowVersion) }}
                           />
                           <span>
                             <strong>{task.title}</strong>
@@ -238,7 +235,6 @@ export function DeliverablesTab({
                       <div>
                         <div className="intern-row-title">
                           <h3>{deliverable.title}</h3>
-                          <span className="intern-status-pill">{getStatusLabel(deliverable, t)}</span>
                         </div>
                         <p>{t('dashboard.intern.deliverables.due', { date: formatDate(deliverable.dueDate) })}</p>
                         <div className="intern-progress-track" aria-hidden="true">

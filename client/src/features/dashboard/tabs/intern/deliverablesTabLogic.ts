@@ -29,13 +29,13 @@ export function isValidGitHubRepositoryUrl(rawValue: string): boolean {
   return segments.length === 2 && segments.every((segment) => githubSegmentPattern.test(segment))
 }
 
-export function applyOptimisticTaskCompletion<TTask extends { id: string; completed: boolean }>(
+export function applyOptimisticTaskCompletion<TTask extends { id: string; status: string }>(
   tasks: TTask[],
   taskId: string,
 ): TTask[] {
   return tasks.map((task) => (
     task.id === taskId
-      ? { ...task, completed: true }
+      ? { ...task, status: task.status === 'done' ? 'todo' : 'done' }
       : task
   ))
 }

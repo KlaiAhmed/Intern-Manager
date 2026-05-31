@@ -11,13 +11,23 @@ describe('deliverablesTabLogic', () => {
 
   it('marks only the selected task complete for optimistic updates', () => {
     const tasks = [
-      { id: 'task-1', title: 'One', completed: false },
-      { id: 'task-2', title: 'Two', completed: false },
+      { id: 'task-1', title: 'One', status: 'todo' },
+      { id: 'task-2', title: 'Two', status: 'done' },
     ]
 
     expect(applyOptimisticTaskCompletion(tasks, 'task-1')).toEqual([
-      { id: 'task-1', title: 'One', completed: true },
-      { id: 'task-2', title: 'Two', completed: false },
+      { id: 'task-1', title: 'One', status: 'done' },
+      { id: 'task-2', title: 'Two', status: 'done' },
+    ])
+  })
+
+  it('toggles a done task back to todo for optimistic updates', () => {
+    const tasks = [
+      { id: 'task-1', title: 'One', status: 'done' },
+    ]
+
+    expect(applyOptimisticTaskCompletion(tasks, 'task-1')).toEqual([
+      { id: 'task-1', title: 'One', status: 'todo' },
     ])
   })
 
