@@ -1,3 +1,4 @@
+using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Common.Utilities;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
@@ -74,6 +75,14 @@ public sealed class GlobalExceptionMiddleware(
     {
         return exception switch
         {
+            ForbiddenException forbiddenException => (
+                StatusCodes.Status403Forbidden,
+                "Forbidden.",
+                forbiddenException.Message),
+            NotFoundException notFoundException => (
+                StatusCodes.Status404NotFound,
+                "Resource not found.",
+                notFoundException.Message),
             ValidationException validationException => (
                 StatusCodes.Status400BadRequest,
                 "Validation failed.",

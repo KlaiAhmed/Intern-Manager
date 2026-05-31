@@ -1,4 +1,5 @@
 using InternManager.Api.Application.Users;
+using InternManager.Api.Jobs;
 
 DotNetEnv.Env.Load();
 
@@ -22,7 +23,12 @@ var sqlServerInstance = builder.Configuration["SQLSERVER_INSTANCE"];
 var connectionString = BuildSqlServerConnectionString(databasePath, sqlServerInstance);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer( // Configure SQL Server provider with bounded transient retries.
+        connectionString, // Preserve the existing SQL Server connection string.
+        sqlOptions => sqlOptions.EnableRetryOnFailure( // Retry transient SQL failures automatically.
+            maxRetryCount: 3, // Match the audit-required retry count.
+            maxRetryDelay: TimeSpan.FromSeconds(5), // Bound retry delay so requests fail promptly.
+            errorNumbersToAdd: null))); // Use EF Core's default transient SQL error list.
 
 builder.Services.AddSingleton<UserDeletionPolicy>();
 builder.Services.AddScoped<UserDeletionService>();
@@ -80,6 +86,9 @@ builder.Services.AddScoped<ISupervisorInternsService, SupervisorInternsService>(
 builder.Services.AddScoped<ISupervisorJournalRepository, SupervisorJournalRepository>();
 builder.Services.AddScoped<ISupervisorJournalService, SupervisorJournalService>();
 builder.Services.AddScoped<IDeliverablesService, DeliverablesService>();
+builder.Services.AddScoped<IDeliverableProgressService, DeliverableProgressService>();
+builder.Services.AddScoped<IMissionProgressService, MissionProgressService>();
+builder.Services.AddScoped<IMissionPolicyService, MissionPolicyService>();
 builder.Services.AddScoped<IEvaluationStatusService, EvaluationStatusService>();
 builder.Services.AddScoped<IEvaluationReleaseRepository, EvaluationReleaseRepository>();
 builder.Services.AddScoped<IEvaluationReleaseService, EvaluationReleaseService>();
@@ -89,6 +98,11 @@ builder.Services.AddScoped<IInternNotificationRepository, InternNotificationRepo
 builder.Services.AddScoped<IInternNotificationService, InternNotificationService>();
 builder.Services.AddScoped<IInternSkillsService, InternSkillsService>();
 builder.Services.AddScoped<ITaskWorkflowService, TaskWorkflowService>();
+builder.Services.AddScoped<ITaskStateService, TaskStateService>();
+builder.Services.AddScoped<IDeliverableStateService, DeliverableStateService>();
+builder.Services.AddScoped<IMissionStateService, MissionStateService>();
+builder.Services.AddHostedService<ProgressConsistencyJob>();
+builder.Services.AddHostedService<NotificationWorker>();
 builder.Services.AddScoped<InternOnboardingValidationFilter>();
 builder.Services.AddScoped<FeatureFlagGateFilter>();
 builder.Services.AddProblemDetails();
@@ -309,7 +323,14 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
-    // TODO: add Content-Security-Policy once SPA origin is confirmed.
+    var spaOrigin = app.Configuration["CLIENT_ORIGIN"] ?? "http://localhost:5173";
+    context.Response.Headers["Content-Security-Policy"] =
+        $"default-src 'self'; " +
+        $"script-src 'self'; " +
+        $"style-src 'self' 'unsafe-inline'; " +
+        $"img-src 'self' data: blob:; " +
+        $"connect-src 'self' {spaOrigin}; " +
+        $"frame-ancestors 'none';";
     if (context.Request.IsHttps)
     {
         context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
