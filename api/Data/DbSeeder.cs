@@ -71,7 +71,7 @@ public static class DbSeeder
         logger.LogInformation("SuperAdmin created successfully.");
     }
 
-    private static async Task SeedDevelopmentBypassUsersAsync(AppDbContext dbContext, ILogger logger, IHostEnvironment hostEnvironment)
+    private static async Task SeedDevelopmentBypassUsersAsync(AppDbContext dbContext, ILogger logger, IHostEnvironment hostEnvironment, CancellationToken cancellationToken = default)
     {
         if (!hostEnvironment.IsDevelopment() && !hostEnvironment.IsEnvironment("Testing"))
         {
@@ -80,13 +80,19 @@ public static class DbSeeder
 
         var developmentUsers = new List<User>();
 
+        var seedIds = DevelopmentAuthUsers.Seeds
+            .Select(s => s.Id)
+            .ToHashSet();
+
+        var existingIds = await dbContext.Users
+            .AsNoTracking()
+            .Where(u => seedIds.Contains(u.Id))
+            .Select(u => u.Id)
+            .ToHashSetAsync(cancellationToken);
+
         foreach (var seed in DevelopmentAuthUsers.Seeds)
         {
-            var userExists = await dbContext.Users
-                .AsNoTracking()
-                .AnyAsync(user => user.Id == seed.Id);
-
-            if (userExists)
+            if (existingIds.Contains(seed.Id))
             {
                 continue;
             }
@@ -110,7 +116,7 @@ public static class DbSeeder
         }
 
         dbContext.Users.AddRange(developmentUsers);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Seeded {Count} development bypass user(s).", developmentUsers.Count);
     }
