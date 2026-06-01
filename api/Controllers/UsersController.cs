@@ -589,25 +589,30 @@ public sealed class UsersController(AppDbContext dbContext, UserDeletionService 
             return Ok(ToDashboardUser(user, user.Department?.Name));
         }
 
-        await using var tx = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.archive", $"user:{user.Id}"));
-            await dbContext.SaveChangesAsync(cancellationToken);
+            dbContext.ChangeTracker.Clear();
+            await using var tx = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-            // Explicit self-archive handling: status update always occurs after audit insert.
-            user.Status = UserStatus.Archived;
+            try
+            {
+                dbContext.AuditLogs.Add(CreateAuditLog(actorUserId, actorName, "user.archive", $"user:{user.Id}"));
+                await dbContext.SaveChangesAsync(cancellationToken);
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                // Explicit self-archive handling: status update always occurs after audit insert.
+                user.Status = UserStatus.Archived;
 
-            await tx.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await tx.RollbackAsync(cancellationToken);
-            throw;
-        }
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                await tx.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await tx.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
 
         return Ok(ToDashboardUser(user, user.Department?.Name));
     }

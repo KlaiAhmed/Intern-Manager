@@ -59,40 +59,53 @@ public sealed class UserDeletionService
             return UserDeletionResult.Blocked(blockers);
         }
 
-        await using var tx = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        UserDeletionResult result = UserDeletionResult.Succeeded();
 
-        var deletionTarget = await dbContext.Users
-            .FirstOrDefaultAsync(current => current.Id == userId, cancellationToken);
-
-        if (deletionTarget is null)
+        await strategy.ExecuteAsync(async () =>
         {
-            return UserDeletionResult.NotFound();
-        }
+            dbContext.ChangeTracker.Clear();
+            await using var tx = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        if (actorRole == UserRole.Admin && deletionTarget.Role == UserRole.SuperAdmin)
-        {
-            return UserDeletionResult.Forbidden();
-        }
+            var deletionTarget = await dbContext.Users
+                .FirstOrDefaultAsync(current => current.Id == userId, cancellationToken);
 
-        if (deletionTarget.Status != UserStatus.Archived)
-        {
-            return UserDeletionResult.NotArchived();
-        }
+            if (deletionTarget is null)
+            {
+                result = UserDeletionResult.NotFound();
+                return;
+            }
 
-        dbContext.AuditLogs.Add(BuildAuditLog(actorUserId, actorName, deletionTarget));
-        dbContext.Users.Remove(deletionTarget);
+            if (actorRole == UserRole.Admin && deletionTarget.Role == UserRole.SuperAdmin)
+            {
+                result = UserDeletionResult.Forbidden();
+                return;
+            }
 
-        try
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await tx.CommitAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return UserDeletionResult.NotFound();
-        }
+            if (deletionTarget.Status != UserStatus.Archived)
+            {
+                result = UserDeletionResult.NotArchived();
+                return;
+            }
 
-        return UserDeletionResult.Succeeded();
+            dbContext.AuditLogs.Add(BuildAuditLog(actorUserId, actorName, deletionTarget));
+            dbContext.Users.Remove(deletionTarget);
+
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await tx.CommitAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                result = UserDeletionResult.NotFound();
+                return;
+            }
+
+            result = UserDeletionResult.Succeeded();
+        });
+
+        return result;
     }
 
     private static AuditLog BuildAuditLog(Guid? actorUserId, string actorName, User user)

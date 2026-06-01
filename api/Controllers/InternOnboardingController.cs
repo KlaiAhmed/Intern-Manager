@@ -66,77 +66,91 @@ public sealed class InternOnboardingController(
         {
             uploadedCvFileUrl = await cvStorageService.UploadAsync(payload.Cv, intern.Id, cancellationToken);
 
-            IDbContextTransaction? transaction = null;
+            var strategy = dbContext.Database.CreateExecutionStrategy();
 
-            try
+            await strategy.ExecuteAsync(async () =>
             {
+                dbContext.ChangeTracker.Clear();
                 if (dbContext.Database.IsRelational())
                 {
-                    transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-                }
+                    await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-                var profile = await dbContext.InternProfiles
-                    .FirstOrDefaultAsync(item => item.InternId == intern.Id, cancellationToken);
+                    var profile = await dbContext.InternProfiles
+                        .FirstOrDefaultAsync(item => item.InternId == intern.Id, cancellationToken);
 
-                if (profile is null)
-                {
-                    profile = new InternProfile
+                    if (profile is null)
                     {
-                        Id = Guid.NewGuid(),
-                        InternId = intern.Id,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
+                        profile = new InternProfile
+                        {
+                            Id = Guid.NewGuid(),
+                            InternId = intern.Id,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
 
-                    dbContext.InternProfiles.Add(profile);
-                }
+                        dbContext.InternProfiles.Add(profile);
+                    }
 
-                profile.UniversityId = payload.UniversityId;
-                profile.Major = payload.Major;
-                profile.CurrentYearOfStudy = payload.CurrentYearOfStudy;
-                profile.WorkPreference = payload.WorkPreference;
-                profile.PhoneNumber = payload.PhoneNumber;
-                profile.CvFileUrl = uploadedCvFileUrl;
+                    profile.UniversityId = payload.UniversityId;
+                    profile.Major = payload.Major;
+                    profile.CurrentYearOfStudy = payload.CurrentYearOfStudy;
+                    profile.WorkPreference = payload.WorkPreference;
+                    profile.PhoneNumber = payload.PhoneNumber;
+                    profile.CvFileUrl = uploadedCvFileUrl;
 
-                intern.VerificationStatus = InternVerificationStatus.PENDING;
+                    intern.VerificationStatus = InternVerificationStatus.PENDING;
 
-                dbContext.AuditLogs.Add(new AuditLog
-                {
-                    ActorUserId = intern.Id,
-                    Actor = UserContextHelper.ResolveCurrentActorName(User),
-                    Action = "intern.onboarding.submit",
-                    Entity = $"intern:{intern.Id}",
-                    Timestamp = DateTime.UtcNow
-                });
+                    dbContext.AuditLogs.Add(new AuditLog
+                    {
+                        ActorUserId = intern.Id,
+                        Actor = UserContextHelper.ResolveCurrentActorName(User),
+                        Action = "intern.onboarding.submit",
+                        Entity = $"intern:{intern.Id}",
+                        Timestamp = DateTime.UtcNow
+                    });
 
-                await dbContext.SaveChangesAsync(cancellationToken);
-                if (transaction is not null)
-                {
+                    await dbContext.SaveChangesAsync(cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
-            }
-            catch (Exception transactionException)
-            {
-                if (transaction is not null)
+                else
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                }
+                    var profile = await dbContext.InternProfiles
+                        .FirstOrDefaultAsync(item => item.InternId == intern.Id, cancellationToken);
 
-                if (!string.IsNullOrWhiteSpace(uploadedCvFileUrl))
-                {
-                    await cvStorageService.DeleteAsync(uploadedCvFileUrl, cancellationToken);
-                }
+                    if (profile is null)
+                    {
+                        profile = new InternProfile
+                        {
+                            Id = Guid.NewGuid(),
+                            InternId = intern.Id,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
 
-                logger.LogError(transactionException, "Onboarding transaction failed for intern {InternId}.", intern.Id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An unexpected error occurred while submitting onboarding." });
-            }
-            finally
-            {
-                if (transaction is not null)
-                {
-                    await transaction.DisposeAsync();
+                        dbContext.InternProfiles.Add(profile);
+                    }
+
+                    profile.UniversityId = payload.UniversityId;
+                    profile.Major = payload.Major;
+                    profile.CurrentYearOfStudy = payload.CurrentYearOfStudy;
+                    profile.WorkPreference = payload.WorkPreference;
+                    profile.PhoneNumber = payload.PhoneNumber;
+                    profile.CvFileUrl = uploadedCvFileUrl;
+
+                    intern.VerificationStatus = InternVerificationStatus.PENDING;
+
+                    dbContext.AuditLogs.Add(new AuditLog
+                    {
+                        ActorUserId = intern.Id,
+                        Actor = UserContextHelper.ResolveCurrentActorName(User),
+                        Action = "intern.onboarding.submit",
+                        Entity = $"intern:{intern.Id}",
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    await dbContext.SaveChangesAsync(cancellationToken);
                 }
-            }
+            });
         }
         catch (Exception uploadOrRollbackException)
         {

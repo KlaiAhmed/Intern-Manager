@@ -37,77 +37,96 @@ public sealed class PasswordResetService(
         }
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await dbContext.Users
-            .FirstOrDefaultAsync(
-                current => current.Status == UserStatus.Active &&
-                           EF.Functions.Collate(current.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
+
+        string? userEmail = null;
+        Guid userId = default;
+        string plainCode = string.Empty;
+        DateTime expiresAt = default;
+        bool codeGenerated = false;
+
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(async () =>
+        {
+            dbContext.ChangeTracker.Clear();
+
+            var user = await dbContext.Users
+                .FirstOrDefaultAsync(
+                    current => current.Status == UserStatus.Active &&
+                               EF.Functions.Collate(current.Email, "SQL_Latin1_General_CP1_CI_AS") == normalizedEmail,
+                    cancellationToken);
+
+            if (user is null)
+            {
+                return;
+            }
+
+            userEmail = user.Email;
+            userId = user.Id;
+            codeGenerated = true;
+
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.RepeatableRead,
                 cancellationToken);
 
-        if (user is null)
+            try
+            {
+                var now = DateTime.UtcNow;
+                var activeTokens = await dbContext.PasswordResetTokens
+                    .Where(token => token.UserId == user.Id && !token.IsUsed)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var activeToken in activeTokens)
+                {
+                    activeToken.IsUsed = true;
+                }
+
+                // FIX C1: increase OTP entropy from 6 digits to 8 digits.
+                plainCode = GenerateOtpCode();
+                expiresAt = now.Add(ResetCodeLifetime);
+                var tokenHash = HashToken(plainCode);
+
+                dbContext.PasswordResetTokens.Add(new PasswordResetToken
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    TokenHash = tokenHash,
+                    ExpiresAt = expiresAt,
+                    IsUsed = false,
+                    CreatedAt = now
+                });
+
+                dbContext.AuditLogs.Add(new AuditLog
+                {
+                    ActorUserId = user.Id,
+                    Actor = user.Email,
+                    Action = "auth.password_reset.request",
+                    Entity = $"user:{user.Id}",
+                    Timestamp = now
+                });
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
+
+        if (!codeGenerated || userEmail is null)
         {
             return;
         }
 
-        string plainCode = string.Empty;
-        DateTime expiresAt = default;
-
-        // FIX H10: serialize concurrent reset requests per user.
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(
-            System.Data.IsolationLevel.RepeatableRead,
-            cancellationToken);
-
         try
         {
-            var now = DateTime.UtcNow;
-            var activeTokens = await dbContext.PasswordResetTokens
-                .Where(token => token.UserId == user.Id && !token.IsUsed)
-                .ToListAsync(cancellationToken);
-
-            foreach (var activeToken in activeTokens)
-            {
-                activeToken.IsUsed = true;
-            }
-
-            // FIX C1: increase OTP entropy from 6 digits to 8 digits.
-            plainCode = GenerateOtpCode();
-            expiresAt = now.Add(ResetCodeLifetime);
-            var tokenHash = HashToken(plainCode);
-
-            dbContext.PasswordResetTokens.Add(new PasswordResetToken
-            {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                TokenHash = tokenHash,
-                ExpiresAt = expiresAt,
-                IsUsed = false,
-                CreatedAt = now
-            });
-
-            dbContext.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = user.Id,
-                Actor = user.Email,
-                Action = "auth.password_reset.request",
-                Entity = $"user:{user.Id}",
-                Timestamp = now
-            });
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-
-        try
-        {
-            await emailService.SendPasswordResetCodeAsync(user.Email, plainCode, expiresAt, cancellationToken);
+            await emailService.SendPasswordResetCodeAsync(userEmail, plainCode, expiresAt, cancellationToken);
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Failed to send password reset code email for user {UserId}.", user.Id);
+            logger.LogError(exception, "Failed to send password reset code email for user {UserId}.", userId);
             throw;
         }
     }
