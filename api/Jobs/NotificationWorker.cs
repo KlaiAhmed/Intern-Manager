@@ -3,6 +3,7 @@ using InternManager.Api.Common.Constants;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
 using InternManager.Api.Services.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternManager.Api.Jobs;
@@ -163,75 +164,69 @@ public sealed class NotificationWorker(
         DateTime now,
         CancellationToken cancellationToken)
     {
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        var strategy = dbContext.Database.CreateExecutionStrategy();
 
         try
         {
-            if (dbContext.Database.IsRelational())
+            return await strategy.ExecuteAsync(async () =>
             {
-                transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            }
+                await using var transaction = dbContext.Database.IsRelational()
+                    ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                    : null;
 
-            var task = await dbContext.InternTasks
-                .Include(item => item.Deliverable)
-                    .ThenInclude(deliverable => deliverable!.Mission)
-                .FirstOrDefaultAsync(item => item.Id == taskId, cancellationToken);
+                var task = await dbContext.InternTasks
+                    .Include(item => item.Deliverable)
+                        .ThenInclude(deliverable => deliverable!.Mission)
+                    .FirstOrDefaultAsync(item => item.Id == taskId, cancellationToken);
 
-            if (task is null ||
-                task.OverdueNotifiedAt.HasValue ||
-                !task.DueDate.HasValue ||
-                task.DueDate.Value >= now ||
-                task.Status == DomainStatuses.Task.Done ||
-                task.Status == DomainStatuses.Task.Cancelled ||
-                task.Deliverable?.Mission is null ||
-                !IsActiveMission(task.Deliverable.Mission))
-            {
-                if (transaction is not null)
+                if (task is null ||
+                    task.OverdueNotifiedAt.HasValue ||
+                    !task.DueDate.HasValue ||
+                    task.DueDate.Value >= now ||
+                    task.Status == DomainStatuses.Task.Done ||
+                    task.Status == DomainStatuses.Task.Cancelled ||
+                    task.Deliverable?.Mission is null ||
+                    !IsActiveMission(task.Deliverable.Mission))
                 {
-                    await transaction.RollbackAsync(cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                    }
+
+                    return false;
                 }
 
-                return false;
-            }
+                task.OverdueNotifiedAt = now;
+                QueueTaskOverdueNotifications(notificationService, task, now);
 
-            task.OverdueNotifiedAt = now;
-            QueueTaskOverdueNotifications(notificationService, task, now);
+                await dbContext.SaveChangesAsync(cancellationToken);
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
-
-            return true;
+                return true;
+            });
         }
-        catch (DbUpdateException exception)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            logger.LogDebug(exception, "Skipping duplicate overdue task notification for task {TaskId}.", taskId);
-
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
-            return false;
-        }
-        catch
-        {
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
             throw;
         }
-        finally
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
+            logger.LogDebug(ex, "Duplicate notification skipped safely during background execution.");
+            return false;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Database integrity or schema validation violation processing notification item.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected critical runtime error processing notification item. Skipping item to preserve worker loop safety.");
+            return false;
         }
     }
 
@@ -242,76 +237,70 @@ public sealed class NotificationWorker(
         DateTime now,
         CancellationToken cancellationToken)
     {
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        var strategy = dbContext.Database.CreateExecutionStrategy();
 
         try
         {
-            if (dbContext.Database.IsRelational())
+            return await strategy.ExecuteAsync(async () =>
             {
-                transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            }
+                await using var transaction = dbContext.Database.IsRelational()
+                    ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                    : null;
 
-            var deliverable = await dbContext.Deliverables
-                .Include(item => item.Mission)
-                .FirstOrDefaultAsync(item => item.Id == deliverableId, cancellationToken);
+                var deliverable = await dbContext.Deliverables
+                    .Include(item => item.Mission)
+                    .FirstOrDefaultAsync(item => item.Id == deliverableId, cancellationToken);
 
-            if (deliverable is null ||
-                deliverable.OverdueNotifiedAt.HasValue ||
-                !deliverable.DueDate.HasValue ||
-                deliverable.DueDate.Value >= now ||
-                deliverable.Status == DomainStatuses.Deliverable.Approved ||
-                deliverable.Status == DomainStatuses.Deliverable.Accepted ||
-                deliverable.Status == DomainStatuses.Deliverable.Rejected ||
-                deliverable.Status == DomainStatuses.Deliverable.Cancelled ||
-                deliverable.Mission is null ||
-                !IsActiveMission(deliverable.Mission))
-            {
-                if (transaction is not null)
+                if (deliverable is null ||
+                    deliverable.OverdueNotifiedAt.HasValue ||
+                    !deliverable.DueDate.HasValue ||
+                    deliverable.DueDate.Value >= now ||
+                    deliverable.Status == DomainStatuses.Deliverable.Approved ||
+                    deliverable.Status == DomainStatuses.Deliverable.Accepted ||
+                    deliverable.Status == DomainStatuses.Deliverable.Rejected ||
+                    deliverable.Status == DomainStatuses.Deliverable.Cancelled ||
+                    deliverable.Mission is null ||
+                    !IsActiveMission(deliverable.Mission))
                 {
-                    await transaction.RollbackAsync(cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                    }
+
+                    return false;
                 }
 
-                return false;
-            }
+                deliverable.OverdueNotifiedAt = now;
+                QueueDeliverableOverdueNotifications(notificationService, deliverable, now);
 
-            deliverable.OverdueNotifiedAt = now;
-            QueueDeliverableOverdueNotifications(notificationService, deliverable, now);
+                await dbContext.SaveChangesAsync(cancellationToken);
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
-
-            return true;
+                return true;
+            });
         }
-        catch (DbUpdateException exception)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            logger.LogDebug(exception, "Skipping duplicate overdue deliverable notification for deliverable {DeliverableId}.", deliverableId);
-
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
-            return false;
-        }
-        catch
-        {
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
             throw;
         }
-        finally
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
+            logger.LogDebug(ex, "Duplicate notification skipped safely during background execution.");
+            return false;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Database integrity or schema validation violation processing notification item.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected critical runtime error processing notification item. Skipping item to preserve worker loop safety.");
+            return false;
         }
     }
 
@@ -322,70 +311,64 @@ public sealed class NotificationWorker(
         DateTime now,
         CancellationToken cancellationToken)
     {
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        var strategy = dbContext.Database.CreateExecutionStrategy();
 
         try
         {
-            if (dbContext.Database.IsRelational())
+            return await strategy.ExecuteAsync(async () =>
             {
-                transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            }
+                await using var transaction = dbContext.Database.IsRelational()
+                    ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                    : null;
 
-            var mission = await dbContext.Missions
-                .FirstOrDefaultAsync(item => item.Id == missionId, cancellationToken);
+                var mission = await dbContext.Missions
+                    .FirstOrDefaultAsync(item => item.Id == missionId, cancellationToken);
 
-            if (mission is null ||
-                mission.DeadlineNotifiedAt.HasValue ||
-                !mission.EndDate.HasValue ||
-                mission.EndDate.Value.Date != now.Date.AddDays(7) ||
-                !IsActiveMission(mission))
-            {
-                if (transaction is not null)
+                if (mission is null ||
+                    mission.DeadlineNotifiedAt.HasValue ||
+                    !mission.EndDate.HasValue ||
+                    mission.EndDate.Value.Date != now.Date.AddDays(7) ||
+                    !IsActiveMission(mission))
                 {
-                    await transaction.RollbackAsync(cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                    }
+
+                    return false;
                 }
 
-                return false;
-            }
+                mission.DeadlineNotifiedAt = now;
+                QueueMissionDeadlineNotifications(notificationService, mission, now);
 
-            mission.DeadlineNotifiedAt = now;
-            QueueMissionDeadlineNotifications(notificationService, mission, now);
+                await dbContext.SaveChangesAsync(cancellationToken);
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
-
-            return true;
+                return true;
+            });
         }
-        catch (DbUpdateException exception)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            logger.LogDebug(exception, "Skipping duplicate deadline notification for mission {MissionId}.", missionId);
-
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
-            return false;
-        }
-        catch
-        {
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
             throw;
         }
-        finally
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
+            logger.LogDebug(ex, "Duplicate notification skipped safely during background execution.");
+            return false;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Database integrity or schema validation violation processing notification item.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected critical runtime error processing notification item. Skipping item to preserve worker loop safety.");
+            return false;
         }
     }
 

@@ -1,7 +1,6 @@
 using InternManager.Api.Common.Constants;
 using InternManager.Api.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Transactions;
 
 namespace InternManager.Api.Jobs;
 
@@ -41,15 +40,8 @@ public sealed class ProgressConsistencyJob(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        using var txScope = new TransactionScope(
-            TransactionScopeOption.Required,
-            new TransactionOptions { IsolationLevel = IsolationLevel.ReadCommitted },
-            TransactionScopeAsyncFlowOption.Enabled);
-
         var correctedDeliverables = await CorrectDeliverablesAsync(db, cancellationToken);
         var correctedMissions = await CorrectMissionsAsync(db, cancellationToken);
-
-        txScope.Complete();
 
         logger.LogInformation(
             "Consistency job: {DeliverablesCorrected} deliverables corrected, {MissionsCorrected} missions corrected",
