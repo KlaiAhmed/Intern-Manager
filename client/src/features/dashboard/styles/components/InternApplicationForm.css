@@ -23,6 +23,11 @@
   animation: cardRise 0.5s var(--dash-ease-spring);
 }
 
+.status-gate-card.application-form-card {
+  justify-items: stretch;
+  border-radius: var(--dash-radius-lg);
+}
+
 @media (max-width: 640px) {
   .application-form-card {
     padding: var(--dash-space-xl);

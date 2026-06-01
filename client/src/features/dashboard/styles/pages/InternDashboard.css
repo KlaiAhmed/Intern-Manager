@@ -522,6 +522,7 @@
 .pending-status-card {
   justify-items: stretch;
   text-align: start;
+  border-radius: var(--dash-radius-lg);
 }
 
 .pending-status-header,
