@@ -498,7 +498,7 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-            entity.HasIndex(version => version.DeliverableId);
+
             entity.HasIndex(version => version.SubmittedByUserId);
             entity.HasIndex(version => new { version.DeliverableId, version.VersionNumber })
                 .IsUnique();
@@ -551,8 +551,8 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-            entity.HasIndex(evaluation => evaluation.SupervisorId);
-            entity.HasIndex(evaluation => evaluation.InternId);
+
+
             entity.HasIndex(evaluation => evaluation.Status);
             entity.HasIndex(evaluation => new { evaluation.InternId, evaluation.IsReleasedToIntern });
             entity.HasIndex(evaluation => evaluation.DeliverableId)
@@ -695,7 +695,7 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-            entity.HasIndex(link => link.JournalEntryId);
+
             entity.HasIndex(link => link.LinkedByUserId);
             entity.HasIndex(link => new { link.JournalEntryId, link.EvaluationCriteria })
                 .IsUnique();
@@ -909,7 +909,7 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-            entity.HasIndex(notification => notification.UserId);
+
             entity.HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
             entity.HasIndex(notification => new { notification.UserId, notification.RelatedEntity, notification.Type })
                 .IsUnique()
@@ -944,7 +944,7 @@ entity.Property(mission => mission.Title)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-            entity.HasIndex(notification => notification.InternId);
+
             entity.HasIndex(notification => new { notification.InternId, notification.IsRead, notification.CreatedAt });
 
             entity.HasOne(notification => notification.Intern)
