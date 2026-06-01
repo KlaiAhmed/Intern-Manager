@@ -9,7 +9,6 @@ import type {
   DeliverableVersionHistoryResponse,
   DeliverableVersionResponse,
   InternCurrentMissionSummaryResponse,
-  InternDashboardActionResponse,
   InternDashboardPagedResponse,
   InternDeliverableResponse,
   InternDetailResponse,
