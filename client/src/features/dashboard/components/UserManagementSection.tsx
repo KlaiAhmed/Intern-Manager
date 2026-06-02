@@ -433,7 +433,11 @@ const { confirmPassword, ...userData } = formData
                               if (user.status !== 'archived') return
                               openDeleteModal(user)
                             }}
-                            aria-label={t('dashboard.table.delete')}
+                            aria-label={
+                              user.status !== 'archived'
+                                ? t('dashboard.table.archiveRequired')
+                                : t('dashboard.table.delete')
+                            }
                             disabled={user.status !== 'archived'}
                           >
                             <Trash2 />
