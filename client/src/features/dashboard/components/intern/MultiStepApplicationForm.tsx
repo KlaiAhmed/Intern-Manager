@@ -15,6 +15,7 @@ import {
   type DegreeLevel,
   type StudyYear,
 } from './academicYear'
+import type { InternLifecycleStatus } from '../../types/internDashboard'
 
 type WorkPreference = 'remote' | 'hybrid' | 'onsite'
 
@@ -29,7 +30,7 @@ interface InternApplicationFormData {
 }
 
 interface MultiStepApplicationFormProps {
-  onSubmitted: (status: string) => void
+  onSubmitted: (status: InternLifecycleStatus) => void
 }
 
 type FormStep = 1 | 2 | 3
@@ -58,6 +59,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
   })
 
   const [isDragging, setIsDragging] = useState(false)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
 
   // Fetch schools on mount
   useEffect(() => {
@@ -235,6 +237,7 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
     if (currentStep !== 3 || !formData.cvFile) return
 
     setIsSubmitting(true)
+    setSubmissionError(null)
 
     try {
       const multipartData = new FormData()
@@ -248,9 +251,14 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
       }
       multipartData.append('cv', formData.cvFile)
 
-      await api.postFormData('/api/interns/me/onboarding', multipartData)
+      const response = await api.postFormData<{
+        verificationStatus?: InternLifecycleStatus
+      }>('/api/interns/me/onboarding', multipartData)
 
-      onSubmitted('PENDING')
+      if (!response.verificationStatus) {
+        throw new Error('Submission response missing verificationStatus')
+      }
+      onSubmitted(response.verificationStatus)
     } catch (error) {
       console.error('Failed to submit application:', error)
 
@@ -280,10 +288,10 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
         } else if (error.message.trim()) {
           setErrors({ universityId: error.message })
         } else {
-          setErrors({ universityId: t('dashboard.intern.application.error.submitFailed') })
+          setSubmissionError(t('dashboard.intern.application.error.submitFailed'))
         }
       } else {
-        setErrors({ universityId: t('dashboard.intern.application.error.submitFailed') })
+        setSubmissionError(t('dashboard.intern.application.error.submitFailed'))
       }
     } finally {
       setIsSubmitting(false)
@@ -563,6 +571,12 @@ export function MultiStepApplicationForm({ onSubmitted }: MultiStepApplicationFo
               </div>
 
               {errors.universityId && <span className="field-error">{errors.universityId}</span>}
+
+              {submissionError && (
+                <p role="alert" className="field-error">
+                  {submissionError}
+                </p>
+              )}
 
               <div className="form-actions">
                 <button type="button" className="btn-back" onClick={handleBack} disabled={isSubmitting}>

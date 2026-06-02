@@ -118,6 +118,24 @@ describe('MultiStepApplicationForm', () => {
     expect(submittedForm.get('phoneNumber')).toBe('+21612345678')
   })
 
+  it('forwards the lifecycle status returned by onboarding submission', async () => {
+    const onSubmitted = vi.fn()
+    mockApi.postFormData.mockResolvedValue({
+      status: 'Active',
+      verificationStatus: 'PENDING',
+    })
+
+    const { container } = render(<MultiStepApplicationForm onSubmitted={onSubmitted} />)
+
+    await fillStep1()
+    await fillStep2(container)
+
+    fireEvent.click(screen.getByRole('button', { name: 'dashboard.intern.application.submit' }))
+
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith('PENDING'))
+    expect(screen.getByRole('button', { name: 'dashboard.intern.application.submit' })).not.toBeDisabled()
+  })
+
   it('renders Degree Level dropdown label (not raw key)', () => {
     render(<MultiStepApplicationForm onSubmitted={vi.fn()} />)
 

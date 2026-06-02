@@ -71,6 +71,9 @@ public sealed class InternOnboardingController(
             await strategy.ExecuteAsync(async () =>
             {
                 dbContext.ChangeTracker.Clear();
+                intern = await dbContext.Users.FirstOrDefaultAsync(
+                    u => u.Id == intern.Id, cancellationToken)
+                    ?? throw new InvalidOperationException("Intern not found after tracker clear.");
                 if (dbContext.Database.IsRelational())
                 {
                     await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -184,7 +187,7 @@ public sealed class InternOnboardingController(
         return Ok(new
         {
             message = "Onboarding submitted successfully.",
-            status = intern.Status.ToString(),
+            accountStatus = intern.Status.ToString(),
             verificationStatus = intern.VerificationStatus.ToString(),
             cvFileUrl = uploadedCvFileUrl
         });
