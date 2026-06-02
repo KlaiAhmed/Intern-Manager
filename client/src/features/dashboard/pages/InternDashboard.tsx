@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { DashboardButton } from '../components/DashboardButton'
 import { DashboardLayout } from '../components/DashboardLayout'
 import { TabErrorBoundary } from '../components/TabErrorBoundary'
@@ -8,8 +9,10 @@ import {
 } from '../components/intern/InternStatusViews'
 import { MultiStepApplicationForm } from '../components/intern/MultiStepApplicationForm'
 import { useInternDashboard } from '../hooks/intern/useInternDashboard'
+import { internDashboardQueryKeys } from '../hooks/intern/internDashboardQueryKeys'
 import { useMissionFeatureFlags } from '../hooks/intern/useMissionFeatureFlags'
-import type { InternDashboardTabId } from '../types/internDashboard'
+import type { InternDashboardTabId, InternLifecycleStatus } from '../types/internDashboard'
+import type { InternDetailResponse } from '../types/intern.types'
 import type { DashboardCard } from '../types/missionFeatureFlags'
 import { DeliverablesTab } from '../tabs/intern/DeliverablesTab'
 import { EvaluationsTab } from '../tabs/intern/EvaluationsTab'
@@ -31,6 +34,7 @@ function isInternDashboardTabId(value: string): value is InternDashboardTabId {
 }
 
 export function InternDashboard() {
+  const queryClient = useQueryClient()
   const {
     t,
     user,
@@ -83,6 +87,12 @@ export function InternDashboard() {
       setActiveTab(tabId)
     }
   }
+
+  const handleOnboardingSubmitted = useCallback(async (nextStatus: InternLifecycleStatus) => {
+    if (user?.id) {
+      await queryClient.invalidateQueries({ queryKey: internDashboardQueryKeys.status(user.id) })
+    }
+  }, [queryClient, user?.id])
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -162,9 +172,7 @@ export function InternDashboard() {
   if (internLifecycleStatus === 'INCOMPLETE') {
     return (
       <MultiStepApplicationForm
-        onSubmitted={() => {
-          void loadInternLifecycleStatus()
-        }}
+        onSubmitted={handleOnboardingSubmitted}
       />
     )
   }
