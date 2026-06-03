@@ -173,6 +173,12 @@ export const Icons = {
       <line x1="12" y1="15" x2="12" y2="3" />
     </Icon>
   ),
+  Eye: () => (
+    <Icon size={16}>
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  ),
 
   // Charts
   Target: () => (
@@ -217,4 +223,5 @@ export const {
   Download,
   Target,
   FolderOpen,
+  Eye,
 } = Icons
