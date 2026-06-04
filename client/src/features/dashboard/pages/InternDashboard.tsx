@@ -11,8 +11,7 @@ import { MultiStepApplicationForm } from '../components/intern/MultiStepApplicat
 import { useInternDashboard } from '../hooks/intern/useInternDashboard'
 import { internDashboardQueryKeys } from '../hooks/intern/internDashboardQueryKeys'
 import { useMissionFeatureFlags } from '../hooks/intern/useMissionFeatureFlags'
-import type { InternDashboardTabId, InternLifecycleStatus } from '../types/internDashboard'
-import type { InternDetailResponse } from '../types/intern.types'
+import type { InternDashboardTabId } from '../types/internDashboard'
 import type { DashboardCard } from '../types/missionFeatureFlags'
 import { DeliverablesTab } from '../tabs/intern/DeliverablesTab'
 import { EvaluationsTab } from '../tabs/intern/EvaluationsTab'
@@ -88,11 +87,13 @@ export function InternDashboard() {
     }
   }
 
-  const handleOnboardingSubmitted = useCallback(async (nextStatus: InternLifecycleStatus) => {
-    if (user?.id) {
-      await queryClient.invalidateQueries({ queryKey: internDashboardQueryKeys.status(user.id) })
+  const userId = user?.id
+
+  const handleOnboardingSubmitted = useCallback(async () => {
+    if (userId) {
+      await queryClient.invalidateQueries({ queryKey: internDashboardQueryKeys.status(userId) })
     }
-  }, [queryClient, user?.id])
+  }, [queryClient, userId])
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -218,13 +219,7 @@ export function InternDashboard() {
         aria-labelledby={`tab-${activeTab}`}
         tabIndex={0}
       >
-        <TabErrorBoundary
-          key={activeTab}
-          resetKeys={[activeTab]}
-          fallbackTitle={t('dashboard.tabError.title')}
-          fallbackMessage={t('dashboard.tabError.message')}
-          retryLabel={t('dashboard.tabError.retry')}
-        >
+        <TabErrorBoundary key={activeTab} resetKeys={[activeTab]}>
           {renderActiveTab()}
         </TabErrorBoundary>
       </section>

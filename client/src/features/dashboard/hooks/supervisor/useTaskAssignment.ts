@@ -1,3 +1,4 @@
+// @deprecated — merged into useTasksData.ts (Wave 3 Task 3D). Do not import.
 import { useCallback, useState } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { useDashboardApi } from '../useDashboardApi'

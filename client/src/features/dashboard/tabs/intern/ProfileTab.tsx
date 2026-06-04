@@ -38,6 +38,8 @@ export function ProfileTab({ t }: ProfileTabProps) {
   const [studyYear, setStudyYear] = useState<StudyYear>('1')
 
   useEffect(() => {
+    // Keep the editable form in sync when the profile request resolves or refreshes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(createForm(state.profile))
     const parsed = parseCurrentYearOfStudy(state.profile?.currentYearOfStudy)
     if (parsed) {

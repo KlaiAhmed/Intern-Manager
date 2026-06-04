@@ -72,6 +72,14 @@ export const Icons = {
       <path d="m9 15 2 2 4-4" />
     </Icon>
   ),
+  Calendar: ({ size }: { size?: number }) => (
+    <Icon size={size}>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M3 10h18" />
+    </Icon>
+  ),
   Sparkles: () => (
     <Icon>
       <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
@@ -206,6 +214,7 @@ export const {
   BookOpen,
   ClipboardCheck,
   FileCheck,
+  Calendar,
   Sparkles,
   Settings,
   ShieldCheck,

@@ -15,6 +15,11 @@ export const ManagerDashboard = lazy(async () => { // Direct /dashboard/manager 
   return { default: module.ManagerDashboard } // Expose the existing manager dashboard to routeConfig.
 })
 
+export const SupervisorDashboard = lazy(async () => {
+  const module = await import('../features/dashboard/pages/SupervisorDashboard/index')
+  return { default: module.default }
+})
+
 export const LoginPage = lazy(async () => {
   const module = await import('../pages/LoginPage')
   return { default: module.LoginPage }

@@ -1,164 +1,266 @@
-export type SupervisorNotificationType =
-  | 'new-submission'
-  | 'rejected-deliverable'
-  | 'meeting-reminder'
-  | 'generic'
+export type DeliverableStatus =
+  | 'draft'
+  | 'in_progress'
+  | 'awaiting_review'
+  | 'approved'
+  | 'changes_requested'
+  | 'cancelled'
 
-export interface SupervisorNotificationItem {
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'reopened' | 'cancelled'
+
+// TODO: confirm enum values with backend
+export type MissionStatus =
+  | 'draft'
+  | 'active'
+  | 'paused'
+  | 'completed'
+  | 'cancelled'
+  | 'archived'
+
+export type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+
+export type DrawerMode = 'create' | 'edit' | 'view' | 'approve' | 'reject' | 'verify' | null
+
+export type FeatureFlagEntry = CardConfig
+export type MissionCardKey = DashboardCard
+export type MissionCardConfig = MissionFeatureFlagConfig
+
+export interface MissionHistoryEntry {
   id: string
-  type: string
-  title: string
-  message: string
-  relatedEntity: string
-  isRead: boolean
-  createdAt: string
-  readAt: string | null
+  missionId: string
+  action?: string
+  field: string
+  oldValue?: string | null
+  newValue?: string | null
+  changedByUserId?: string | null
+  changedBy: string
+  changedAt: string
 }
 
-export interface SupervisorKpis {
-  activeInterns: number
-  pendingDeliverables: number
-  internsBehind: number
-  avgValidationDelayDays: number
-  validationDelaySampleSize: number
-}
-
-export interface SupervisorInternProgressItem {
-  internId: string
-  fullName: string
-  missionTitle: string
-  missionId: string | null
-  stageType: string
-  progress: number
-  status: string
-  isLate: boolean
-}
-
-export interface SupervisorWorkload {
-  currentInternCount: number
-  maxCapacity: number | null
-  utilizationPercent: number | null
-  pfeCount: number
-  summerCount: number
-  otherCount: number
-}
-
-export interface SupervisorDelayAlertItem {
+export interface SupervisorMissionInternAssignment {
   internId: string
   internName: string
-  deliverableId: string
-  deliverableTitle: string
-  dueDate: string
-  daysOverdue: number
-  severity: string
 }
 
-export interface SupervisorValidationQueueItem {
+export interface SupervisorMission {
+  id: string
+  title: string
+  description: string
+  status: MissionStatus
+  internId: string
+  internIds?: string[]
+  internNames?: string[]
+  internAssignments?: SupervisorMissionInternAssignment[]
+  supervisorId: string
+  coSupervisorId?: string | null
+  coSupervisorCanReview: boolean
+  coSupervisorCanEval: boolean
+  tools: string
+  level: string
+  skills: string[]
+  rawProgress: number
+  startDate?: string | null
+  endDate?: string | null
+  createdAt: string
+  updatedAt: string
+  rowVersion?: string
+  cardConfig?: MissionCardConfig
+  history?: MissionHistoryEntry[]
+}
+
+export interface SupervisorIntern {
+  id: string
+  firstName: string
+  lastName: string
+  fullName: string
+  email: string
+  missionId?: string | null
+  missionTitle?: string
+  startDate?: string | null
+  endDate?: string | null
+  status?: string
+  verificationStatus?: string
+}
+
+export interface InternWithProgress extends SupervisorIntern {
+  taskCount: number
+  taskDoneCount: number
+  deliverableCount: number
+  deliverableApprovedCount: number
+  progressPercent: number
+}
+
+export interface DeliverableVersion {
+  id: string
+  deliverableId: string
+  versionNumber: number
+  fileUrl?: string | null
+  gitHubUrl?: string | null
+  gitHubBranch?: string | null
+  message?: string | null
+  status: string
+  submittedAt: string
+  validatedAt?: string | null
+  submittedBy?: {
+    id: string
+    name: string
+    email: string
+  } | null
+}
+
+export interface SupervisorDeliverable {
+  id: string
+  missionId: string
+  supervisorId: string
+  internId: string | null
+  internName?: string
+  title: string
+  description?: string
+  status: DeliverableStatus
+  version: number
+  fileUrl: string
+  rowVersion?: string
+  rawProgress: number
+  weight: number
+  dueDate?: string | null
+  submittedDate?: string | null
+  supervisorComment?: string | null
+  createdAt?: string
+  versions?: DeliverableVersion[]
+  tasks?: SupervisorTask[]
+}
+
+export interface DeliverableQueueItem {
   id: string
   title: string
   internId: string | null
   internName: string
   submittedDate: string | null
   dueDate: string | null
-  status: string
+  status: DeliverableStatus
   version: number
   fileUrl: string
-  rowVersion: number
+  rowVersion?: string
   rawProgress: number
-  tasks: SupervisorValidationQueueTask[]
+  tasks: SupervisorTask[]
 }
 
-export interface SupervisorValidationQueueTask {
-  id: string
-  title: string
-  status: string
-  rowVersion: number
-}
-
-export interface SupervisorMeetingItem {
+export interface SupervisorTask {
   id: string
   internId: string
-  internName: string
+  deliverableId?: string | null
+  title: string
+  description?: string
+  dueDate?: string | null
+  status: TaskStatus
+  deliverableTitle?: string
+  rowVersion?: string
+  completedAt?: string | null
+  createdAt?: string
+}
+
+export interface SupervisorMeeting {
+  id: string
+  supervisorId: string
+  internId: string
+  internName?: string
   date: string
   notes: string
+  parsedTitle?: string
+  parsedMeetingUrl?: string
+  parsedBody?: string
+  createdAt?: string
 }
 
-export interface SupervisorMeetingForm {
+export interface SupervisorEvaluation {
+  id: string
   internId: string
-  date: string
-  note: string
-}
-
-export interface SupervisorTaskForm {
-  internId: string
-  title: string
-  description: string
-  dueDate: string
-}
-
-export interface SupervisorDeliverableForm {
-  internId: string
-  missionId: string
-  title: string
-  description: string
-  dueDate: string
-}
-
-export interface SupervisorEvaluationDueItem {
-  evaluationId: string
-  internId: string
-  deliverableId: string
-  internName: string
+  internName?: string
+  deliverableId?: string | null
+  deliverableTitle?: string
+  deliverableStatus?: DeliverableStatus
+  // TODO: confirm enum values with backend
   type: string
   status: string
-  deliverableTitle: string
-  deliverableStatus: string
+  technicalScore: number
+  autonomyScore: number
+  communicationScore: number
+  deadlineRespectScore: number
+  deliverableQualityScore: number
+  overallScore?: number | null
+  comments?: string
+  privateNotes?: string
+  isReleasedToIntern: boolean
+  releasedAt?: string | null
+  submittedAt?: string
+  createdAt?: string
 }
 
-export interface SupervisorEvaluationCompletedItem {
-  evaluationId: string
-  internId: string
-  deliverableId: string
-  internName: string
-  type: string
-  status: string
-  deliverableTitle: string
-  deliverableStatus: string
-  averageScore: number
-  overallScore: number | null
-  submittedAt: string
+export interface SupervisorWorkload {
+  currentInternCount: number
+  maxCapacity: number | null
+  utilizationPercent?: number
+  pfeCount: number
+  summerCount: number
+  otherCount: number
 }
 
-export interface SupervisorEvaluationStatus {
-  due: SupervisorEvaluationDueItem[]
-  completed: SupervisorEvaluationCompletedItem[]
+export interface CreateDeliverableRequest {
+  MissionId: string
+  InternId?: string
+  Title: string
+  Description?: string
+  DueDate?: string
+  Weight?: number
 }
 
-export interface SupervisorEvaluationScores {
-  technical: number
-  autonomy: number
-  communication: number
-  deadlineRespect: number
-  deliverableQuality: number
+export type UpdateDeliverableRequest = Partial<Omit<CreateDeliverableRequest, 'MissionId' | 'InternId' | 'DueDate'>> & {
+  DueDate?: string | null
 }
 
-export interface SupervisorEvaluationCriterionComments {
-  technical: string
-  autonomy: string
-  communication: string
-  deadlineRespect: string
-  deliverableQuality: string
+export interface RejectDeliverableRequest {
+  Reason: string
+  TaskIdsToReopen: string[]
+  RowVersion: string
 }
 
-export interface SupervisorEvaluationForm {
-  scores: SupervisorEvaluationScores
-  criterionComments: SupervisorEvaluationCriterionComments
-  generalComment: string
+export interface CreateTaskRequest {
+  InternId: string
+  DeliverableId?: string
+  Title: string
+  Description?: string
+  DueDate?: string
 }
 
-export interface PagedResponse<T> {
-  data?: T[]
-  total?: number
-  page?: number
-  limit?: number
+export type UpdateTaskRequest = Partial<Omit<CreateTaskRequest, 'InternId'>>
+
+export interface CreateMeetingRequest {
+  SupervisorId: string
+  InternId: string
+  Date: string
+  Notes: string
 }
+
+export interface UpdateMeetingRequest {
+  Date: string
+  Notes: string
+}
+
+export interface UpdateMissionRequest {
+  Title?: string
+  Description?: string
+  Skills?: string[]
+  Tools?: string
+  Level?: string
+  Status?: MissionStatus
+  StartDate?: string | null
+  EndDate?: string | null
+  CoSupervisorId?: string
+  CoSupervisorCanReview?: boolean
+  CoSupervisorCanEval?: boolean
+}
+import type {
+  CardConfig,
+  DashboardCard,
+  MissionCardConfig as MissionFeatureFlagConfig,
+} from './missionFeatureFlags'

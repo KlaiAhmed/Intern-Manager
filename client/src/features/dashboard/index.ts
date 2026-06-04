@@ -7,7 +7,6 @@ export {
 	StatusGateLoading,
 } from './components/intern/InternStatusViews'
 export { TabErrorBoundary } from './components/TabErrorBoundary'
-export { TabErrorFallback } from './components/TabErrorFallback'
 export { uploadInternCvWithProgress } from './api/internCvApi'
 export { internDashboardApi } from './api/internDashboardApi'
 export { uploadWithProgress } from '../../lib/uploadWithProgress'

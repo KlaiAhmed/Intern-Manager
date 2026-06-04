@@ -1,3 +1,4 @@
+// @deprecated — merged into useDeliverablesData.ts (Wave 3 Task 3C). Do not import.
 import { useCallback, useState } from 'react'
 import { useI18n } from '../../../../locales/I18nContext'
 import { useDashboardApi } from '../useDashboardApi'

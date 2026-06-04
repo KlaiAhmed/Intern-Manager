@@ -1,0 +1,29 @@
+.dashboard-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-family: var(--dash-font-body);
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar--xs {
+  width: 20px;
+  height: 20px;
+  font-size: 0.625rem;
+}
+
+.avatar--sm {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+}
+
+.avatar--md {
+  width: 36px;
+  height: 36px;
+  font-size: 0.875rem;
+}

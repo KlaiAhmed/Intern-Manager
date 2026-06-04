@@ -1,1 +1,1 @@
-export { SupervisorDashboard } from './SupervisorDashboard'
+export { SupervisorDashboard as default } from './SupervisorDashboard'

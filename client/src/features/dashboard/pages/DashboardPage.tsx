@@ -15,7 +15,7 @@ const ManagerDashboard = lazy(() =>
   import('./ManagerDashboard/ManagerDashboard').then((m) => ({ default: m.ManagerDashboard })),
 )
 const SupervisorDashboard = lazy(() =>
-  import('./SupervisorDashboard').then((m) => ({ default: m.SupervisorDashboard })),
+  import('./SupervisorDashboard/index').then((m) => ({ default: m.default })),
 )
 const InternDashboard = lazy(() =>
   import('./InternDashboard').then((m) => ({ default: m.InternDashboard })),

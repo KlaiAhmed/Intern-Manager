@@ -24,12 +24,14 @@
 @import '../components/supervisor/SupervisorMeetingForm.css';
 @import '../components/supervisor/TaskAssignmentForm.css';
 @import '../components/supervisor/DeliverableAssignmentForm.css';
+@import '../tabs/supervisor/OverviewTab/OverviewTab.css';
+@import '../tabs/supervisor/DeliverablesTab/DeliverablesTab.css';
+@import '../tabs/supervisor/TasksTab/TasksTab.css';
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';
 @import './pages/DashboardPage.css';
 @import './pages/AdminDashboard.css';
-@import './pages/SupervisorDashboard.css';
 
 /* Shared dashboard utilities */
 

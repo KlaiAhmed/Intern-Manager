@@ -1,0 +1,94 @@
+.dashboard-toast-container {
+  position: fixed;
+  inset-inline-end: var(--dash-space-lg);
+  bottom: var(--dash-space-lg);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--dash-space-sm);
+  width: min(24rem, calc(100vw - (var(--dash-space-lg) * 2)));
+  pointer-events: none;
+}
+
+.dashboard-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--dash-space-md);
+  width: 100%;
+  padding: var(--dash-space-md);
+  border: 1px solid var(--dash-border);
+  border-left: 4px solid var(--dash-accent);
+  border-radius: var(--dash-radius-md);
+  background: var(--dash-bg-primary);
+  color: var(--dash-text);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--dash-text) 16%, transparent);
+  pointer-events: auto;
+  animation: dashboardToastSlideIn var(--dash-duration-medium) var(--dash-ease);
+}
+
+.dashboard-toast--success {
+  border-left-color: var(--dash-success);
+}
+
+.dashboard-toast--warning {
+  border-left-color: var(--dash-warning);
+}
+
+.dashboard-toast--error {
+  border-left-color: var(--dash-error);
+}
+
+.dashboard-toast__message {
+  flex: 1;
+  margin: 0;
+  color: var(--dash-text);
+  font-family: var(--dash-font-body);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.dashboard-toast__dismiss {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--dash-radius-sm);
+  background: transparent;
+  color: var(--dash-text-muted);
+  font: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dashboard-toast__dismiss:hover {
+  background: var(--dash-bg-secondary);
+  color: var(--dash-text);
+}
+
+.dashboard-toast__dismiss:focus-visible {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 2px;
+}
+
+@keyframes dashboardToastSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-toast {
+    animation: none;
+  }
+}
