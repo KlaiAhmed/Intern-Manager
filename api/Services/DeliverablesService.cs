@@ -235,7 +235,7 @@ public sealed class DeliverablesService(
                 AddHistory(dbContext, "Task", task.Id, "task.reopened", actorId, normalizedReason, now);
             }
 
-            deliverable.Status = DomainStatuses.Deliverable.InProgress;
+            deliverable.Status = DomainStatuses.Deliverable.ChangesRequested;
             deliverable.SupervisorComment = normalizedReason;
             deliverable.RowVersion += 1;
 

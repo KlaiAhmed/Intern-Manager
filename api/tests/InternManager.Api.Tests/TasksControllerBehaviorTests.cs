@@ -3,6 +3,7 @@ using InternManager.Api.Common.Enums;
 using InternManager.Api.Controllers;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Responses;
 using InternManager.Api.Services;
 using InternManager.Api.Services.Interfaces;
 using InternManager.Api.Tests.TestSupport;
@@ -249,6 +250,213 @@ public sealed class TasksControllerBehaviorTests
         Assert.Equal(new[] { deliverableId }, deliverableState.DeliverableIds);
     }
 
+    [Fact]
+    public async Task GetTasksByMission_ReturnsFlattenedTasksForAllAssignedInterns()
+    {
+        await using var dbContext = TestDbContext.Create();
+        var supervisorId = Guid.NewGuid();
+        var otherSupervisorId = Guid.NewGuid();
+        var internAId = Guid.NewGuid();
+        var internBId = Guid.NewGuid();
+        var unrelatedInternId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+        var otherMissionId = Guid.NewGuid();
+        var deliverableId = Guid.NewGuid();
+
+        dbContext.Users.AddRange(
+            TestUsers.Create(supervisorId, UserRole.Supervisor),
+            TestUsers.Create(otherSupervisorId, UserRole.Supervisor),
+            TestUsers.Create(internAId, UserRole.Intern),
+            TestUsers.Create(internBId, UserRole.Intern),
+            TestUsers.Create(unrelatedInternId, UserRole.Intern));
+
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = supervisorId,
+            InternId = internAId,
+            Title = "Owned Mission",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+        dbContext.Missions.Add(new Mission
+        {
+            Id = otherMissionId,
+            SupervisorId = otherSupervisorId,
+            InternId = unrelatedInternId,
+            Title = "Other Mission",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+        dbContext.MissionInternAssignments.Add(new MissionInternAssignment
+        {
+            MissionId = missionId,
+            InternId = internBId,
+            AssignedAt = DateTime.UtcNow
+        });
+        dbContext.Deliverables.Add(new Deliverable
+        {
+            Id = deliverableId,
+            MissionId = missionId,
+            SupervisorId = supervisorId,
+            InternId = internAId,
+            Title = "Deliverable",
+            Status = DomainStatuses.Deliverable.Draft,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        var datedA = DateTime.UtcNow.AddDays(2);
+        var datedB = DateTime.UtcNow.AddDays(1);
+        var taskForA1 = new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = internAId,
+            DeliverableId = deliverableId,
+            Title = "A dated (later)",
+            Status = DomainStatuses.Task.Todo,
+            DueDate = datedA,
+            CreatedAt = DateTime.UtcNow
+        };
+        var taskForA2 = new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = internAId,
+            Title = "A undated",
+            Status = DomainStatuses.Task.Todo,
+            DueDate = null,
+            CreatedAt = DateTime.UtcNow
+        };
+        var taskForB = new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = internBId,
+            Title = "B dated (earlier)",
+            Status = DomainStatuses.Task.Done,
+            DueDate = datedB,
+            CreatedAt = DateTime.UtcNow
+        };
+        // Task for an intern on a different mission — must not leak in.
+        var taskForUnrelated = new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = unrelatedInternId,
+            Title = "Unrelated",
+            Status = DomainStatuses.Task.Todo,
+            CreatedAt = DateTime.UtcNow
+        };
+        dbContext.InternTasks.AddRange(taskForA1, taskForA2, taskForB, taskForUnrelated);
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, supervisorId, UserRole.Supervisor);
+
+        var result = await controller.GetTasksByMission(missionId, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var tasks = Assert.IsAssignableFrom<IEnumerable<InternTaskResponse>>(ok.Value);
+        var list = tasks.ToList();
+        Assert.Equal(3, list.Count);
+        // Each item carries its InternId so the client can group client-side.
+        Assert.All(list, item => Assert.Contains(item.InternId, new[] { internAId, internBId }));
+        Assert.DoesNotContain(list, item => item.InternId == unrelatedInternId);
+        // Ordering: dated (asc) before undated; among dated, the earlier date first.
+        Assert.Equal(new[] { taskForB.Id, taskForA1.Id, taskForA2.Id }, list.Select(item => item.Id));
+    }
+
+    [Fact]
+    public async Task GetTasksByMission_RejectsSupervisorWhoDoesNotOwnMission()
+    {
+        await using var dbContext = TestDbContext.Create();
+        var ownerId = Guid.NewGuid();
+        var otherSupervisorId = Guid.NewGuid();
+        var internId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        dbContext.Users.AddRange(
+            TestUsers.Create(ownerId, UserRole.Supervisor),
+            TestUsers.Create(otherSupervisorId, UserRole.Supervisor),
+            TestUsers.Create(internId, UserRole.Intern));
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = ownerId,
+            InternId = internId,
+            Title = "Owned",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+        dbContext.InternTasks.Add(new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = internId,
+            Title = "Task",
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, otherSupervisorId, UserRole.Supervisor);
+
+        var result = await controller.GetTasksByMission(missionId, CancellationToken.None);
+
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task GetTasksByMission_ReturnsNotFoundWhenMissionMissing()
+    {
+        await using var dbContext = TestDbContext.Create();
+        var supervisorId = Guid.NewGuid();
+        dbContext.Users.Add(TestUsers.Create(supervisorId, UserRole.Supervisor));
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, supervisorId, UserRole.Supervisor);
+
+        var result = await controller.GetTasksByMission(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetTasksByMission_AllowsAdminScopeToReadAnyMission()
+    {
+        await using var dbContext = TestDbContext.Create();
+        var ownerId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
+        var internId = Guid.NewGuid();
+        var missionId = Guid.NewGuid();
+
+        dbContext.Users.AddRange(
+            TestUsers.Create(ownerId, UserRole.Supervisor),
+            TestUsers.Create(adminId, UserRole.Admin),
+            TestUsers.Create(internId, UserRole.Intern));
+        dbContext.Missions.Add(new Mission
+        {
+            Id = missionId,
+            SupervisorId = ownerId,
+            InternId = internId,
+            Title = "Owned",
+            Status = DomainStatuses.Mission.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+        dbContext.InternTasks.Add(new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = internId,
+            Title = "Task",
+            Status = DomainStatuses.Task.Todo,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, adminId, UserRole.Admin);
+
+        var result = await controller.GetTasksByMission(missionId, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var tasks = Assert.IsAssignableFrom<IEnumerable<InternTaskResponse>>(ok.Value);
+        Assert.Single(tasks);
+        Assert.Equal(internId, tasks.Single().InternId);
+    }
+
     private static TasksController CreateController(
         AppDbContext dbContext,
         Guid userId,
@@ -268,8 +476,7 @@ public sealed class TasksControllerBehaviorTests
             workflow ?? new FakeTaskWorkflowService(),
             taskState,
             deliverableState,
-            new MissionPolicyService(dbContext),
-            progressService)
+            new MissionPolicyService(dbContext))
         {
             ControllerContext = TestUsers.ControllerContext(userId, role, $"{role.ToString().ToLowerInvariant()}@example.com")
         };

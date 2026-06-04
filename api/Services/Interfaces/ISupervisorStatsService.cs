@@ -11,4 +11,10 @@ public interface ISupervisorStatsService
     Task<SupervisorWorkloadResponse> GetWorkloadAsync(Guid supervisorId, CancellationToken cancellationToken);
 
     Task<DelaysAlertsResponse> GetDelaysAlertsAsync(Guid supervisorId, CancellationToken cancellationToken);
+
+    Task<MissionProgressResponse> GetMissionProgressAsync(
+        Guid missionId,
+        Guid supervisorId,
+        bool isAdminScope,
+        CancellationToken cancellationToken);
 }

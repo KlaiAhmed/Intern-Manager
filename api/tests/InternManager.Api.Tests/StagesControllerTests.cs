@@ -181,7 +181,7 @@ public sealed class StagesControllerTests
             SupervisorId = supervisorId,
             Title = "Final report",
             Status = DomainStatuses.Deliverable.Accepted,
-            Progress = 100,
+            RawProgress = 100m,
             DueDate = DateTime.UtcNow.AddDays(10),
             CreatedAt = DateTime.UtcNow
         });

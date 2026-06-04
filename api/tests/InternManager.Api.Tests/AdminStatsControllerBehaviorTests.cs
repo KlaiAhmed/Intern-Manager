@@ -193,7 +193,7 @@ public sealed class AdminStatsControllerBehaviorTests
                 Title = "Pending overdue",
                 Status = DomainStatuses.Deliverable.Pending,
                 DueDate = now.AddDays(-1),
-                Progress = 30,
+                RawProgress = 30m,
                 CreatedAt = now.AddDays(-8)
             },
             new Deliverable
@@ -205,7 +205,7 @@ public sealed class AdminStatsControllerBehaviorTests
                 Title = "Accepted",
                 Status = DomainStatuses.Deliverable.Accepted,
                 SubmittedDate = now.AddDays(-2),
-                Progress = 100,
+                RawProgress = 100m,
                 CreatedAt = now.AddDays(-7)
             });
 

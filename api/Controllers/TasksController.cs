@@ -406,6 +406,98 @@ public sealed class TasksController(
         });
     }
 
+    /// <summary>
+    /// Récupère toutes les tâches de tous les stagiaires associés à une mission.
+    /// </summary>
+    /// <remarks>
+    /// Cette route consolide en une seule requête le fan-out client qui récupérait
+    /// d abord la liste des stagiaires via <c>GET /api/supervisor/me/interns</c>
+    /// puis appelait <c>GET /api/tasks/by-intern/{internId}</c> en parallèle pour
+    /// chaque stagiaire. Elle retourne un tableau plat des tâches de la mission,
+    /// indexable côté client par <c>internId</c>.
+    /// L autorisation est limitée au superviseur propriétaire de la mission (les
+    /// rôles <c>Admin</c> et <c>SuperAdmin</c> conservent un accès transverse).
+    /// Le tri est effectué côté serveur : tâches avec <c>dueDate</c> d abord
+    /// (croissant), tâches sans échéance en dernier.
+    /// </remarks>
+    /// <param name="missionId">Identifiant unique de la mission.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste plate des tâches de la mission, ordonnées par échéance.</returns>
+    /// <response code="200">Tâches récupérées avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">L utilisateur n est pas le superviseur de cette mission.</response>
+    /// <response code="404">Mission introuvable.</response>
+    [HttpGet("by-mission/{missionId:guid}", Name = "ListTasksByMission")]
+    [FeatureCard(DashboardCard.Tasks)]
+    // RBAC policy: endpoints available to Supervisor/Intern must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [ProducesResponseType(typeof(IEnumerable<InternTaskResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTasksByMission(Guid missionId, CancellationToken cancellationToken = default)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+
+        var mission = await dbContext.Missions
+            .AsNoTracking()
+            .Select(item => new { item.Id, item.SupervisorId })
+            .FirstOrDefaultAsync(item => item.Id == missionId, cancellationToken);
+
+        if (mission is null)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+
+        if (!isAdminScope && mission.SupervisorId != supervisorId.Value)
+        {
+            return Forbid();
+        }
+
+        // Collect every intern associated with the mission through either the
+        // direct (legacy) `Mission.InternId` link or the multi-intern
+        // `MissionInternAssignments` table. The two sources are unioned so a
+        // single SQL round-trip replaces the previous per-intern fan-out.
+        var associatedInternIds = dbContext.MissionInternAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.MissionId == missionId)
+            .Select(assignment => assignment.InternId)
+            .Union(
+                dbContext.Missions
+                    .AsNoTracking()
+                    .Where(m => m.Id == missionId && m.InternId.HasValue)
+                    .Select(m => m.InternId!.Value));
+
+        var data = await dbContext.InternTasks
+            .AsNoTracking()
+            .Where(task => associatedInternIds.Contains(task.InternId))
+            // Tasks with a due date first (ascending), undated tasks last.
+            .OrderBy(task => task.DueDate.HasValue ? 0 : 1)
+            .ThenBy(task => task.DueDate)
+            .ThenBy(task => task.CreatedAt)
+            .Select(task => new InternTaskResponse
+            {
+                Id = task.Id,
+                InternId = task.InternId,
+                DeliverableId = task.DeliverableId,
+                Title = task.Title,
+                Description = task.Description,
+                Status = task.Status,
+                RowVersion = task.RowVersion,
+                DueDate = task.DueDate,
+                CompletedAt = task.CompletedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(data);
+    }
+
 }
 
 public sealed class CompleteTaskRequest

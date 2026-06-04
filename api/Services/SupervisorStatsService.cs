@@ -237,4 +237,169 @@ return Math.Round(averageProgress, 2);
             Total = data.Count
         };
     }
+
+    public async Task<MissionProgressResponse> GetMissionProgressAsync(
+        Guid missionId,
+        Guid supervisorId,
+        bool isAdminScope,
+        CancellationToken cancellationToken)
+    {
+        var mission = await dbContext.Missions
+            .AsNoTracking()
+            .Where(item => item.Id == missionId)
+            .Select(item => new { item.Id, item.SupervisorId, item.CoSupervisorId, item.InternId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (mission is null)
+        {
+            throw new KeyNotFoundException("Mission not found.");
+        }
+
+        if (!isAdminScope
+            && mission.SupervisorId != supervisorId
+            && mission.CoSupervisorId != supervisorId)
+        {
+            throw new UnauthorizedAccessException("You do not have access to this mission.");
+        }
+
+        var assignedInternIds = await dbContext.MissionInternAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.MissionId == missionId)
+            .Select(assignment => assignment.InternId)
+            .ToListAsync(cancellationToken);
+
+        if (mission.InternId.HasValue)
+        {
+            assignedInternIds.Add(mission.InternId.Value);
+        }
+
+        var internIdList = assignedInternIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        var internLookup = internIdList.Count == 0
+            ? new Dictionary<Guid, (string FirstName, string LastName)>()
+            : await dbContext.Users
+                .AsNoTracking()
+                .Where(user => internIdList.Contains(user.Id))
+                .Select(user => new { user.Id, user.FirstName, user.LastName })
+                .ToDictionaryAsync(
+                    user => user.Id,
+                    user => (user.FirstName, user.LastName),
+                    cancellationToken);
+
+        var taskRows = internIdList.Count == 0
+            ? new List<MissionProgressTaskAggregate>()
+            : await dbContext.InternTasks
+                .AsNoTracking()
+                .Where(task => internIdList.Contains(task.InternId))
+                .GroupBy(task => task.InternId)
+                .Select(group => new MissionProgressTaskAggregate
+                {
+                    InternId = group.Key,
+                    Total = group.Count(),
+                    Done = group.Count(task => task.Status == DomainStatuses.Task.Done)
+                })
+                .ToListAsync(cancellationToken);
+
+        var taskCounts = taskRows.ToDictionary(row => row.InternId);
+
+        var deliverableRows = internIdList.Count == 0
+            ? new List<MissionProgressDeliverableAggregate>()
+            : await dbContext.Deliverables
+                .AsNoTracking()
+                .Where(deliverable => deliverable.MissionId == missionId &&
+                                      deliverable.InternId.HasValue &&
+                                      internIdList.Contains(deliverable.InternId.Value))
+                .GroupBy(deliverable => deliverable.InternId!.Value)
+                .Select(group => new MissionProgressDeliverableAggregate
+                {
+                    InternId = group.Key,
+                    Total = group.Count(),
+                    Approved = group.Count(deliverable => deliverable.Status == DomainStatuses.Deliverable.Approved)
+                })
+                .ToListAsync(cancellationToken);
+
+        var deliverableCounts = deliverableRows.ToDictionary(row => row.InternId);
+
+        var perIntern = internIdList
+            .Select(internId =>
+            {
+                internLookup.TryGetValue(internId, out var intern);
+                taskCounts.TryGetValue(internId, out var tasks);
+                deliverableCounts.TryGetValue(internId, out var deliverables);
+
+                return new InternProgressEntry
+                {
+                    InternId = internId.ToString(),
+                    InternFullName = (intern.FirstName ?? string.Empty) + " " + (intern.LastName ?? string.Empty).Trim(),
+                    TaskCount = tasks?.Total ?? 0,
+                    TaskDoneCount = tasks?.Done ?? 0,
+                    DeliverableCount = deliverables?.Total ?? 0,
+                    DeliverableApprovedCount = deliverables?.Approved ?? 0,
+                    ProgressPercent = ComputeProgressPercent(
+                        tasks?.Done ?? 0,
+                        tasks?.Total ?? 0,
+                        deliverables?.Approved ?? 0,
+                        deliverables?.Total ?? 0)
+                };
+            })
+            .OrderBy(entry => entry.InternFullName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var totalTaskCount = taskRows.Sum(row => row.Total);
+        var totalTaskDoneCount = taskRows.Sum(row => row.Done);
+        var totalDeliverableCount = deliverableRows.Sum(row => row.Total);
+        var totalDeliverableApprovedCount = deliverableRows.Sum(row => row.Approved);
+
+        return new MissionProgressResponse
+        {
+            MissionId = missionId.ToString(),
+            TotalInterns = internIdList.Count,
+            TaskCount = totalTaskCount,
+            TaskDoneCount = totalTaskDoneCount,
+            DeliverableCount = totalDeliverableCount,
+            DeliverableApprovedCount = totalDeliverableApprovedCount,
+            ProgressPercent = ComputeProgressPercent(
+                totalTaskDoneCount,
+                totalTaskCount,
+                totalDeliverableApprovedCount,
+                totalDeliverableCount),
+            PerInternProgress = perIntern
+        };
+    }
+
+    private static double ComputeProgressPercent(
+        int taskDoneCount,
+        int taskCount,
+        int deliverableApprovedCount,
+        int deliverableCount)
+    {
+        var denominator = taskCount + deliverableCount;
+        if (denominator == 0)
+        {
+            return 0d;
+        }
+
+        return Math.Round((double)(taskDoneCount + deliverableApprovedCount) / denominator * 100d, 1);
+    }
+
+    private sealed class MissionProgressTaskAggregate
+    {
+        public Guid InternId { get; init; }
+
+        public int Total { get; init; }
+
+        public int Done { get; init; }
+    }
+
+    private sealed class MissionProgressDeliverableAggregate
+    {
+        public Guid InternId { get; init; }
+
+        public int Total { get; init; }
+
+        public int Approved { get; init; }
+    }
 }

@@ -962,7 +962,8 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
     /// <response code="401">Utilisateur non connecté.</response>
     /// <response code="403">Accès refusé.</response>
     /// <response code="404">Livrable non trouvé.</response>
-    /// <response code="409">Livrable pas encore soumis.</response>
+    /// <response code="409">Conflit de concurrence : le livrable a été modifié depuis le chargement de la version concurrente transmise.</response>
+    /// <response code="422">Le livrable n est pas en attente de revue.</response>
     [HttpPost("{id:guid}/approve", Name = "ApproveDeliverable")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [EnableRateLimiting("write-operations")]
@@ -1022,6 +1023,27 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
         }
     }
 
+    /// <summary>
+    /// Refuse un livrable soumis et rouvre les tâches sélectionnées.
+    /// </summary>
+    /// <remarks>
+    /// Cette route permet au superviseur de refuser un livrable soumis par un stagiaire.
+    /// Le superviseur doit fournir un motif (10 à 1000 caractères) et sélectionner au moins
+    /// une tâche à rouvrir si le livrable possède des tâches.
+    /// Le statut du livrable passe à <c>changes_requested</c> et chaque tâche listée dans
+    /// <c>TaskIdsToReopen</c> passe au statut <c>reopened</c>.
+    /// Le stagiaire reçoit une notification du refus.
+    /// </remarks>
+    /// <param name="id">Identifiant unique du livrable.</param>
+    /// <param name="request">Objet contenant le motif, les identifiants de tâches à rouvrir et la version concurrente attendue.</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Le statut mis à jour du livrable.</returns>
+    /// <response code="200">Livrable refusé avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Accès refusé.</response>
+    /// <response code="404">Livrable non trouvé.</response>
+    /// <response code="409">Conflit de concurrence (le livrable a été modifié depuis le chargement) ou livrable pas en attente de revue.</response>
+    /// <response code="422">Motif invalide, identifiants de tâches manquants ou incohérents.</response>
     [HttpPost("{id:guid}/reject", Name = "RejectDeliverable")]
     [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
     [EnableRateLimiting("write-operations")]
@@ -1223,6 +1245,164 @@ var deliverable = new Deliverable
             status = deliverable.Status,
             progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status)
         });
+    }
+
+    /// <summary>
+    /// Returns all deliverables for the specified mission. Scoped to missions owned by
+    /// or co-supervised by the requesting supervisor. Returns a flat array; does not paginate.
+    /// </summary>
+    /// <param name="missionId">Identifiant unique de la mission.</param>
+    /// <param name="status">Filtre optionnel par statut (ex. submitted, accepted, rejected).</param>
+    /// <param name="cancellationToken">Jeton pour annuler l opération si besoin.</param>
+    /// <returns>Une liste plate de livrables pour la mission.</returns>
+    /// <response code="200">Liste récupérée avec succès.</response>
+    /// <response code="401">Utilisateur non connecté.</response>
+    /// <response code="403">Le superviseur n est pas propriétaire ni co-superviseur de la mission.</response>
+    /// <response code="404">Mission introuvable.</response>
+    [HttpGet("mission/{missionId:guid}", Name = "GetDeliverablesByMission")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("read-frequent")]
+    [ProducesResponseType(typeof(IReadOnlyList<DeliverableQueueItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDeliverablesByMission(
+        Guid missionId,
+        [FromQuery] string? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+
+        var mission = await dbContext.Missions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == missionId, cancellationToken);
+
+        if (mission is null)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+
+        if (!isAdminScope &&
+            mission.SupervisorId != supervisorId.Value &&
+            mission.CoSupervisorId != supervisorId.Value)
+        {
+            return Forbid();
+        }
+
+        var query = dbContext.Deliverables
+            .AsNoTracking()
+            .Include(deliverable => deliverable.Intern)
+            .Include(deliverable => deliverable.Tasks)
+            .Where(deliverable => deliverable.MissionId == missionId);
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var normalizedStatus = status.Trim().ToLowerInvariant();
+            query = query.Where(deliverable => deliverable.Status == normalizedStatus);
+        }
+
+        var deliverables = await query
+            .OrderByDescending(deliverable => deliverable.SubmittedDate)
+            .ThenByDescending(deliverable => deliverable.CreatedAt)
+            .Select(deliverable => new DeliverableQueueItemResponse
+            {
+                Id = deliverable.Id,
+                Title = deliverable.Title,
+                InternId = deliverable.InternId,
+                InternName = deliverable.Intern != null
+                    ? $"{deliverable.Intern.FirstName} {deliverable.Intern.LastName}".Trim()
+                    : string.Empty,
+                SubmittedDate = deliverable.SubmittedDate,
+                DueDate = deliverable.DueDate,
+                Status = deliverable.Status,
+                Version = deliverable.Version,
+                FileUrl = string.IsNullOrWhiteSpace(deliverable.FileUrl)
+                    ? "#"
+                    : deliverable.FileUrl,
+                RowVersion = deliverable.RowVersion,
+                RawProgress = deliverable.RawProgress,
+                Tasks = deliverable.Tasks
+                    .Where(task => task.Status != DomainStatuses.Task.Cancelled)
+                    .OrderBy(task => task.CreatedAt)
+                    .Select(task => new DeliverableQueueTaskResponse
+                    {
+                        Id = task.Id,
+                        Title = task.Title,
+                        Status = task.Status,
+                        RowVersion = task.RowVersion
+                    })
+                    .ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(deliverables);
+    }
+
+    /// <summary>
+    /// Deletes a deliverable. The requesting user must own the mission that contains the deliverable.
+    /// </summary>
+    /// <remarks>
+    /// Authorized for the supervisor assigned to the mission that contains the deliverable,
+    /// plus <c>Admin</c> and <c>SuperAdmin</c> roles. Returns <c>404 Not Found</c> when the
+    /// deliverable does not exist or the caller is not authorized, matching the soft-404
+    /// pattern used by <c>DELETE /api/meetings/{id}</c> and <c>DELETE /api/missions/{id}</c>.
+    /// EF Core cascade-deletes the associated <c>DeliverableVersion</c> rows via the
+    /// <c>OnDelete(DeleteBehavior.Cascade)</c> configuration on <c>Deliverable.Versions</c>.
+    /// Linked <c>InternTask</c> rows are NOT deleted: their <c>DeliverableId</c> foreign key is
+    /// set to <c>null</c> by <c>OnDelete(DeleteBehavior.SetNull)</c> in the EF model configuration.
+    /// </remarks>
+    /// <param name="id">Unique identifier of the deliverable to delete.</param>
+    /// <param name="cancellationToken">Token to cancel the operation if needed.</param>
+    /// <response code="204">Deliverable deleted successfully.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="404">Deliverable not found, or the requesting supervisor does not own the mission that contains it.</response>
+    [HttpDelete("{id:guid}", Name = "DeleteDeliverable")]
+    // RBAC policy: endpoints available to Supervisor must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("delete-operations")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDeliverable(Guid id, CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var deliverable = await dbContext.Deliverables
+            .Include(item => item.Mission)
+            .FirstOrDefaultAsync(
+                item => item.Id == id &&
+                        item.Mission != null &&
+                        item.Mission.SupervisorId == supervisorId.Value,
+                cancellationToken);
+
+        if (deliverable is null)
+        {
+            return NotFound(new { message = "Deliverable not found." });
+        }
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "deliverable.delete",
+            Entity = $"deliverable:{deliverable.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        dbContext.Deliverables.Remove(deliverable);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     private async Task<IActionResult?> AuthorizeDeliverableReviewAsync(

@@ -675,11 +675,47 @@ public sealed class DeliverablesControllerCleanupTests
         return new AppDbContext(options);
     }
 
+    private static string? GetMessage(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value.GetType().GetProperty("message")?.GetValue(value) as string;
+    }
+
+    private static string? GetStringProperty(object? value, string propertyName)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value.GetType().GetProperty(propertyName)?.GetValue(value) as string;
+    }
+
+    private static async Task AddTaskAsync(AppDbContext dbContext, Guid internId, Guid deliverableId, string status)
+    {
+        dbContext.InternTasks.Add(new InternTask
+        {
+            Id = Guid.NewGuid(),
+            InternId = internId,
+            DeliverableId = deliverableId,
+            Title = "Test task",
+            Status = status,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+    }
+
     private static DeliverablesController CreateController(
         AppDbContext dbContext,
         IFileStorageService fileStorageService,
         Guid currentUserId,
-        string role)
+        string role,
+        INotificationService? notificationService = null)
     {
         var controller = new DeliverablesController(
             dbContext,
@@ -687,7 +723,9 @@ public sealed class DeliverablesControllerCleanupTests
             fileStorageService,
             new NoopDeliverablesService(),
             new MissionPolicyService(dbContext),
-            new NoopNotificationService(),
+            new NoopTaskStateService(),
+            new NoopDeliverableProgressService(),
+            notificationService ?? new NoopNotificationService(),
             NullLogger<DeliverablesController>.Instance);
 
         controller.ControllerContext = new ControllerContext
@@ -809,7 +847,7 @@ public sealed class DeliverablesControllerCleanupTests
             Status = DomainStatuses.Deliverable.Pending,
             FileUrl = string.Empty,
             Version = 1,
-            Progress = 0,
+            RawProgress = 0m,
             CreatedAt = now
         });
 
@@ -882,6 +920,23 @@ public sealed class DeliverablesControllerCleanupTests
             _ = message;
             _ = relatedEntity;
         }
+    }
+
+    private sealed class NoopTaskStateService : ITaskStateService
+    {
+        public Task MarkDoneAsync(Guid taskId, Guid actorId, int expectedRowVersion, bool isSupervisorOverride, AppDbContext db) =>
+            throw new NotSupportedException();
+
+        public Task RevertToTodoAsync(Guid taskId, Guid actorId, int expectedRowVersion, AppDbContext db) =>
+            throw new NotSupportedException();
+
+        public Task ReopenAsync(Guid taskId, Guid actorId, int expectedRowVersion, string reason, AppDbContext db) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class NoopDeliverableProgressService : IDeliverableProgressService
+    {
+        public Task RecalculateAsync(Guid deliverableId, AppDbContext db) => Task.CompletedTask;
     }
 
     private sealed class NoopDeliverablesService : IDeliverablesService
