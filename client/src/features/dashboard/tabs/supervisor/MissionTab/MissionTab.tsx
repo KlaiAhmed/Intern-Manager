@@ -47,10 +47,21 @@ const missionStatusToneMap: Record<MissionStatus, StatusTone> = {
   archived: 'neutral',
 }
 
+/**
+ * Allowed mission status transitions, narrowed to the set the backend currently
+ * implements:
+ *   - active   → paused    (`POST /api/missions/{id}/pause`)
+ *   - paused   → active    (`POST /api/missions/{id}/resume`)
+ *   - completed→ archived  (`POST /api/missions/{id}/archive`)
+ *
+ * draft→active, active→completed, and paused→cancelled have no backend route
+ * yet, so they are intentionally omitted to avoid surfacing buttons that 404.
+ * See the integration report for the Step 2 backend follow-up.
+ */
 const missionStatusTransitions: Record<MissionStatus, MissionStatus[]> = {
-  draft: ['active'],
-  active: ['paused', 'completed'],
-  paused: ['active', 'cancelled'],
+  draft: [],
+  active: ['paused'],
+  paused: ['active'],
   completed: ['archived'],
   cancelled: [],
   archived: [],
@@ -121,13 +132,15 @@ function missionToFormValues(mission: SupervisorMission): Partial<SupervisorMiss
 }
 
 function buildMissionPatch(formValues: Partial<SupervisorMission>): Partial<UpdateMissionRequest> {
+  // NOTE: `StartDate`/`EndDate` are intentionally omitted — the backend
+  // `UpdateMissionRequest` DTO does not accept them today, so the date inputs
+  // remain visible for context but their values are not persisted server-side.
+  // See the Step 2 follow-up in the integration report.
   return {
     Title: formValues.title?.trim() ?? '',
     Description: formValues.description ?? '',
     Skills: formValues.skills ?? [],
     Level: formValues.level ?? '',
-    StartDate: formValues.startDate || null,
-    EndDate: formValues.endDate || null,
   }
 }
 

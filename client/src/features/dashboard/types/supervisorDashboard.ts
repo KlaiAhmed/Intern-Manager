@@ -63,23 +63,38 @@ export interface SupervisorMission {
   endDate?: string | null
   createdAt: string
   updatedAt: string
-  rowVersion?: string
+  /** Optimistic concurrency token. Backend stores this as a numeric column. */
+  rowVersion?: number
   cardConfig?: MissionCardConfig
   history?: MissionHistoryEntry[]
 }
 
+/**
+ * Supervisor-scope intern card. Sourced from `GET /api/supervisor/me/interns`,
+ * which returns `{ id, name, missionTitle, progress, lastJournalDate, isOverdue }`.
+ *
+ * `firstName`/`lastName`/`email`/`status` are kept optional for backward compatibility
+ * with consumers that previously assumed the legacy `/api/supervisor/interns` shape;
+ * the supervisor-scope endpoint does not surface them today.
+ */
 export interface SupervisorIntern {
   id: string
-  firstName: string
-  lastName: string
+  firstName?: string
+  lastName?: string
   fullName: string
-  email: string
+  email?: string
   missionId?: string | null
   missionTitle?: string
   startDate?: string | null
   endDate?: string | null
   status?: string
   verificationStatus?: string
+  /** Average deliverable progress (0–100) as computed by the supervisor list endpoint. */
+  progressPercent?: number
+  /** Last journal entry timestamp, surfaced by `/api/supervisor/me/interns`. */
+  lastJournalDate?: string | null
+  /** Whether the intern has at least one overdue deliverable. */
+  isOverdue?: boolean
 }
 
 export interface InternWithProgress extends SupervisorIntern {
@@ -119,7 +134,8 @@ export interface SupervisorDeliverable {
   status: DeliverableStatus
   version: number
   fileUrl: string
-  rowVersion?: string
+  /** Optimistic concurrency token. Backend stores this as a numeric column. */
+  rowVersion?: number
   rawProgress: number
   weight: number
   dueDate?: string | null
@@ -140,7 +156,8 @@ export interface DeliverableQueueItem {
   status: DeliverableStatus
   version: number
   fileUrl: string
-  rowVersion?: string
+  /** Optimistic concurrency token. Backend stores this as a numeric column. */
+  rowVersion?: number
   rawProgress: number
   tasks: SupervisorTask[]
 }
@@ -154,7 +171,8 @@ export interface SupervisorTask {
   dueDate?: string | null
   status: TaskStatus
   deliverableTitle?: string
-  rowVersion?: string
+  /** Optimistic concurrency token. Backend stores this as a numeric column. */
+  rowVersion?: number
   completedAt?: string | null
   createdAt?: string
 }
@@ -165,9 +183,24 @@ export interface SupervisorMeeting {
   internId: string
   internName?: string
   date: string
+  /**
+   * First-class meeting title from `Meeting.Title` (nullable on the backend).
+   * Older records that pre-date the column may still encode the title inside `notes`;
+   * consumers should fall back to `parsedTitle` for those.
+   */
+  title?: string | null
+  /**
+   * First-class video conference URL from `Meeting.MeetingUrl` (nullable on the backend).
+   * Older records may encode the URL inside `notes`; consumers should fall back to
+   * `parsedMeetingUrl` for those.
+   */
+  meetingUrl?: string | null
   notes: string
+  /** Legacy fallback parsed from `notes` for back-compat with the pre-Title/MeetingUrl schema. */
   parsedTitle?: string
+  /** Legacy fallback parsed from `notes` for back-compat with the pre-Title/MeetingUrl schema. */
   parsedMeetingUrl?: string
+  /** Legacy fallback for the notes body when the legacy encoding stripped TITLE:/URL: lines. */
   parsedBody?: string
   createdAt?: string
 }
@@ -205,23 +238,38 @@ export interface SupervisorWorkload {
   otherCount: number
 }
 
+/**
+ * `POST /api/deliverables` body. Backend `AssignDeliverableRequest` requires
+ * `InternId` (non-empty Guid). `Weight` is intentionally absent because the
+ * backend does not accept it on create today.
+ */
 export interface CreateDeliverableRequest {
   MissionId: string
-  InternId?: string
+  InternId: string
   Title: string
   Description?: string
-  DueDate?: string
-  Weight?: number
-}
-
-export type UpdateDeliverableRequest = Partial<Omit<CreateDeliverableRequest, 'MissionId' | 'InternId' | 'DueDate'>> & {
   DueDate?: string | null
 }
 
+/**
+ * `PUT /api/deliverables/{id}` is not yet implemented by the backend.
+ * Type retained for future wiring; consumers should treat the mutation as
+ * a Step 2 follow-up until the controller route exists.
+ */
+export type UpdateDeliverableRequest = Partial<Omit<CreateDeliverableRequest, 'MissionId' | 'InternId'>>
+
+/**
+ * `POST /api/deliverables/{id}/reject` body. `RowVersion` is the numeric
+ * concurrency token returned by the deliverable read endpoints.
+ */
 export interface RejectDeliverableRequest {
   Reason: string
   TaskIdsToReopen: string[]
-  RowVersion: string
+  RowVersion: number
+}
+
+export interface ApproveDeliverableRequest {
+  RowVersion: number
 }
 
 export interface CreateTaskRequest {
@@ -234,27 +282,42 @@ export interface CreateTaskRequest {
 
 export type UpdateTaskRequest = Partial<Omit<CreateTaskRequest, 'InternId'>>
 
+/**
+ * `POST /api/meetings` body. The backend reads `SupervisorId` from the JWT,
+ * so the client must not send it. `Title` and `MeetingUrl` are first-class
+ * columns and should be supplied directly instead of being encoded into `Notes`.
+ */
 export interface CreateMeetingRequest {
-  SupervisorId: string
   InternId: string
   Date: string
-  Notes: string
+  Title?: string | null
+  MeetingUrl?: string | null
+  Notes?: string
 }
 
+/**
+ * `PATCH /api/meetings/{id}` body. All fields are optional patches.
+ * `Title` and `MeetingUrl` map to first-class columns on the `Meeting` entity.
+ */
 export interface UpdateMeetingRequest {
-  Date: string
-  Notes: string
+  Date?: string
+  Title?: string | null
+  MeetingUrl?: string | null
+  Notes?: string | null
 }
 
+/**
+ * `PATCH /api/missions/{id}` body. The `Status` field is currently ignored by
+ * the controller; status transitions go through dedicated POST endpoints
+ * (`/pause`, `/resume`, `/archive`). `StartDate`/`EndDate` are not yet accepted
+ * by the backend either — sending them is a no-op until the API is extended.
+ */
 export interface UpdateMissionRequest {
   Title?: string
   Description?: string
   Skills?: string[]
   Tools?: string
   Level?: string
-  Status?: MissionStatus
-  StartDate?: string | null
-  EndDate?: string | null
   CoSupervisorId?: string
   CoSupervisorCanReview?: boolean
   CoSupervisorCanEval?: boolean

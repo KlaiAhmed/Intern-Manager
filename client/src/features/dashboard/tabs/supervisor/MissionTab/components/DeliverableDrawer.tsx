@@ -109,7 +109,7 @@ export function DeliverableDrawer({
     }
   }
 
-  const validateForm = (): number | null => {
+  const validateForm = (): boolean => {
     const nextErrors: FormErrors = {}
     const trimmedTitle = formValues.title.trim()
     const parsedWeight = Number.parseFloat(formValues.weight)
@@ -118,19 +118,21 @@ export function DeliverableDrawer({
       nextErrors.title = t('dashboard.supervisor.deliverableDrawer.titleRequired')
     }
 
+    // Weight is local-only today (see Step 2 note in handleSubmit) but the
+    // input is still validated so the UX behaves consistently when the
+    // backend eventually accepts it.
     if (!Number.isFinite(parsedWeight) || parsedWeight < 0 || parsedWeight > 100) {
       nextErrors.weight = t('dashboard.supervisor.deliverableDrawer.weightInvalid')
     }
 
     setFormErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0 ? parsedWeight : null
+    return Object.keys(nextErrors).length === 0
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const parsedWeight = validateForm()
-    if (parsedWeight === null) {
+    if (!validateForm()) {
       return
     }
 
@@ -140,20 +142,29 @@ export function DeliverableDrawer({
     setIsSubmitting(true)
     try {
       if (mode === 'create') {
+        // Backend `AssignDeliverableRequest` requires `InternId` (non-empty Guid).
+        // When the mission has no intern assigned yet, `defaultInternId` is empty
+        // and the API will reject the request with a clear validation error,
+        // which surfaces through the existing error toast below.
+        // `Weight` is NOT sent: the backend create endpoint ignores it today,
+        // so the form value is kept local-only and the integration report
+        // tracks this as a Step 2 follow-up.
         const request: CreateDeliverableRequest = {
           MissionId: missionId,
-          ...(defaultInternId ? { InternId: defaultInternId } : {}),
+          InternId: defaultInternId ?? '',
           Title: trimmedTitle,
-          Weight: parsedWeight,
           ...(trimmedDescription ? { Description: trimmedDescription } : {}),
-          ...(formValues.dueDate ? { DueDate: formValues.dueDate } : {}),
+          ...(formValues.dueDate ? { DueDate: formValues.dueDate } : { DueDate: null }),
         }
 
         await createDeliverable(request)
       } else if (deliverable) {
+        // Step 2: `PUT/PATCH /api/deliverables/{id}` does not exist yet.
+        // `updateDeliverable` throws `NotImplementedOnBackendError`, which the
+        // existing catch below translates into the generic error toast. The
+        // drawer stays open so the user can close it manually.
         const request: UpdateDeliverableRequest = {
           Title: trimmedTitle,
-          Weight: parsedWeight,
           ...(trimmedDescription ? { Description: trimmedDescription } : { Description: '' }),
           ...(formValues.dueDate ? { DueDate: formValues.dueDate } : { DueDate: null }),
         }

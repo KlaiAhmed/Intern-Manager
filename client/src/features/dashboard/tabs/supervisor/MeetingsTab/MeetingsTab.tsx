@@ -85,23 +85,30 @@ export function MeetingsTab() {
         </div>
       ) : (
         <ul className="supervisor-meetings-list">
-          {sortedMeetings.map((meeting) => (
-            <li key={meeting.id} className="supervisor-meetings-item">
-              <span className="supervisor-meetings-item__icon" aria-hidden="true">
-                <Calendar size={18} />
-              </span>
-              <div className="supervisor-meetings-item__body">
-                <h3>{meeting.parsedTitle || meeting.internName || t('dashboard.supervisor.meetings')}</h3>
-                <time dateTime={meeting.date}>{formatMeetingDate(meeting.date, t('dashboard.noData'))}</time>
-                {meeting.parsedBody && <p>{meeting.parsedBody}</p>}
-                {meeting.parsedMeetingUrl && (
-                  <a href={meeting.parsedMeetingUrl} target="_blank" rel="noreferrer">
-                    {meeting.parsedMeetingUrl}
-                  </a>
-                )}
-              </div>
-            </li>
-          ))}
+          {sortedMeetings.map((meeting) => {
+            // Prefer first-class title/url columns; fall back to the legacy parsed
+            // notes encoding for rows that pre-date the schema change.
+            const meetingTitle = meeting.title || meeting.parsedTitle || meeting.internName || t('dashboard.supervisor.meetings')
+            const meetingUrl = meeting.meetingUrl || meeting.parsedMeetingUrl
+            const meetingBody = meeting.title || meeting.meetingUrl ? meeting.notes : meeting.parsedBody
+            return (
+              <li key={meeting.id} className="supervisor-meetings-item">
+                <span className="supervisor-meetings-item__icon" aria-hidden="true">
+                  <Calendar size={18} />
+                </span>
+                <div className="supervisor-meetings-item__body">
+                  <h3>{meetingTitle}</h3>
+                  <time dateTime={meeting.date}>{formatMeetingDate(meeting.date, t('dashboard.noData'))}</time>
+                  {meetingBody && <p>{meetingBody}</p>}
+                  {meetingUrl && (
+                    <a href={meetingUrl} target="_blank" rel="noreferrer">
+                      {meetingUrl}
+                    </a>
+                  )}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
     </Panel>

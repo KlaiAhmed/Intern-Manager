@@ -81,7 +81,7 @@ export function RejectDrawer({
       await rejectDeliverable(deliverable.id, {
         Reason: trimmedInstructions,
         TaskIdsToReopen: selectedTaskIds,
-        RowVersion: deliverable.rowVersion ?? '',
+        RowVersion: deliverable.rowVersion ?? 0,
       })
       showToast(t('dashboard.supervisor.toast.rejectSuccess'), 'success')
       onSuccess()

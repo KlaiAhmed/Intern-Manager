@@ -3,7 +3,7 @@ import { useI18n } from '../../../../locales/I18nContext'
 import { useDashboardApi } from '../useDashboardApi'
 import type { MissionStatus, SupervisorMission } from '../../types/supervisorDashboard'
 import type { PagedResponse } from '../../shared/types/operations'
-import { toErrorMessage, toStringValue } from './utils'
+import { toErrorMessage, toNumber, toStringValue } from './utils'
 
 interface MissionApiItem {
   id?: unknown
@@ -39,7 +39,7 @@ function mapMission(item: MissionApiItem): SupervisorMission | null {
     : []
 
   const coSupervisorIdValue = toStringValue(item.coSupervisorId)
-  const rowVersionValue = toStringValue(item.rowVersion)
+  const rowVersionRaw = toNumber(item.rowVersion, Number.NaN)
 
   return {
     id,
@@ -61,7 +61,7 @@ function mapMission(item: MissionApiItem): SupervisorMission | null {
     endDate: toStringValue(item.endDate) || null,
     createdAt: toStringValue(item.createdAt),
     updatedAt: toStringValue(item.updatedAt),
-    ...(rowVersionValue.length > 0 ? { rowVersion: rowVersionValue } : {}),
+    ...(Number.isFinite(rowVersionRaw) ? { rowVersion: rowVersionRaw } : {}),
   }
 }
 

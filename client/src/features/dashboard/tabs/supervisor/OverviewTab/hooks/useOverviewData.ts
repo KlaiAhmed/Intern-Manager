@@ -11,9 +11,7 @@ import type {
   SupervisorDeliverable,
   SupervisorIntern,
   SupervisorMission,
-  SupervisorTask,
   SupervisorWorkload,
-  TaskStatus,
 } from '../../../../types/supervisorDashboard'
 import { clampProgress, toErrorMessage, toNumber, toStringValue } from '../../../../hooks/supervisor/utils'
 
@@ -35,15 +33,11 @@ const KNOWN_DELIVERABLE_STATUSES: readonly DeliverableStatus[] = [
   'cancelled',
 ]
 
-const KNOWN_TASK_STATUSES: readonly TaskStatus[] = [
-  'todo',
-  'in_progress',
-  'done',
-  'reopened',
-  'cancelled',
-]
-
 const ACTIVITY_FEED_LIMIT = 10
+
+interface CountResponse {
+  count?: unknown
+}
 
 interface WorkloadResponse {
   currentInternCount?: unknown
@@ -54,18 +48,21 @@ interface WorkloadResponse {
   otherCount?: unknown
 }
 
-interface InternApiItem {
+interface SupervisorInternRow {
   id?: unknown
+  name?: unknown
+  fullName?: unknown
   firstName?: unknown
   lastName?: unknown
-  fullName?: unknown
   email?: unknown
-  missionId?: unknown
   missionTitle?: unknown
   startDate?: unknown
   endDate?: unknown
   status?: unknown
   verificationStatus?: unknown
+  progress?: unknown
+  lastJournalDate?: unknown
+  isOverdue?: unknown
 }
 
 interface MissionApiResponse {
@@ -74,6 +71,9 @@ interface MissionApiResponse {
   description?: unknown
   status?: unknown
   internId?: unknown
+  internIds?: unknown
+  internName?: unknown
+  internNames?: unknown
   supervisorId?: unknown
   coSupervisorId?: unknown
   coSupervisorCanReview?: unknown
@@ -110,19 +110,6 @@ interface DeliverableApiItem {
   tasks?: unknown
 }
 
-interface TaskApiItem {
-  id?: unknown
-  internId?: unknown
-  deliverableId?: unknown
-  title?: unknown
-  description?: unknown
-  dueDate?: unknown
-  status?: unknown
-  rowVersion?: unknown
-  completedAt?: unknown
-  createdAt?: unknown
-}
-
 interface HistoryApiItem {
   id?: unknown
   missionId?: unknown
@@ -133,6 +120,27 @@ interface HistoryApiItem {
   changedByUserId?: unknown
   changedBy?: unknown
   changedAt?: unknown
+}
+
+interface InternProgressEntry {
+  internId?: unknown
+  internFullName?: unknown
+  taskCount?: unknown
+  taskDoneCount?: unknown
+  deliverableCount?: unknown
+  deliverableApprovedCount?: unknown
+  progressPercent?: unknown
+}
+
+interface MissionProgressResponse {
+  missionId?: unknown
+  totalInterns?: unknown
+  taskCount?: unknown
+  taskDoneCount?: unknown
+  deliverableCount?: unknown
+  deliverableApprovedCount?: unknown
+  progressPercent?: unknown
+  perInternProgress?: unknown
 }
 
 function toMissionStatus(value: unknown): MissionStatus {
@@ -151,14 +159,6 @@ function toDeliverableStatus(value: unknown): DeliverableStatus {
   return 'draft'
 }
 
-function toTaskStatus(value: unknown): TaskStatus {
-  const candidate = toStringValue(value, 'todo')
-  if ((KNOWN_TASK_STATUSES as readonly string[]).includes(candidate)) {
-    return candidate as TaskStatus
-  }
-  return 'todo'
-}
-
 function readListItems(payload: unknown): unknown[] {
   if (Array.isArray(payload)) {
     return payload
@@ -172,8 +172,12 @@ function readListItems(payload: unknown): unknown[] {
   return []
 }
 
-function readListLength(payload: unknown): number {
-  return readListItems(payload).length
+function readCount(payload: unknown): number {
+  if (!payload || typeof payload !== 'object') {
+    return 0
+  }
+  const raw = (payload as CountResponse).count
+  return Math.max(0, Math.round(toNumber(raw, 0)))
 }
 
 function readList<T>(payload: unknown, mapper: (item: unknown) => T | null): T[] {
@@ -201,30 +205,38 @@ function mapWorkload(payload: unknown): SupervisorWorkload | null {
   }
 }
 
-function mapIntern(item: unknown): SupervisorIntern | null {
+function mapSupervisorIntern(item: unknown): SupervisorIntern | null {
   if (!item || typeof item !== 'object') {
     return null
   }
-  const raw = item as InternApiItem
+  const raw = item as SupervisorInternRow
   const id = toStringValue(raw.id)
   if (!id) {
     return null
   }
   const firstName = toStringValue(raw.firstName)
   const lastName = toStringValue(raw.lastName)
-  const composedFullName = `${firstName} ${lastName}`.trim()
+  // `GET /api/supervisor/me/interns` returns a single `name` field; legacy callers
+  // returned firstName/lastName/fullName. Prefer `fullName` when supplied, then `name`,
+  // then a composed first/last fallback.
+  const composedName = `${firstName} ${lastName}`.trim()
+  const fullName = toStringValue(raw.fullName) || toStringValue(raw.name) || composedName
+  const lastJournalRaw = toStringValue(raw.lastJournalDate)
+  const progressRaw = toNumber(raw.progress, Number.NaN)
   return {
     id,
-    firstName,
-    lastName,
-    fullName: toStringValue(raw.fullName) || composedFullName,
-    email: toStringValue(raw.email),
-    missionId: toStringValue(raw.missionId) || null,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+    fullName,
+    email: toStringValue(raw.email) || undefined,
     missionTitle: toStringValue(raw.missionTitle) || undefined,
     startDate: toStringValue(raw.startDate) || null,
     endDate: toStringValue(raw.endDate) || null,
     status: toStringValue(raw.status) || undefined,
     verificationStatus: toStringValue(raw.verificationStatus) || undefined,
+    progressPercent: Number.isFinite(progressRaw) ? clampProgress(progressRaw) : undefined,
+    lastJournalDate: lastJournalRaw || null,
+    isOverdue: raw.isOverdue === true,
   }
 }
 
@@ -242,12 +254,25 @@ function mapMission(payload: unknown): SupervisorMission | null {
         .map((entry) => toStringValue(entry))
         .filter((entry) => entry.length > 0)
     : []
+  const internIds = Array.isArray(raw.internIds)
+    ? (raw.internIds as unknown[])
+        .map((entry) => toStringValue(entry))
+        .filter((entry) => entry.length > 0)
+    : undefined
+  const internNames = Array.isArray(raw.internNames)
+    ? (raw.internNames as unknown[])
+        .map((entry) => toStringValue(entry))
+        .filter((entry) => entry.length > 0)
+    : undefined
+  const rowVersionRaw = toNumber(raw.rowVersion, Number.NaN)
   return {
     id,
     title: toStringValue(raw.title),
     description: toStringValue(raw.description),
     status: toMissionStatus(raw.status),
     internId: toStringValue(raw.internId),
+    internIds,
+    internNames,
     supervisorId: toStringValue(raw.supervisorId),
     coSupervisorId:
       raw.coSupervisorId === null || raw.coSupervisorId === undefined
@@ -264,34 +289,7 @@ function mapMission(payload: unknown): SupervisorMission | null {
     endDate: raw.endDate === null || raw.endDate === undefined ? null : toStringValue(raw.endDate) || null,
     createdAt: toStringValue(raw.createdAt),
     updatedAt: toStringValue(raw.updatedAt),
-    rowVersion: raw.rowVersion === undefined ? undefined : toStringValue(raw.rowVersion),
-  }
-}
-
-function mapTask(item: unknown, fallbackInternId = ''): SupervisorTask | null {
-  if (!item || typeof item !== 'object') {
-    return null
-  }
-  const raw = item as TaskApiItem
-  const id = toStringValue(raw.id)
-  if (!id) {
-    return null
-  }
-  return {
-    id,
-    internId: toStringValue(raw.internId) || fallbackInternId,
-    deliverableId:
-      raw.deliverableId === null || raw.deliverableId === undefined
-        ? null
-        : toStringValue(raw.deliverableId) || null,
-    title: toStringValue(raw.title),
-    description: toStringValue(raw.description) || undefined,
-    dueDate: toStringValue(raw.dueDate) || undefined,
-    status: toTaskStatus(raw.status),
-    rowVersion: raw.rowVersion === undefined ? undefined : toStringValue(raw.rowVersion),
-    completedAt:
-      raw.completedAt === null || raw.completedAt === undefined ? null : toStringValue(raw.completedAt) || null,
-    createdAt: toStringValue(raw.createdAt) || undefined,
+    rowVersion: Number.isFinite(rowVersionRaw) ? rowVersionRaw : undefined,
   }
 }
 
@@ -304,9 +302,7 @@ function mapDeliverable(item: unknown): SupervisorDeliverable | null {
   if (!id) {
     return null
   }
-  const tasks = Array.isArray(raw.tasks)
-    ? raw.tasks.map((task) => mapTask(task)).filter((task): task is SupervisorTask => task !== null)
-    : undefined
+  const rowVersionRaw = toNumber(raw.rowVersion, Number.NaN)
 
   return {
     id,
@@ -320,7 +316,7 @@ function mapDeliverable(item: unknown): SupervisorDeliverable | null {
     status: toDeliverableStatus(raw.status),
     version: Math.max(0, Math.round(toNumber(raw.version))),
     fileUrl: toStringValue(raw.fileUrl),
-    rowVersion: raw.rowVersion === undefined ? undefined : toStringValue(raw.rowVersion),
+    rowVersion: Number.isFinite(rowVersionRaw) ? rowVersionRaw : undefined,
     rawProgress: clampProgress(toNumber(raw.rawProgress)),
     weight: Math.max(0, toNumber(raw.weight)),
     dueDate:
@@ -334,7 +330,6 @@ function mapDeliverable(item: unknown): SupervisorDeliverable | null {
         ? null
         : toStringValue(raw.supervisorComment) || null,
     createdAt: toStringValue(raw.createdAt) || undefined,
-    tasks,
   }
 }
 
@@ -363,27 +358,46 @@ function mapHistoryEntry(item: unknown): MissionHistoryEntry | null {
   }
 }
 
+function mapProgressEntries(payload: unknown): Map<string, InternProgressEntry> {
+  if (!payload || typeof payload !== 'object') {
+    return new Map()
+  }
+  const raw = (payload as MissionProgressResponse).perInternProgress
+  if (!Array.isArray(raw)) {
+    return new Map()
+  }
+  const entries = new Map<string, InternProgressEntry>()
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') {
+      continue
+    }
+    const entry = item as InternProgressEntry
+    const internId = toStringValue(entry.internId)
+    if (internId) {
+      entries.set(internId, entry)
+    }
+  }
+  return entries
+}
+
 function buildInternProgressRows(
   interns: SupervisorIntern[],
-  deliverables: SupervisorDeliverable[],
-  tasksByInternId: Map<string, SupervisorTask[]>,
+  progressByInternId: Map<string, InternProgressEntry>,
 ): InternWithProgress[] {
   return interns.map((intern) => {
-    const tasks = tasksByInternId.get(intern.id) ?? []
-    const internDeliverables = deliverables.filter((deliverable) => deliverable.internId === intern.id)
-    const taskCount = tasks.length
-    const taskDoneCount = tasks.filter((task) => task.status === 'done').length
-    const deliverableCount = internDeliverables.length
-    const deliverableApprovedCount = internDeliverables.filter((deliverable) => deliverable.status === 'approved').length
-    const progressPercent =
-      taskCount > 0
-        ? clampProgress((taskDoneCount / taskCount) * 100)
-        : deliverableCount > 0
-          ? clampProgress((deliverableApprovedCount / deliverableCount) * 100)
-          : 0
+    const entry = progressByInternId.get(intern.id)
+    const taskCount = Math.max(0, Math.round(toNumber(entry?.taskCount)))
+    const taskDoneCount = Math.max(0, Math.round(toNumber(entry?.taskDoneCount)))
+    const deliverableCount = Math.max(0, Math.round(toNumber(entry?.deliverableCount)))
+    const deliverableApprovedCount = Math.max(0, Math.round(toNumber(entry?.deliverableApprovedCount)))
+    const progressRaw = toNumber(entry?.progressPercent, Number.NaN)
+    const progressPercent = Number.isFinite(progressRaw)
+      ? clampProgress(progressRaw)
+      : intern.progressPercent ?? 0
 
     return {
       ...intern,
+      fullName: toStringValue(entry?.internFullName) || intern.fullName,
       taskCount,
       taskDoneCount,
       deliverableCount,
@@ -393,6 +407,24 @@ function buildInternProgressRows(
   })
 }
 
+/**
+ * Aggregates all data for the supervisor Overview tab.
+ *
+ * Wiring map:
+ * - Workload                 → `GET /api/stats/supervisor/me/workload`
+ * - Pending review count     → `GET /api/stats/supervisor/me/deliverables/pending` → `{ count }`
+ * - Upcoming meeting count   → `GET /api/meetings?from={today}&to={today+7d}&count=true` → `{ count }`
+ * - Intern roster            → `GET /api/supervisor/me/interns` (paged)
+ * - Mission detail           → `GET /api/missions/{missionId}`
+ * - Mission history feed     → `GET /api/missions/{missionId}/history` (paged)
+ * - Deliverables for timeline→ `GET /api/deliverables/mission/{missionId}` (flat list)
+ * - Per-intern progress      → `GET /api/supervisor/missions/{missionId}/progress`
+ *   Replaces the prior client-side fan-out over `/api/tasks/by-intern/{id}` (which
+ *   the backend has retired in favour of `/api/tasks/by-mission/{missionId}`).
+ *
+ * Any single failure short-circuits the tab into the error state, which matches
+ * the implementation plan's "all-or-nothing summary surface" rule.
+ */
 export function useOverviewData(missionId: string) {
   const { t } = useI18n()
   const { get } = useDashboardApi()
@@ -432,39 +464,32 @@ export function useOverviewData(missionId: string) {
 
       const [
         workloadResponse,
-        queueResponse,
+        pendingResponse,
         meetingsResponse,
         internsResponse,
         missionResponse,
         deliverablesResponse,
         historyResponse,
+        progressResponse,
       ] = await Promise.all([
-        get<WorkloadResponse>('/api/supervisor/stats'),
-        get<unknown>('/api/deliverables/queue?status=awaiting_review'),
-        get<unknown>(`/api/meetings?from=${fromIso}&to=${toIso}`),
-        get<unknown>('/api/supervisor/interns'),
+        get<WorkloadResponse>('/api/stats/supervisor/me/workload'),
+        get<CountResponse>('/api/stats/supervisor/me/deliverables/pending'),
+        get<CountResponse>(`/api/meetings?from=${fromIso}&to=${toIso}&count=true`),
+        get<unknown>('/api/supervisor/me/interns'),
         get<MissionApiResponse>(`/api/missions/${missionId}`),
         get<unknown>(`/api/deliverables/mission/${missionId}`),
         get<unknown>(`/api/missions/${missionId}/history`),
+        get<MissionProgressResponse>(`/api/supervisor/missions/${missionId}/progress`),
       ])
 
-      const mappedInterns = readList(internsResponse, mapIntern)
+      const mappedInterns = readList(internsResponse, mapSupervisorIntern)
       const mappedDeliverables = readList(deliverablesResponse, mapDeliverable)
-      const taskResponses = await Promise.all(
-        mappedInterns.map((intern) =>
-          get<unknown>(`/api/tasks/by-intern/${intern.id}`)
-            .then((payload) => readList(payload, (item) => mapTask(item, intern.id)))
-            .catch(() => []),
-        ),
-      )
-      const tasksByInternId = new Map<string, SupervisorTask[]>(
-        mappedInterns.map((intern, index) => [intern.id, taskResponses[index] ?? []]),
-      )
+      const progressEntries = mapProgressEntries(progressResponse)
 
       setWorkload(mapWorkload(workloadResponse))
-      setPendingReviewCount(readListLength(queueResponse))
-      setUpcomingMeetingCount(readListLength(meetingsResponse))
-      setInterns(buildInternProgressRows(mappedInterns, mappedDeliverables, tasksByInternId))
+      setPendingReviewCount(readCount(pendingResponse))
+      setUpcomingMeetingCount(readCount(meetingsResponse))
+      setInterns(buildInternProgressRows(mappedInterns, progressEntries))
       setMission(mapMission(missionResponse))
       setDeliverables(mappedDeliverables)
       setActivityFeed(readList(historyResponse, mapHistoryEntry).slice(0, ACTIVITY_FEED_LIMIT))

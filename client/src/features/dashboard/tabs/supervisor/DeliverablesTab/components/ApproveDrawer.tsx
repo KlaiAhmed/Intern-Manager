@@ -18,7 +18,7 @@ interface ApproveDrawerProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  approveDeliverable: (id: string, rowVersion: string) => Promise<void>
+  approveDeliverable: (id: string, rowVersion: number) => Promise<void>
   showToast: (message: string, tone: ToastTone) => void
 }
 
@@ -57,7 +57,7 @@ export function ApproveDrawer({
     setIsSubmitting(true)
 
     try {
-      await approveDeliverable(deliverable.id, deliverable.rowVersion ?? '')
+      await approveDeliverable(deliverable.id, deliverable.rowVersion ?? 0)
       showToast(t('dashboard.supervisor.toast.approveSuccess'), 'success')
       onSuccess()
     } catch (error) {
