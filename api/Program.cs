@@ -85,6 +85,8 @@ builder.Services.AddScoped<ISupervisorStatsService, SupervisorStatsService>();
 builder.Services.AddScoped<ISupervisorInternsService, SupervisorInternsService>();
 builder.Services.AddScoped<ISupervisorJournalRepository, SupervisorJournalRepository>();
 builder.Services.AddScoped<ISupervisorJournalService, SupervisorJournalService>();
+builder.Services.AddScoped<ISupervisorMissionNotesService, SupervisorMissionNotesService>();
+builder.Services.AddScoped<IMissionDocumentsService, MissionDocumentsService>();
 builder.Services.AddScoped<IDeliverablesService, DeliverablesService>();
 builder.Services.AddScoped<IDeliverableProgressService, DeliverableProgressService>();
 builder.Services.AddScoped<IMissionProgressService, MissionProgressService>();

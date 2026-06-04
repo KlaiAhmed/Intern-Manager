@@ -10,6 +10,10 @@ public sealed class Meeting
 
     public DateTime Date { get; set; }
 
+    public string? Title { get; set; }
+
+    public string? MeetingUrl { get; set; }
+
     public string Notes { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; }

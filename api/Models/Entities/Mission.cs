@@ -56,5 +56,7 @@ public sealed class Mission
 
     public ICollection<Deliverable> Deliverables { get; set; } = new List<Deliverable>();
 
+    public ICollection<MissionDocument> Documents { get; set; } = new List<MissionDocument>();
+
     public ICollection<MissionHistoryEntry> HistoryEntries { get; set; } = new List<MissionHistoryEntry>();
 }

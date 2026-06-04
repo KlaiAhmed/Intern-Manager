@@ -83,6 +83,10 @@ public sealed class GlobalExceptionMiddleware(
                 StatusCodes.Status404NotFound,
                 "Resource not found.",
                 notFoundException.Message),
+            UnsupportedDocumentMediaTypeException unsupportedMediaTypeException => (
+                StatusCodes.Status415UnsupportedMediaType,
+                "Unsupported media type.",
+                unsupportedMediaTypeException.Message),
             ValidationException validationException => (
                 StatusCodes.Status400BadRequest,
                 "Validation failed.",

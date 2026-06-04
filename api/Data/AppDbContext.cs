@@ -44,6 +44,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Deliverable> Deliverables => Set<Deliverable>();
 
     /// <summary>
+    /// Table des documents rattaches aux missions.
+    /// </summary>
+    public DbSet<MissionDocument> MissionDocuments => Set<MissionDocument>();
+
+    /// <summary>
     /// Table des evaluations superviseur stagiaire.
     /// </summary>
     public DbSet<Evaluation> Evaluations => Set<Evaluation>();
@@ -52,6 +57,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     /// Table des reunions superviseur stagiaire.
     /// </summary>
     public DbSet<Meeting> Meetings => Set<Meeting>();
+
+    /// <summary>
+    /// Table des notes privees des superviseurs par mission.
+    /// </summary>
+    public DbSet<SupervisorMissionNote> SupervisorMissionNotes => Set<SupervisorMissionNote>();
 
     /// <summary>
     /// Table des entrees de journal des stagiaires.
@@ -346,6 +356,47 @@ entity.Property(mission => mission.Title)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<MissionDocument>(entity =>
+        {
+            entity.ToTable("MissionDocuments");
+
+            entity.HasKey(document => document.Id);
+
+            entity.Property(document => document.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(document => document.FileName)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(document => document.FileUrl)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(document => document.UploadedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(document => document.SourceType)
+                .IsRequired()
+                .HasMaxLength(10);
+
+            entity.HasIndex(document => document.MissionId);
+            entity.HasIndex(document => document.UploadedByUserId);
+            entity.HasIndex(document => document.UploadedAt);
+
+            entity.HasOne(document => document.Mission)
+                .WithMany(mission => mission.Documents)
+                .HasForeignKey(document => document.MissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(document => document.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(document => document.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<MissionFeatureFlags>(entity =>
         {
             entity.ToTable("MissionFeatureFlags", table =>
@@ -596,6 +647,12 @@ entity.Property(mission => mission.Title)
             entity.Property(meeting => meeting.Notes)
                 .HasMaxLength(3000);
 
+            entity.Property(meeting => meeting.Title)
+                .HasMaxLength(200);
+
+            entity.Property(meeting => meeting.MeetingUrl)
+                .HasMaxLength(500);
+
             entity.Property(meeting => meeting.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
@@ -613,6 +670,39 @@ entity.Property(mission => mission.Title)
                 .WithMany()
                 .HasForeignKey(meeting => meeting.InternId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SupervisorMissionNote>(entity =>
+        {
+            entity.ToTable("SupervisorMissionNotes");
+
+            entity.HasKey(note => note.Id);
+
+            entity.Property(note => note.Id)
+                .ValueGeneratedOnAdd()
+                .HasDefaultValueSql("NEWID()");
+
+            entity.Property(note => note.Content)
+                .IsRequired()
+                .HasMaxLength(4000);
+
+            entity.Property(note => note.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(note => note.UpdatedAt);
+
+            entity.HasIndex(note => new { note.SupervisorId, note.MissionId });
+
+            entity.HasOne(note => note.Supervisor)
+                .WithMany()
+                .HasForeignKey(note => note.SupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(note => note.Mission)
+                .WithMany()
+                .HasForeignKey(note => note.MissionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<JournalEntry>(entity =>
@@ -1198,6 +1288,24 @@ entity.Property(mission => mission.Title)
             else if (entry.State == EntityState.Modified)
             {
                 entry.Property(e => e.CreatedAt).IsModified = false;
+                entry.Entity.UpdatedAt = utcNow;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<SupervisorMissionNote>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+
+                entry.Entity.UpdatedAt = null;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Property(note => note.CreatedAt).IsModified = false;
                 entry.Entity.UpdatedAt = utcNow;
             }
         }

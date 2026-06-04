@@ -4,6 +4,7 @@ using InternManager.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InternManager.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260604083051_AddSupervisorMissionNotes")]
+    partial class AddSupervisorMissionNotes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -847,50 +850,6 @@ namespace InternManager.Api.Data.Migrations
                     b.ToTable("Missions", (string)null);
                 });
 
-            modelBuilder.Entity("InternManager.Api.Models.Entities.MissionDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWID()");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<Guid>("MissionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("SourceType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<Guid>("UploadedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MissionId");
-
-                    b.HasIndex("UploadedAt");
-
-                    b.HasIndex("UploadedByUserId");
-
-                    b.ToTable("MissionDocuments", (string)null);
-                });
-
             modelBuilder.Entity("InternManager.Api.Models.Entities.MissionFeatureFlags", b =>
                 {
                     b.Property<int>("MissionFeatureFlagsId")
@@ -1556,25 +1515,6 @@ namespace InternManager.Api.Data.Migrations
                     b.Navigation("Supervisor");
                 });
 
-            modelBuilder.Entity("InternManager.Api.Models.Entities.MissionDocument", b =>
-                {
-                    b.HasOne("InternManager.Api.Models.Entities.Mission", "Mission")
-                        .WithMany("Documents")
-                        .HasForeignKey("MissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("InternManager.Api.Models.Entities.User", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Mission");
-
-                    b.Navigation("UploadedByUser");
-                });
-
             modelBuilder.Entity("InternManager.Api.Models.Entities.MissionFeatureFlags", b =>
                 {
                     b.HasOne("InternManager.Api.Models.Entities.Mission", "Mission")
@@ -1714,8 +1654,6 @@ namespace InternManager.Api.Data.Migrations
             modelBuilder.Entity("InternManager.Api.Models.Entities.Mission", b =>
                 {
                     b.Navigation("Deliverables");
-
-                    b.Navigation("Documents");
 
                     b.Navigation("FeatureFlags");
 

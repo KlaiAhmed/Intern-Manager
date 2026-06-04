@@ -38,6 +38,8 @@ public sealed class MeetingsController(
     /// </remarks>
     /// <param name="supervisorId">Optionnel : filtre par identifiant de superviseur.</param>
     /// <param name="internId">Optionnel : filtre par identifiant de stagiaire.</param>
+    /// <param name="from">Optionnel : date de début inclusive au format yyyy-MM-dd.</param>
+    /// <param name="to">Optionnel : date de fin inclusive au format yyyy-MM-dd. Si les deux sont null, aucun filtre de date n est appliqué.</param>
     /// <param name="upcoming">Si vrai, retourne uniquement les réunions futures.</param>
     /// <param name="count">Si vrai, retourne uniquement le nombre de réunions correspondant au filtre.</param>
     /// <param name="page">Numéro de la page à récupérer (débute à 1).</param>
@@ -57,6 +59,8 @@ public sealed class MeetingsController(
     public async Task<IActionResult> GetMeetings(
         [FromQuery] string? supervisorId = null,
         [FromQuery] string? internId = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
         [FromQuery] bool upcoming = false,
         [FromQuery] bool count = false,
         [FromQuery] int page = 1,
@@ -83,7 +87,9 @@ public sealed class MeetingsController(
             var internQuery = dbContext.Meetings
                 .AsNoTracking()
                 .Where(meeting => meeting.InternId == currentUserId.Value)
-                .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow);
+                .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow)
+                .Where(meeting => from == null || meeting.Date.Date >= from.Value.Date)
+                .Where(meeting => to == null || meeting.Date.Date <= to.Value.Date);
 
             var internTotal = await internQuery.CountAsync(cancellationToken);
 
@@ -101,6 +107,8 @@ public sealed class MeetingsController(
                 {
                     id = meeting.Id,
                     date = meeting.Date,
+                    title = meeting.Title,
+                    meetingUrl = meeting.MeetingUrl,
                     supervisorName = meeting.Supervisor != null
                         ? $"{meeting.Supervisor.FirstName} {meeting.Supervisor.LastName}".Trim()
                         : string.Empty,
@@ -138,6 +146,8 @@ public sealed class MeetingsController(
             .AsNoTracking()
             .Where(meeting => meeting.SupervisorId == effectiveSupervisorId)
             .Where(meeting => !upcoming || meeting.Date >= DateTime.UtcNow)
+            .Where(meeting => from == null || meeting.Date.Date >= from.Value.Date)
+            .Where(meeting => to == null || meeting.Date.Date <= to.Value.Date)
             .Include(meeting => meeting.Intern);
 
         var total = await query.CountAsync(cancellationToken);
@@ -160,6 +170,8 @@ public sealed class MeetingsController(
                     ? $"{meeting.Intern.FirstName} {meeting.Intern.LastName}".Trim()
                     : string.Empty,
                 date = meeting.Date,
+                title = meeting.Title,
+                meetingUrl = meeting.MeetingUrl,
                 notes = meeting.Notes
             })
             .ToListAsync(cancellationToken);
@@ -263,12 +275,40 @@ public sealed class MeetingsController(
             });
         }
 
+        var title = request.Title?.Trim();
+        if (string.IsNullOrEmpty(title))
+        {
+            title = null;
+        }
+        else if (title.Length > 200)
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["title"] = "Title cannot exceed 200 characters."
+            });
+        }
+
+        var meetingUrl = request.MeetingUrl?.Trim();
+        if (string.IsNullOrEmpty(meetingUrl))
+        {
+            meetingUrl = null;
+        }
+        else if (meetingUrl.Length > 500)
+        {
+            return BadRequest(new Dictionary<string, string>
+            {
+                ["meetingUrl"] = "MeetingUrl cannot exceed 500 characters."
+            });
+        }
+
         var meeting = new Meeting
         {
             Id = Guid.NewGuid(),
             SupervisorId = currentActorUserId.Value,
             InternId = request.InternId,
             Date = scheduledDate,
+            Title = title,
+            MeetingUrl = meetingUrl,
             Notes = notes,
             CreatedAt = DateTime.UtcNow
         };
@@ -296,7 +336,9 @@ public sealed class MeetingsController(
         var result = new
         {
             id = meeting.Id,
-            date = meeting.Date
+            date = meeting.Date,
+            title = meeting.Title,
+            meetingUrl = meeting.MeetingUrl
         };
 
         return CreatedAtAction(nameof(GetMeetingById), new { id = meeting.Id }, result);
@@ -355,6 +397,8 @@ public sealed class MeetingsController(
         {
             id = meeting.Id,
             date = meeting.Date,
+            title = meeting.Title,
+            meetingUrl = meeting.MeetingUrl,
             notes = meeting.Notes,
             internId = meeting.InternId,
             internName = meeting.Intern != null
@@ -463,12 +507,50 @@ public sealed class MeetingsController(
             }
         }
 
+        if (request.Title is not null)
+        {
+            string? normalizedTitle = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title.Trim();
+            if (normalizedTitle is { Length: > 200 })
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["title"] = "Title cannot exceed 200 characters."
+                });
+            }
+
+            if (!string.Equals(meeting.Title, normalizedTitle, StringComparison.Ordinal))
+            {
+                meeting.Title = normalizedTitle;
+                hasChanges = true;
+            }
+        }
+
+        if (request.MeetingUrl is not null)
+        {
+            string? normalizedMeetingUrl = string.IsNullOrWhiteSpace(request.MeetingUrl) ? null : request.MeetingUrl.Trim();
+            if (normalizedMeetingUrl is { Length: > 500 })
+            {
+                return BadRequest(new Dictionary<string, string>
+                {
+                    ["meetingUrl"] = "MeetingUrl cannot exceed 500 characters."
+                });
+            }
+
+            if (!string.Equals(meeting.MeetingUrl, normalizedMeetingUrl, StringComparison.Ordinal))
+            {
+                meeting.MeetingUrl = normalizedMeetingUrl;
+                hasChanges = true;
+            }
+        }
+
         if (!hasChanges)
         {
             return Ok(new
             {
                 id = meeting.Id,
                 date = meeting.Date,
+                title = meeting.Title,
+                meetingUrl = meeting.MeetingUrl,
                 notes = meeting.Notes
             });
         }
@@ -495,6 +577,8 @@ public sealed class MeetingsController(
         {
             id = meeting.Id,
             date = meeting.Date,
+            title = meeting.Title,
+            meetingUrl = meeting.MeetingUrl,
             notes = meeting.Notes
         });
     }
@@ -566,12 +650,20 @@ public sealed class CreateMeetingRequest
 
     public DateTime Date { get; init; }
 
+    public string? Title { get; init; }
+
+    public string? MeetingUrl { get; init; }
+
     public string Notes { get; init; } = string.Empty;
 }
 
 public sealed class UpdateMeetingRequest
 {
     public DateTime? Date { get; init; }
+
+    public string? Title { get; init; }
+
+    public string? MeetingUrl { get; init; }
 
     public string? Notes { get; init; }
 }
