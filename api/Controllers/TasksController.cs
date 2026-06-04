@@ -5,6 +5,7 @@ using InternManager.Api.Common.Exceptions;
 using InternManager.Api.Common.Utilities;
 using InternManager.Api.Data;
 using InternManager.Api.Models.Entities;
+using InternManager.Api.Models.Requests;
 using InternManager.Api.Models.Responses;
 using InternManager.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -31,7 +32,8 @@ public sealed class TasksController(
     ITaskWorkflowService taskWorkflowService,
     ITaskStateService taskStateService,
     IDeliverableStateService deliverableStateService,
-    IMissionPolicyService missionPolicyService) : ControllerBase
+    IMissionPolicyService missionPolicyService,
+    IDeliverableProgressService deliverableProgressService) : ControllerBase
 {
     /// <summary>
     /// Récupère la liste des tâches du stagiaire connecté.
@@ -496,6 +498,465 @@ public sealed class TasksController(
             .ToListAsync(cancellationToken);
 
         return Ok(data);
+    }
+
+    /// <summary>
+    /// Updates the editable metadata of a task owned by a mission the supervisor can review.
+    /// </summary>
+    /// <remarks>
+    /// Allows supervisors to patch the <c>Title</c>, <c>Description</c>, <c>DueDate</c>, and
+    /// <c>DeliverableId</c> of a task linked to their mission. The supervisor must own
+    /// the parent mission. Archives are rejected via the shared mission policy.
+    /// </remarks>
+    /// <param name="id">Unique identifier of the task to update.</param>
+    /// <param name="request">Patch payload with optional title/description/due date/deliverable.</param>
+    /// <param name="cancellationToken">Token to cancel the operation if needed.</param>
+    /// <response code="200">Task updated successfully.</response>
+    /// <response code="400">Title provided is empty after trimming.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="403">Task does not belong to a mission the supervisor owns.</response>
+    /// <response code="404">Task not found.</response>
+    [HttpPatch("{id:guid}", Name = "UpdateTask")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(typeof(InternTaskResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTask(
+        Guid id,
+        [FromBody] UpdateTaskRequest request,
+        CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { message = "Request body is required." });
+        }
+
+        var task = await dbContext.InternTasks
+            .Include(item => item.Deliverable)
+                .ThenInclude(deliverable => deliverable!.Mission)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (task is null)
+        {
+            return NotFound(new { message = "Task not found." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
+        {
+            if (task.Deliverable?.Mission is null ||
+                task.Deliverable.Mission.SupervisorId != supervisorId.Value)
+            {
+                return Forbid();
+            }
+        }
+
+        if (task.Deliverable?.Mission is not null)
+        {
+            await missionPolicyService.AssertMissionNotArchivedAsync(task.Deliverable.MissionId);
+        }
+
+        var hasChanges = false;
+
+        if (request.Title is not null)
+        {
+            var normalizedTitle = request.Title.Trim();
+            if (normalizedTitle.Length == 0)
+            {
+                return BadRequest(new { message = "title is required." });
+            }
+
+            if (!string.Equals(task.Title, normalizedTitle, StringComparison.Ordinal))
+            {
+                task.Title = normalizedTitle;
+                hasChanges = true;
+            }
+        }
+
+        if (request.Description is not null)
+        {
+            var normalizedDescription = request.Description?.Trim();
+            if (!string.Equals(task.Description, normalizedDescription, StringComparison.Ordinal))
+            {
+                task.Description = normalizedDescription;
+                hasChanges = true;
+            }
+        }
+
+        if (request.DueDate.HasValue)
+        {
+            var normalizedDueDate = request.DueDate.Value.Kind == DateTimeKind.Utc
+                ? request.DueDate.Value
+                : request.DueDate.Value.ToUniversalTime();
+
+            if (task.DueDate != normalizedDueDate)
+            {
+                task.DueDate = normalizedDueDate;
+                hasChanges = true;
+            }
+        }
+
+        if (request.DeliverableId is not null)
+        {
+            var newDeliverableId = request.DeliverableId.Value;
+            if (newDeliverableId == Guid.Empty)
+            {
+                if (task.DeliverableId.HasValue)
+                {
+                    task.DeliverableId = null;
+                    hasChanges = true;
+                }
+            }
+            else
+            {
+                if (task.DeliverableId != newDeliverableId)
+                {
+                    var deliverable = await dbContext.Deliverables
+                        .AsNoTracking()
+                        .Include(item => item.Mission)
+                        .FirstOrDefaultAsync(item => item.Id == newDeliverableId, cancellationToken);
+
+                    if (deliverable is null)
+                    {
+                        return BadRequest(new { message = "Deliverable not found." });
+                    }
+
+                    if (!isAdminScope && deliverable.Mission is not null &&
+                        deliverable.Mission.SupervisorId != supervisorId.Value)
+                    {
+                        return Forbid();
+                    }
+
+                    if (deliverable.InternId.HasValue && deliverable.InternId.Value != task.InternId)
+                    {
+                        return BadRequest(new { message = "Deliverable is assigned to another intern." });
+                    }
+
+                    task.DeliverableId = newDeliverableId;
+                    hasChanges = true;
+                }
+            }
+        }
+
+        if (!hasChanges)
+        {
+            return Ok(new InternTaskResponse
+            {
+                Id = task.Id,
+                InternId = task.InternId,
+                DeliverableId = task.DeliverableId,
+                Title = task.Title,
+                Description = task.Description,
+                Status = task.Status,
+                RowVersion = task.RowVersion,
+                DueDate = task.DueDate,
+                CompletedAt = task.CompletedAt
+            });
+        }
+
+        task.StatusChangedAt = DateTime.UtcNow;
+        task.RowVersion += 1;
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "task.update",
+            Entity = $"task:{task.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        if (task.DeliverableId.HasValue)
+        {
+            await deliverableProgressService.RecalculateAsync(task.DeliverableId.Value, dbContext);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new InternTaskResponse
+        {
+            Id = task.Id,
+            InternId = task.InternId,
+            DeliverableId = task.DeliverableId,
+            Title = task.Title,
+            Description = task.Description,
+            Status = task.Status,
+            RowVersion = task.RowVersion,
+            DueDate = task.DueDate,
+            CompletedAt = task.CompletedAt
+        });
+    }
+
+    /// <summary>
+    /// Deletes a task owned by a mission the supervisor can review.
+    /// </summary>
+    /// <remarks>
+    /// The supervisor must own the parent mission. Archives are rejected via the shared mission policy.
+    /// Recalculates the linked deliverable's progress on success.
+    /// </remarks>
+    /// <param name="id">Unique identifier of the task to delete.</param>
+    /// <param name="cancellationToken">Token to cancel the operation if needed.</param>
+    /// <response code="204">Task deleted successfully.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="403">Task does not belong to a mission the supervisor owns.</response>
+    /// <response code="404">Task not found.</response>
+    [HttpDelete("{id:guid}", Name = "DeleteTask")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("delete-operations")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteTask(Guid id, CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var task = await dbContext.InternTasks
+            .Include(item => item.Deliverable)
+                .ThenInclude(deliverable => deliverable!.Mission)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (task is null)
+        {
+            return NotFound(new { message = "Task not found." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
+        {
+            if (task.Deliverable?.Mission is null ||
+                task.Deliverable.Mission.SupervisorId != supervisorId.Value)
+            {
+                return Forbid();
+            }
+        }
+
+        if (task.Deliverable?.Mission is not null)
+        {
+            await missionPolicyService.AssertMissionNotArchivedAsync(task.Deliverable.MissionId);
+        }
+
+        var linkedDeliverableId = task.DeliverableId;
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "task.delete",
+            Entity = $"task:{task.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        dbContext.EntityHistoryEntries.Add(new EntityHistoryEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = "Task",
+            EntityId = task.Id,
+            Action = "task.deleted",
+            ActorId = supervisorId.Value,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        dbContext.InternTasks.Remove(task);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (linkedDeliverableId.HasValue)
+        {
+            await deliverableProgressService.RecalculateAsync(linkedDeliverableId.Value, dbContext);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Supervisor-side status transition endpoint for a task owned by their mission.
+    /// </summary>
+    /// <remarks>
+    /// Validates the requested status against the allowed task status set, then delegates
+    /// to the underlying <see cref="ITaskStateService"/> so concurrency and side effects
+    /// (audit log, deliverable progress, notifications) match the intern flow.
+    /// </remarks>
+    /// <param name="id">Unique identifier of the task.</param>
+    /// <param name="request">Status update payload with the expected <c>RowVersion</c>.</param>
+    /// <param name="cancellationToken">Token to cancel the operation if needed.</param>
+    /// <response code="200">Status updated successfully.</response>
+    /// <response code="400">Status value is not recognized.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="403">Task does not belong to a mission the supervisor owns.</response>
+    /// <response code="404">Task not found.</response>
+    /// <response code="409">Row version mismatch.</response>
+    [HttpPut("{id:guid}/status", Name = "UpdateTaskStatus")]
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(typeof(InternTaskResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateTaskStatus(
+        Guid id,
+        [FromBody] UpdateTaskStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Status))
+        {
+            return BadRequest(new { message = "status is required." });
+        }
+
+        var normalizedStatus = request.Status.Trim().ToLowerInvariant();
+        if (!IsAllowedTaskStatus(normalizedStatus))
+        {
+            return BadRequest(new { message = $"Unsupported status '{request.Status}'." });
+        }
+
+        var task = await dbContext.InternTasks
+            .Include(item => item.Deliverable)
+                .ThenInclude(deliverable => deliverable!.Mission)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (task is null)
+        {
+            return NotFound(new { message = "Task not found." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope)
+        {
+            if (task.Deliverable?.Mission is null ||
+                task.Deliverable.Mission.SupervisorId != supervisorId.Value)
+            {
+                return Forbid();
+            }
+        }
+
+        if (task.Deliverable?.Mission is not null)
+        {
+            await missionPolicyService.AssertMissionNotArchivedAsync(task.Deliverable.MissionId);
+        }
+
+        try
+        {
+            switch (normalizedStatus)
+            {
+                case DomainStatuses.Task.Done:
+                    await taskStateService.MarkDoneAsync(
+                        task.Id,
+                        supervisorId.Value,
+                        request.RowVersion,
+                        isSupervisorOverride: true,
+                        dbContext);
+                    break;
+
+                case DomainStatuses.Task.Todo:
+                    await taskStateService.RevertToTodoAsync(
+                        task.Id,
+                        supervisorId.Value,
+                        request.RowVersion,
+                        dbContext);
+                    break;
+
+                case DomainStatuses.Task.Reopened:
+                    await taskStateService.ReopenAsync(
+                        task.Id,
+                        supervisorId.Value,
+                        request.RowVersion,
+                        "Reopened by supervisor",
+                        dbContext);
+                    break;
+
+                case DomainStatuses.Task.InProgress:
+                case DomainStatuses.Task.Cancelled:
+                    var now = DateTime.UtcNow;
+                    task.Status = normalizedStatus;
+                    task.StatusChangedAt = now;
+                    if (normalizedStatus == DomainStatuses.Task.Done)
+                    {
+                        task.CompletedAt = now;
+                    }
+                    else if (normalizedStatus == DomainStatuses.Task.Todo)
+                    {
+                        task.CompletedAt = null;
+                    }
+                    task.RowVersion += 1;
+
+                    if (task.DeliverableId.HasValue)
+                    {
+                        await deliverableProgressService.RecalculateAsync(task.DeliverableId.Value, dbContext);
+                    }
+                    break;
+            }
+        }
+        catch (ConcurrencyException)
+        {
+            return Conflict(new
+            {
+                error = "conflict",
+                message = "This record was modified by another request. Please refresh and try again."
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = $"task.status.{normalizedStatus}",
+            Entity = $"task:{task.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new InternTaskResponse
+        {
+            Id = task.Id,
+            InternId = task.InternId,
+            DeliverableId = task.DeliverableId,
+            Title = task.Title,
+            Description = task.Description,
+            Status = task.Status,
+            RowVersion = task.RowVersion,
+            DueDate = task.DueDate,
+            CompletedAt = task.CompletedAt
+        });
+    }
+
+    private static bool IsAllowedTaskStatus(string status)
+    {
+        return status is
+            DomainStatuses.Task.Todo or
+            DomainStatuses.Task.InProgress or
+            DomainStatuses.Task.Done or
+            DomainStatuses.Task.Reopened or
+            DomainStatuses.Task.Cancelled;
     }
 
 }

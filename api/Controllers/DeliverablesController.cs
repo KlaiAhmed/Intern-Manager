@@ -1313,7 +1313,10 @@ var deliverable = new Deliverable
             .Select(deliverable => new DeliverableQueueItemResponse
             {
                 Id = deliverable.Id,
+                MissionId = deliverable.MissionId,
+                SupervisorId = deliverable.SupervisorId,
                 Title = deliverable.Title,
+                Description = deliverable.Description,
                 InternId = deliverable.InternId,
                 InternName = deliverable.Intern != null
                     ? $"{deliverable.Intern.FirstName} {deliverable.Intern.LastName}".Trim()
@@ -1327,6 +1330,9 @@ var deliverable = new Deliverable
                     : deliverable.FileUrl,
                 RowVersion = deliverable.RowVersion,
                 RawProgress = deliverable.RawProgress,
+                Weight = deliverable.Weight,
+                SupervisorComment = deliverable.SupervisorComment,
+                CreatedAt = deliverable.CreatedAt,
                 Tasks = deliverable.Tasks
                     .Where(task => task.Status != DomainStatuses.Task.Cancelled)
                     .OrderBy(task => task.CreatedAt)
@@ -1405,6 +1411,153 @@ var deliverable = new Deliverable
         return NoContent();
     }
 
+    /// <summary>
+    /// Updates the editable metadata of a deliverable owned by the current supervisor.
+    /// </summary>
+    /// <remarks>
+    /// Allows the supervisor to update <c>Title</c>, <c>Description</c>, and <c>DueDate</c>
+    /// on a deliverable they own. Archives are rejected via the shared mission policy.
+    /// The supervisor must be the mission's primary supervisor (or have admin scope).
+    /// </remarks>
+    /// <param name="id">Unique identifier of the deliverable to update.</param>
+    /// <param name="request">Patch payload with optional title/description/due date.</param>
+    /// <param name="cancellationToken">Token to cancel the operation if needed.</param>
+    /// <response code="200">Deliverable updated successfully.</response>
+    /// <response code="400">Title provided is empty after trimming.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="403">Deliverable belongs to a mission the caller does not own, or the mission is archived.</response>
+    /// <response code="404">Deliverable not found.</response>
+    [HttpPatch("{id:guid}", Name = "UpdateDeliverable")]
+    // RBAC policy: endpoints available to Supervisor must also be available to Admin and SuperAdmin.
+    [Authorize(Roles = "SuperAdmin,Admin,Supervisor")]
+    [EnableRateLimiting("write-operations")]
+    [ProducesResponseType(typeof(DeliverableQueueItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDeliverable(
+        Guid id,
+        [FromBody] UpdateDeliverableRequest request,
+        CancellationToken cancellationToken)
+    {
+        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!supervisorId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { message = "Request body is required." });
+        }
+
+        var deliverable = await dbContext.Deliverables
+            .Include(item => item.Mission)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (deliverable is null)
+        {
+            return NotFound(new { message = "Deliverable not found." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (!isAdminScope && deliverable.Mission is not null && deliverable.Mission.SupervisorId != supervisorId.Value)
+        {
+            return Forbid();
+        }
+
+        if (deliverable.Mission is not null)
+        {
+            await missionPolicyService.AssertMissionNotArchivedAsync(deliverable.MissionId);
+        }
+
+        var hasChanges = false;
+
+        if (request.Title is not null)
+        {
+            var normalizedTitle = request.Title.Trim();
+            if (normalizedTitle.Length == 0)
+            {
+                return BadRequest(new { message = "title is required." });
+            }
+
+            if (!string.Equals(deliverable.Title, normalizedTitle, StringComparison.Ordinal))
+            {
+                deliverable.Title = normalizedTitle;
+                hasChanges = true;
+            }
+        }
+
+        if (request.Description is not null)
+        {
+            var normalizedDescription = request.Description?.Trim();
+            if (!string.Equals(deliverable.Description, normalizedDescription, StringComparison.Ordinal))
+            {
+                deliverable.Description = normalizedDescription;
+                hasChanges = true;
+            }
+        }
+
+        if (request.DueDate.HasValue)
+        {
+            var normalizedDueDate = request.DueDate.Value.Kind == DateTimeKind.Utc
+                ? request.DueDate.Value
+                : request.DueDate.Value.ToUniversalTime();
+
+            if (deliverable.DueDate != normalizedDueDate)
+            {
+                deliverable.DueDate = normalizedDueDate;
+                hasChanges = true;
+            }
+        }
+
+        if (!hasChanges)
+        {
+            return Ok(ToQueueItemResponse(deliverable, internName: string.Empty, tasks: []));
+        }
+
+        deliverable.RowVersion += 1;
+
+        dbContext.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = supervisorId,
+            Actor = UserContextHelper.ResolveCurrentActorName(User),
+            Action = "deliverable.update",
+            Entity = $"deliverable:{deliverable.Id}",
+            Timestamp = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var response = await dbContext.Deliverables
+            .AsNoTracking()
+            .Include(item => item.Intern)
+            .Include(item => item.Tasks)
+            .Where(item => item.Id == id)
+            .Select(item => new
+            {
+                Deliverable = item,
+                InternName = item.Intern != null
+                    ? $"{item.Intern.FirstName} {item.Intern.LastName}".Trim()
+                    : string.Empty,
+                Tasks = item.Tasks
+                    .Where(task => task.Status != DomainStatuses.Task.Cancelled)
+                    .OrderBy(task => task.CreatedAt)
+                    .Select(task => new DeliverableQueueTaskResponse
+                    {
+                        Id = task.Id,
+                        Title = task.Title,
+                        Status = task.Status,
+                        RowVersion = task.RowVersion
+                    })
+                    .ToList()
+            })
+            .FirstAsync(cancellationToken);
+
+        return Ok(ToQueueItemResponse(response.Deliverable, response.InternName, response.Tasks));
+    }
+
     private async Task<IActionResult?> AuthorizeDeliverableReviewAsync(
         Guid deliverableId,
         Guid actorId,
@@ -1435,6 +1588,34 @@ var deliverable = new Deliverable
         {
             error = "conflict",
             message = "This record was modified by another request. Please refresh and try again."
+        };
+    }
+
+    private static DeliverableQueueItemResponse ToQueueItemResponse(
+        Deliverable deliverable,
+        string internName,
+        IReadOnlyList<DeliverableQueueTaskResponse> tasks)
+    {
+        return new DeliverableQueueItemResponse
+        {
+            Id = deliverable.Id,
+            MissionId = deliverable.MissionId,
+            SupervisorId = deliverable.SupervisorId,
+            Title = deliverable.Title,
+            Description = deliverable.Description,
+            InternId = deliverable.InternId,
+            InternName = internName,
+            SubmittedDate = deliverable.SubmittedDate,
+            DueDate = deliverable.DueDate,
+            Status = deliverable.Status,
+            Version = deliverable.Version,
+            FileUrl = string.IsNullOrWhiteSpace(deliverable.FileUrl) ? "#" : deliverable.FileUrl,
+            RowVersion = deliverable.RowVersion,
+            RawProgress = deliverable.RawProgress,
+            Weight = deliverable.Weight,
+            SupervisorComment = deliverable.SupervisorComment,
+            CreatedAt = deliverable.CreatedAt,
+            Tasks = tasks
         };
     }
 
