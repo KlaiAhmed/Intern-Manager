@@ -476,7 +476,8 @@ public sealed class TasksControllerBehaviorTests
             workflow ?? new FakeTaskWorkflowService(),
             taskState,
             deliverableState,
-            new MissionPolicyService(dbContext))
+            new MissionPolicyService(dbContext),
+            progressService)
         {
             ControllerContext = TestUsers.ControllerContext(userId, role, $"{role.ToString().ToLowerInvariant()}@example.com")
         };
