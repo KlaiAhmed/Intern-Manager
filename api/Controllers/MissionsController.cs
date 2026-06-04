@@ -168,18 +168,33 @@ public sealed class MissionsController(
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
+            var skills = DeserializeSkills(mission.SkillsJson);
+
             return new
             {
                 id = mission.Id,
                 title = mission.Title,
+                description = mission.Description,
                 internId = internIds.FirstOrDefault(),
                 internIds,
                 internName = internNames.FirstOrDefault(),
                 internNames,
+                supervisorId = mission.SupervisorId,
                 supervisorName = mission.Supervisor != null
                     ? $"{mission.Supervisor.FirstName} {mission.Supervisor.LastName}".Trim()
                     : (string?)null,
+                coSupervisorId = mission.CoSupervisorId,
+                coSupervisorCanReview = mission.CoSupervisorCanReview,
+                coSupervisorCanEval = mission.CoSupervisorCanEval,
+                tools = mission.Tools,
+                level = mission.Level,
+                skills,
                 status = mission.Status,
+                rawProgress = mission.RawProgress,
+                startDate = mission.StartDate,
+                endDate = mission.EndDate,
+                createdAt = mission.CreatedAt,
+                rowVersion = mission.RowVersion,
                 deliverablesCount
             };
         });
@@ -416,6 +431,8 @@ public sealed class MissionsController(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        var skills = DeserializeSkills(mission.SkillsJson);
+
         return Ok(new
         {
             id = mission.Id,
@@ -426,9 +443,18 @@ public sealed class MissionsController(
             internIds,
             internName = internNames.FirstOrDefault() ?? string.Empty,
             internNames,
+            supervisorId = mission.SupervisorId,
+            coSupervisorId = mission.CoSupervisorId,
+            coSupervisorCanReview = mission.CoSupervisorCanReview,
+            coSupervisorCanEval = mission.CoSupervisorCanEval,
             tools = mission.Tools,
             level = mission.Level,
-            createdAt = mission.CreatedAt
+            skills,
+            rawProgress = mission.RawProgress,
+            startDate = mission.StartDate,
+            endDate = mission.EndDate,
+            createdAt = mission.CreatedAt,
+            rowVersion = mission.RowVersion
         });
     }
 
@@ -783,17 +809,28 @@ public sealed class MissionsController(
         [FromQuery] int limit = 20,
         CancellationToken cancellationToken = default)
     {
-        var supervisorId = UserContextHelper.ResolveCurrentUserId(User);
-        if (!supervisorId.HasValue)
+        var currentUserId = UserContextHelper.ResolveCurrentUserId(User);
+        if (!currentUserId.HasValue)
         {
             return Unauthorized();
         }
 
-        var exists = await dbContext.Missions
+        var mission = await dbContext.Missions
             .AsNoTracking()
-            .AnyAsync(item => item.Id == id && item.SupervisorId == supervisorId.Value, cancellationToken);
+            .Select(item => new { item.Id, item.SupervisorId, item.CoSupervisorId })
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
-        if (!exists)
+        if (mission is null)
+        {
+            return NotFound(new { message = "Mission not found." });
+        }
+
+        var isAdminScope = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        var isSupervisorOnMission =
+            mission.SupervisorId == currentUserId.Value ||
+            mission.CoSupervisorId == currentUserId.Value;
+
+        if (!isAdminScope && !isSupervisorOnMission)
         {
             return NotFound(new { message = "Mission not found." });
         }
@@ -814,9 +851,12 @@ public sealed class MissionsController(
             .Select(item => new
             {
                 id = item.Id,
+                missionId = item.MissionId,
                 field = item.Field,
+                action = item.Field,
                 oldValue = item.OldValue,
                 newValue = item.NewValue,
+                changedByUserId = item.ChangedByUserId,
                 changedBy = item.ChangedBy,
                 changedAt = item.ChangedAt
             })
@@ -988,6 +1028,31 @@ public sealed class MissionsController(
             .Select(item => item.InternId)
             .Distinct()
             .ToListAsync(cancellationToken);
+    }
+
+    private static string[] DeserializeSkills(string? skillsJson)
+    {
+        if (string.IsNullOrWhiteSpace(skillsJson))
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            var values = JsonSerializer.Deserialize<string[]>(skillsJson);
+            if (values is null)
+            {
+                return Array.Empty<string>();
+            }
+
+            return values
+                .Where(skill => !string.IsNullOrWhiteSpace(skill))
+                .ToArray();
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<string>();
+        }
     }
 
 }
