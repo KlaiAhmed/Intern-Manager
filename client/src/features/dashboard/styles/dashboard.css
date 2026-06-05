@@ -27,6 +27,7 @@
 @import '../tabs/supervisor/OverviewTab/OverviewTab.css';
 @import '../tabs/supervisor/DeliverablesTab/DeliverablesTab.css';
 @import '../tabs/supervisor/TasksTab/TasksTab.css';
+@import '../tabs/supervisor/MissionTab/MissionTab.css';
 @import './components/InternApplicationForm.css';
 @import './components/MultiStepApplicationForm.css';
 @import './components/CustomSelect.css';

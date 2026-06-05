@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { format } from 'date-fns'
 
 import { DashboardButton } from '@/features/dashboard/components/DashboardButton'
+import { Download, Edit, Eye, Plus, Trash2 } from '@/features/dashboard/components/IconComponents'
 import { ErrorState } from '@/features/dashboard/components/ErrorState'
-import { Download, Edit, FolderOpen, Plus, Trash2 } from '@/features/dashboard/components/IconComponents'
 import { Panel } from '@/features/dashboard/components/Panel'
 import { Skeleton } from '@/features/dashboard/components/Skeleton'
 import { StatusBadge } from '@/features/dashboard/components/StatusBadge'
 import { Toast } from '@/features/dashboard/components/Toast/Toast'
 import { useToast } from '@/features/dashboard/components/Toast/useToast'
+import { clampProgress } from '@/features/dashboard/hooks/supervisor/utils'
 import { getDeliverableStatusTone, getTaskPriority, getTaskStatusTone } from '@/features/dashboard/shared/utils/supervisorUtils'
 import { TaskDrawer } from '@/features/dashboard/tabs/supervisor/shared/components/TaskDrawer'
 import type {
   CreateTaskRequest,
   DeliverableStatus,
+  MissionDocument,
   MissionStatus,
   StatusTone,
   SupervisorDeliverable,
@@ -21,14 +23,11 @@ import type {
   SupervisorMissionInternAssignment,
   SupervisorTask,
   TaskStatus,
-  UpdateMissionRequest,
   UpdateTaskRequest,
 } from '@/features/dashboard/types/supervisorDashboard'
-import { useAuth } from '@/stores/AuthContext'
 import { useI18n } from '@/locales/I18nContext'
 
 import { DeliverableDrawer } from './components/DeliverableDrawer'
-import { FeatureFlagPanel } from './components/FeatureFlagPanel'
 import { useMissionData } from './hooks/useMissionData'
 
 interface MissionTabProps {
@@ -47,26 +46,6 @@ const missionStatusToneMap: Record<MissionStatus, StatusTone> = {
   archived: 'neutral',
 }
 
-/**
- * Allowed mission status transitions, narrowed to the set the backend currently
- * implements:
- *   - active   → paused    (`POST /api/missions/{id}/pause`)
- *   - paused   → active    (`POST /api/missions/{id}/resume`)
- *   - completed→ archived  (`POST /api/missions/{id}/archive`)
- *
- * draft→active, active→completed, and paused→cancelled have no backend route
- * yet, so they are intentionally omitted to avoid surfacing buttons that 404.
- * See the integration report for the Step 2 backend follow-up.
- */
-const missionStatusTransitions: Record<MissionStatus, MissionStatus[]> = {
-  template: [],
-  active: ['paused'],
-  paused: ['active'],
-  completed: ['archived'],
-  cancelled: [],
-  archived: [],
-}
-
 const knownDeliverableStatuses: DeliverableStatus[] = [
   'draft',
   'in_progress',
@@ -77,7 +56,6 @@ const knownDeliverableStatuses: DeliverableStatus[] = [
 ]
 
 const knownTaskStatuses: TaskStatus[] = ['todo', 'in_progress', 'done', 'reopened', 'cancelled']
-const defaultLevelOptions = ['junior', 'intermediate', 'senior']
 
 function formatDate(value: string | null | undefined, fallback: string): string {
   if (!value) {
@@ -98,30 +76,6 @@ function formatStatusLabel(value: string): string {
     .filter(Boolean)
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(' ')
-}
-
-function missionToFormValues(mission: SupervisorMission): Partial<SupervisorMission> {
-  return {
-    title: mission.title ?? '',
-    description: mission.description ?? '',
-    skills: [...(mission.skills ?? [])],
-    tools: mission.tools ?? '',
-    level: mission.level ?? '',
-    status: mission.status,
-  }
-}
-
-function buildMissionPatch(formValues: Partial<SupervisorMission>): Partial<UpdateMissionRequest> {
-  // NOTE: `StartDate`/`EndDate` are intentionally omitted — the backend
-  // `UpdateMissionRequest` DTO does not accept them today, so the date inputs
-  // remain visible for context but their values are not persisted server-side.
-  return {
-    Title: formValues.title?.trim() ?? '',
-    Description: formValues.description ?? '',
-    Skills: formValues.skills ?? [],
-    Tools: formValues.tools ?? '',
-    Level: formValues.level ?? '',
-  }
 }
 
 function getMissionInterns(mission: SupervisorMission | null): SupervisorMissionInternAssignment[] {
@@ -181,10 +135,14 @@ function resolveTaskTone(status: TaskStatus): StatusTone {
   return knownTaskStatuses.includes(status) ? getTaskStatusTone(status) : 'neutral'
 }
 
-function LoadingState() {
+function hasProgress(value: number): boolean {
+  return Number.isFinite(value) && value > 0
+}
+
+function LoadingState({ t }: { t: (key: string) => string }) {
   return (
-    <div className="mission-tab mission-tab-grid">
-      <Panel title="Mission">
+    <div className="mission-tab">
+      <Panel title={t('dashboard.supervisor.mission.metadata')}>
         <div className="mission-skeleton-stack">
           <Skeleton height="2rem" />
           <Skeleton height="5rem" />
@@ -192,14 +150,12 @@ function LoadingState() {
           <Skeleton height="7rem" />
         </div>
       </Panel>
-      <div className="mission-right-column">
-        <Panel title="Deliverables">
-          <Skeleton height="14rem" />
-        </Panel>
-        <Panel title="Tasks">
-          <Skeleton height="14rem" />
-        </Panel>
-      </div>
+      <Panel title={t('dashboard.supervisor.mission.deliverablesTitle')}>
+        <Skeleton height="14rem" />
+      </Panel>
+      <Panel title={t('dashboard.supervisor.mission.tasksTitle')}>
+        <Skeleton height="14rem" />
+      </Panel>
     </div>
   )
 }
@@ -210,15 +166,11 @@ function EmptyState({ text }: { text: string }) {
 
 export function MissionTab({ missionId }: MissionTabProps) {
   const { t } = useI18n()
-  const { user } = useAuth()
   const {
     data,
     isLoading,
     error,
     refresh,
-    updateMission,
-    patchMissionStatus,
-    updateFeatureFlags,
     createDeliverable,
     updateDeliverable,
     deleteDeliverable,
@@ -230,11 +182,7 @@ export function MissionTab({ missionId }: MissionTabProps) {
   } = useMissionData(missionId)
   const { toasts, showToast, dismissToast } = useToast()
 
-  const { mission, featureFlags, deliverables, documents, documentsError } = data
-  const [editMode, setEditMode] = useState(false)
-  const [formValues, setFormValues] = useState<Partial<SupervisorMission>>({})
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [skillDraft, setSkillDraft] = useState('')
+  const { mission, deliverables, documents, documentsError } = data
   const [resourceUrl, setResourceUrl] = useState('')
   const [resourceFile, setResourceFile] = useState<File | null>(null)
   const [isResourceSubmitting, setIsResourceSubmitting] = useState(false)
@@ -243,128 +191,14 @@ export function MissionTab({ missionId }: MissionTabProps) {
   const [selectedTask, setSelectedTask] = useState<SupervisorTask | null>(null)
   const [confirmingDeliverableId, setConfirmingDeliverableId] = useState<string | null>(null)
   const [confirmingTaskId, setConfirmingTaskId] = useState<string | null>(null)
-  const [statusUpdatingTo, setStatusUpdatingTo] = useState<MissionStatus | null>(null)
 
-  useEffect(() => {
-    if (!mission || editMode) {
-      return
-    }
-
-    setFormValues(missionToFormValues(mission))
-    setSkillDraft('')
-  }, [editMode, mission])
-
+  const fallbackText = t('dashboard.noData')
   const missionInterns = useMemo(() => getMissionInterns(mission), [mission])
   const internNameById = useMemo(
     () => new Map(missionInterns.map((intern) => [intern.internId, intern.internName])),
     [missionInterns],
   )
   const tasks = useMemo(() => getLinkedTasks(deliverables), [deliverables])
-  const fallbackText = t('dashboard.noData')
-  const currentMissionStatus = formValues.status ?? mission?.status ?? 'template'
-  const validTransitions = missionStatusTransitions[currentMissionStatus]
-  const canManageFeatureFlags = Boolean(user?.id && mission?.supervisorId && mission.supervisorId === user.id)
-  const levelOptions = useMemo(() => {
-    const currentLevel = (formValues.level ?? mission?.level ?? '').trim()
-    return Array.from(new Set([currentLevel, ...defaultLevelOptions].filter(Boolean)))
-  }, [formValues.level, mission?.level])
-
-  const clearFormError = (field: string) => {
-    setFormErrors((previous) => {
-      if (!previous[field]) {
-        return previous
-      }
-      const nextErrors = { ...previous }
-      delete nextErrors[field]
-      return nextErrors
-    })
-  }
-
-  const handleMissionFieldChange = (field: keyof SupervisorMission, value: string) => {
-    setFormValues((previous) => ({ ...previous, [field]: value }))
-
-    if (field === 'title') {
-      clearFormError('title')
-    }
-
-  }
-
-  const handleAddSkill = (rawSkill: string) => {
-    const nextSkill = rawSkill.trim()
-    if (!nextSkill) {
-      return
-    }
-
-    setFormValues((previous) => {
-      const currentSkills = previous.skills ?? []
-      const alreadyExists = currentSkills.some((skill) => skill.toLocaleLowerCase() === nextSkill.toLocaleLowerCase())
-      return alreadyExists ? previous : { ...previous, skills: [...currentSkills, nextSkill] }
-    })
-    setSkillDraft('')
-  }
-
-  const handleSkillKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter' && event.key !== ',') {
-      return
-    }
-
-    event.preventDefault()
-    handleAddSkill(skillDraft)
-  }
-
-  const handleRemoveSkill = (skillToRemove: string) => {
-    setFormValues((previous) => ({
-      ...previous,
-      skills: (previous.skills ?? []).filter((skill) => skill !== skillToRemove),
-    }))
-  }
-
-  const validateMissionForm = () => {
-    const nextErrors: Record<string, string> = {}
-
-    if (!(formValues.title ?? '').trim()) {
-      nextErrors.title = t('dashboard.supervisor.mission.titleRequired')
-    }
-
-    setFormErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
-  }
-
-  const handleMissionSave = async () => {
-    if (!validateMissionForm()) {
-      return
-    }
-
-    try {
-      await updateMission(buildMissionPatch(formValues))
-      showToast(t('dashboard.supervisor.toast.saveSuccess'), 'success')
-      setEditMode(false)
-    } catch {
-      showToast(t('dashboard.supervisor.error.save'), 'error')
-    }
-  }
-
-  const handleMissionCancel = () => {
-    if (mission) {
-      setFormValues(missionToFormValues(mission))
-    }
-    setSkillDraft('')
-    setFormErrors({})
-    setEditMode(false)
-  }
-
-  const handlePatchStatus = async (nextStatus: MissionStatus) => {
-    setStatusUpdatingTo(nextStatus)
-    try {
-      await patchMissionStatus(nextStatus)
-      setFormValues((previous) => ({ ...previous, status: nextStatus }))
-      showToast(t('dashboard.supervisor.toast.saveSuccess'), 'success')
-    } catch {
-      showToast(t('dashboard.supervisor.error.status'), 'error')
-    } finally {
-      setStatusUpdatingTo(null)
-    }
-  }
 
   const handleResourceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     setResourceFile(event.target.files?.[0] ?? null)
@@ -549,10 +383,49 @@ export function MissionTab({ missionId }: MissionTabProps) {
     )
   }
 
+  const renderResourceRow = (document: MissionDocument) => {
+    const isFile = document.sourceType === 'file'
+    const sourceLabel = isFile
+      ? t('dashboard.supervisor.mission.source.file')
+      : t('dashboard.supervisor.mission.source.url')
+    const sourceClass = isFile ? 'mission-resource-source-file' : 'mission-resource-source-url'
+    const linkLabel = isFile
+      ? t('dashboard.supervisor.mission.downloadResource')
+      : t('dashboard.supervisor.mission.openResource')
+
+    return (
+      <li key={document.id} className="mission-resource-row">
+        <div className="mission-resource-row-main">
+          <span className="mission-resource-name" title={document.fileName}>
+            {document.fileName || fallbackText}
+          </span>
+          <span className="mission-resource-meta">
+            <span className={`mission-resource-source ${sourceClass}`}>{sourceLabel}</span>
+            <span>{formatDate(document.uploadedAt, fallbackText)}</span>
+          </span>
+        </div>
+        <div className="mission-resource-actions">
+          {document.fileUrl ? (
+            <a
+              className="mission-resource-link"
+              href={document.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={isFile ? document.fileName : undefined}
+            >
+              {isFile ? <Download /> : <Eye />}
+              {linkLabel}
+            </a>
+          ) : null}
+        </div>
+      </li>
+    )
+  }
+
   if (isLoading) {
     return (
       <>
-        <LoadingState />
+        <LoadingState t={t} />
         <Toast toasts={toasts} onDismiss={dismissToast} />
       </>
     )
@@ -578,248 +451,227 @@ export function MissionTab({ missionId }: MissionTabProps) {
     )
   }
 
+  const hasInterns = missionInterns.length > 0
+  const showProgress = hasProgress(mission.rawProgress)
+  const showCreatedAt = Boolean(mission.createdAt)
+  const isUploadBusy = isResourceSubmitting
+
   return (
     <>
-      <div className="mission-tab mission-tab-grid">
-        <div className="mission-left-column">
-          <Panel
-            title={t('dashboard.supervisor.mission.metadata')}
-            actions={
-              !editMode ? (
-                <DashboardButton type="button" variant="secondary" size="sm" onClick={() => setEditMode(true)}>
-                  {t('dashboard.supervisor.mission.edit')}
-                </DashboardButton>
-              ) : null
-            }
-          >
-            {!editMode ? (
-              <div className="mission-readonly">
-                <div className="mission-readonly-hero">
-                  <h3>{mission.title || fallbackText}</h3>
-                  <p>{mission.description || fallbackText}</p>
-                </div>
-
-                <div className="mission-skill-list">
-                  {(mission.skills ?? []).length > 0 ? (
-                    mission.skills.map((skill) => <StatusBadge key={skill} label={skill} tone="info" size="sm" />)
-                  ) : (
-                    <span className="mission-muted">{fallbackText}</span>
-                  )}
-                </div>
-
-                <dl className="mission-meta-list">
-                  <div>
-                    <dt>{t('dashboard.supervisor.mission.tools')}</dt>
-                    <dd>{mission.tools || fallbackText}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('dashboard.form.level')}</dt>
-                    <dd>{mission.level || fallbackText}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('dashboard.form.status')}</dt>
-                    <dd>
-                      <StatusBadge
-                        label={t(`dashboard.supervisor.status.${mission.status}`)}
-                        tone={missionStatusToneMap[mission.status]}
-                        size="sm"
-                      />
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{t('dashboard.supervisor.overview.startDate')}</dt>
-                    <dd>{formatDate(mission.startDate, fallbackText)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('dashboard.supervisor.overview.endDate')}</dt>
-                    <dd>{formatDate(mission.endDate, fallbackText)}</dd>
-                  </div>
-                </dl>
-              </div>
-            ) : (
-              <form
-                className="mission-edit-form"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void handleMissionSave()
-                }}
-              >
-                <label className="mission-form-field" htmlFor="mission-title">
-                  <span>{t('dashboard.form.title')}</span>
-                  <input
-                    id="mission-title"
-                    type="text"
-                    className="dash-input"
-                    value={formValues.title ?? ''}
-                    onChange={(event) => handleMissionFieldChange('title', event.target.value)}
-                  />
-                  {formErrors.title && <p className="form-error">{formErrors.title}</p>}
-                </label>
-
-                <label className="mission-form-field" htmlFor="mission-description">
-                  <span>{t('dashboard.form.description')}</span>
-                  <textarea
-                    id="mission-description"
-                    className="dash-textarea"
-                    rows={5}
-                    value={formValues.description ?? ''}
-                    onChange={(event) => handleMissionFieldChange('description', event.target.value)}
-                  />
-                </label>
-
-                <div className="mission-form-field">
-                  <span>{t('dashboard.intern.profile.skills')}</span>
-                  <div className="mission-skill-editor">
-                    <div className="mission-skill-list">
-                      {(formValues.skills ?? []).map((skill) => (
-                        <span key={skill} className="mission-skill-chip">
-                          <StatusBadge label={skill} tone="info" size="sm" />
-                          <button
-                            type="button"
-                            aria-label={t('dashboard.supervisor.mission.removeSkill', { skill })}
-                            onClick={() => handleRemoveSkill(skill)}
-                          >
-                            &times;
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      className="dash-input"
-                      value={skillDraft}
-                      placeholder={t('dashboard.supervisor.mission.addSkillPlaceholder')}
-                      onChange={(event) => setSkillDraft(event.target.value)}
-                      onKeyDown={handleSkillKeyDown}
-                      onBlur={() => handleAddSkill(skillDraft)}
-                    />
+      <div className="mission-tab">
+        <Panel title={t('dashboard.supervisor.mission.metadata')}>
+          <div className="mission-readonly">
+              <section className="mission-section" aria-labelledby="mission-overview-heading">
+                <h4 id="mission-overview-heading" className="mission-section-title">
+                  {t('dashboard.supervisor.mission.overviewSection')}
+                </h4>
+                <div className="mission-section-body">
+                  <div className="mission-readonly-hero">
+                    <h3>{mission.title || fallbackText}</h3>
+                    <p>{mission.description || fallbackText}</p>
                   </div>
                 </div>
+              </section>
 
-                <label className="mission-form-field" htmlFor="mission-level">
-                  <span>{t('dashboard.form.level')}</span>
-                  <select
-                    id="mission-level"
-                    className="dash-input dash-select"
-                    value={formValues.level ?? ''}
-                    onChange={(event) => handleMissionFieldChange('level', event.target.value)}
-                  >
-                    {levelOptions.map((level) => (
-                      <option key={level} value={level}>
-                        {t(`dashboard.supervisor.mission.level.${level}`) === `dashboard.supervisor.mission.level.${level}`
-                          ? formatStatusLabel(level)
-                          : t(`dashboard.supervisor.mission.level.${level}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="mission-form-field">
-                  <span>{t('dashboard.supervisor.mission.statusTransitions')}</span>
+              <section className="mission-section" aria-labelledby="mission-status-heading">
+                <h4 id="mission-status-heading" className="mission-section-title">
+                  {t('dashboard.supervisor.mission.statusSection')}
+                </h4>
+                <div className="mission-section-body">
                   <div className="mission-status-row">
                     <StatusBadge
-                      label={t(`dashboard.supervisor.status.${currentMissionStatus}`)}
-                      tone={missionStatusToneMap[currentMissionStatus]}
-                      size="sm"
+                      label={t(`dashboard.supervisor.status.${mission.status}`)}
+                      tone={missionStatusToneMap[mission.status]}
+                      size="md"
                     />
-                    {validTransitions.length > 0 ? (
-                      validTransitions.map((nextStatus) => (
-                        <DashboardButton
-                          key={nextStatus}
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          loading={statusUpdatingTo === nextStatus}
-                          disabled={Boolean(statusUpdatingTo)}
-                          onClick={() => {
-                            void handlePatchStatus(nextStatus)
-                          }}
-                        >
-                          {t(`dashboard.supervisor.status.${nextStatus}`)}
-                        </DashboardButton>
-                      ))
-                    ) : (
-                      <span className="mission-muted">{t('dashboard.supervisor.mission.noTransitions')}</span>
-                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="mission-section" aria-labelledby="mission-timeline-heading">
+                <h4 id="mission-timeline-heading" className="mission-section-title">
+                  {t('dashboard.supervisor.mission.timelineSection')}
+                </h4>
+                <div className="mission-section-body">
+                  <dl className="mission-meta-list">
+                    <div className="mission-meta-list__row">
+                      <dt>{t('dashboard.supervisor.overview.startDate')}</dt>
+                      <dd>{formatDate(mission.startDate, fallbackText)}</dd>
+                    </div>
+                    <div className="mission-meta-list__row">
+                      <dt>{t('dashboard.supervisor.overview.endDate')}</dt>
+                      <dd>{formatDate(mission.endDate, fallbackText)}</dd>
+                    </div>
+                    {showCreatedAt ? (
+                      <div className="mission-meta-list__row">
+                        <dt>{t('dashboard.supervisor.mission.createdAtLabel')}</dt>
+                        <dd>{formatDate(mission.createdAt, fallbackText)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
+              </section>
+
+              <section className="mission-section" aria-labelledby="mission-people-heading">
+                <h4 id="mission-people-heading" className="mission-section-title">
+                  {t('dashboard.supervisor.mission.peopleSection')}
+                </h4>
+                <div className="mission-section-body">
+                  <dl className="mission-meta-list">
+                    <div className="mission-meta-list__row">
+                      <dt>{t('dashboard.supervisor.mission.supervisorLabel')}</dt>
+                      <dd>{mission.supervisorId || fallbackText}</dd>
+                    </div>
+                    <div className="mission-meta-list__row">
+                      <dt>{t('dashboard.supervisor.mission.coSupervisorLabel')}</dt>
+                      <dd>
+                        {mission.coSupervisorId
+                          ? mission.coSupervisorId
+                          : t('dashboard.supervisor.mission.coSupervisorMissing')}
+                      </dd>
+                    </div>
+                    <div className="mission-meta-list__row">
+                      <dt>{t('dashboard.supervisor.mission.internsLabel')}</dt>
+                      <dd>
+                        {hasInterns ? (
+                          <span className="mission-intern-list">
+                            {missionInterns.map((intern) => (
+                              <span key={intern.internId} className="mission-intern-chip">
+                                {intern.internName || intern.internId}
+                              </span>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="mission-muted">
+                            {t('dashboard.supervisor.mission.noInterns')}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </section>
+
+              {showProgress ? (
+                <section className="mission-section" aria-labelledby="mission-progress-heading">
+                  <h4 id="mission-progress-heading" className="mission-section-title">
+                    {t('dashboard.supervisor.mission.progressLabel')}
+                  </h4>
+                  <div className="mission-section-body">
+                    <div className="mission-progress-row">
+                      <div
+                        className="mission-progress-bar"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={clampProgress(mission.rawProgress)}
+                        aria-label={t('dashboard.supervisor.mission.progressLabel')}
+                      >
+                        <span
+                          className="mission-progress-fill"
+                          style={{ transform: `scaleX(${clampProgress(mission.rawProgress) / 100})` }}
+                        />
+                      </div>
+                      <span className="mission-progress-value">{clampProgress(mission.rawProgress)}%</span>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="mission-resource-section" aria-labelledby="mission-resource-heading">
+                <div className="mission-resource-section-header">
+                  <h4 id="mission-resource-heading">
+                    {t('dashboard.supervisor.mission.resourcesSection')}
+                  </h4>
+                </div>
+
+                <div className="mission-resource-upload">
+                  <div className="mission-resource-upload-row">
+                    <label className="mission-resource-file-name" htmlFor="mission-resource-file">
+                      {resourceFile
+                        ? resourceFile.name
+                        : t('dashboard.supervisor.mission.chooseFile')}
+                    </label>
+                    <input
+                      id="mission-resource-file"
+                      type="file"
+                      className="dash-input"
+                      onChange={handleResourceFileChange}
+                      disabled={isUploadBusy}
+                    />
+                    <DashboardButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      loading={isUploadBusy}
+                      disabled={!resourceFile || isUploadBusy}
+                      onClick={() => {
+                        void handleUploadResourceFile()
+                      }}
+                    >
+                      {isUploadBusy
+                        ? t('dashboard.supervisor.mission.uploading')
+                        : t('dashboard.supervisor.mission.uploadFileButton')}
+                    </DashboardButton>
+                  </div>
+
+                  <div className="mission-resource-divider" aria-hidden="true">
+                    <span>or</span>
+                  </div>
+
+                  <div className="mission-resource-upload-row">
+                    <input
+                      type="url"
+                      className="dash-input"
+                      value={resourceUrl}
+                      placeholder={t('dashboard.supervisor.mission.urlPlaceholder')}
+                      onChange={(event) => setResourceUrl(event.target.value)}
+                      disabled={isUploadBusy}
+                    />
+                    <DashboardButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      loading={isUploadBusy}
+                      disabled={!resourceUrl.trim() || isUploadBusy}
+                      onClick={() => {
+                        void handleUploadResourceUrl()
+                      }}
+                    >
+                      {t('dashboard.supervisor.mission.uploadUrlButton')}
+                    </DashboardButton>
                   </div>
                 </div>
 
-                <div className="mission-date-pair">
-                  <label className="mission-form-field" htmlFor="mission-start-date">
-                    <span>{t('dashboard.supervisor.overview.startDate')}</span>
-                    <input
-                      id="mission-start-date"
-                      type="date"
-                      className="dash-input"
-                      value={formValues.startDate ?? ''}
-                      onChange={(event) => handleMissionFieldChange('startDate', event.target.value)}
-                    />
-                  </label>
-                  <label className="mission-form-field" htmlFor="mission-end-date">
-                    <span>{t('dashboard.supervisor.overview.endDate')}</span>
-                    <input
-                      id="mission-end-date"
-                      type="date"
-                      className="dash-input"
-                      value={formValues.endDate ?? ''}
-                      onChange={(event) => handleMissionFieldChange('endDate', event.target.value)}
-                    />
-                    {formErrors.endDate && <p className="form-error">{formErrors.endDate}</p>}
-                  </label>
-                </div>
+                {documentsError ? (
+                  <p className="mission-resource-error" role="alert">
+                    {documentsError}
+                  </p>
+                ) : null}
 
-                <div className="mission-form-actions">
-                  <DashboardButton type="button" variant="secondary" size="sm" onClick={handleMissionCancel}>
-                    {t('dashboard.form.cancel')}
-                  </DashboardButton>
-                  <DashboardButton type="submit" variant="primary" size="sm">
-                    {t('dashboard.form.save')}
-                  </DashboardButton>
-                </div>
-              </form>
-            )}
-
-            <section className="mission-resource-panel" aria-labelledby="mission-resource-title">
-              <div className="mission-section-heading">
-                <h4 id="mission-resource-title">{t('dashboard.supervisor.mission.resources')}</h4>
-              </div>
-              <div className="mission-resource-dropzone" aria-disabled="true">
-                <StatusBadge label={t('dashboard.supervisor.mission.uploadComingSoon')} tone="neutral" size="sm" />
-              </div>
-              <input
-                type="url"
-                className="dash-input"
-                value={resourceUrl}
-                placeholder={t('dashboard.supervisor.mission.resourceUrlPlaceholder')}
-                onChange={(event) => setResourceUrl(event.target.value)}
-              />
-            </section>
-
-            {canManageFeatureFlags && (
-              <FeatureFlagPanel
-                featureFlags={featureFlags}
-                updateFeatureFlags={updateFeatureFlags}
-                showToast={showToast}
-              />
-            )}
+                {documents.length === 0 ? (
+                  <EmptyState text={t('dashboard.supervisor.mission.noResources')} />
+                ) : (
+                  <ul className="mission-resource-list">{documents.map(renderResourceRow)}</ul>
+                )}
+              </section>
+            </div>
           </Panel>
-        </div>
 
-        <div className="mission-right-column">
-          <Panel
-            title={t('dashboard.supervisor.mission.deliverablesTitle')}
-            actions={(
-              <DashboardButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setDrawerMode('deliverable-create')}
-              >
-                <Plus />
-                {t('dashboard.supervisor.mission.addDeliverable')}
-              </DashboardButton>
-            )}
-          >
+        <Panel
+          title={t('dashboard.supervisor.mission.deliverablesTitle')}
+          actions={(
+            <DashboardButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setDrawerMode('deliverable-create')}
+            >
+              <Plus />
+              {t('dashboard.supervisor.mission.addDeliverable')}
+            </DashboardButton>
+          )}
+        >
             {deliverables.length === 0 ? (
               <EmptyState text={t('dashboard.supervisor.empty.noDeliverables')} />
             ) : (
@@ -860,20 +712,20 @@ export function MissionTab({ missionId }: MissionTabProps) {
             )}
           </Panel>
 
-          <Panel
-            title={t('dashboard.supervisor.mission.tasksTitle')}
-            actions={(
-              <DashboardButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setDrawerMode('task-create')}
-              >
-                <Plus />
-                {t('dashboard.supervisor.mission.addTask')}
-              </DashboardButton>
-            )}
-          >
+        <Panel
+          title={t('dashboard.supervisor.mission.tasksTitle')}
+          actions={(
+            <DashboardButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setDrawerMode('task-create')}
+            >
+              <Plus />
+              {t('dashboard.supervisor.mission.addTask')}
+            </DashboardButton>
+          )}
+        >
             {tasks.length === 0 ? (
               <EmptyState text={t('dashboard.supervisor.mission.noTasks')} />
             ) : (
@@ -922,7 +774,6 @@ export function MissionTab({ missionId }: MissionTabProps) {
               </div>
             )}
           </Panel>
-        </div>
       </div>
 
       <DeliverableDrawer
