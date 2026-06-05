@@ -57,6 +57,16 @@ const knownDeliverableStatuses: DeliverableStatus[] = [
 
 const knownTaskStatuses: TaskStatus[] = ['todo', 'in_progress', 'done', 'reopened', 'cancelled']
 
+const ALLOWED_FILE_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.doc', '.docx']
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+
 function formatDate(value: string | null | undefined, fallback: string): string {
   if (!value) {
     return fallback
@@ -185,6 +195,7 @@ export function MissionTab({ missionId }: MissionTabProps) {
   const { mission, deliverables, documents, documentsError } = data
   const [resourceUrl, setResourceUrl] = useState('')
   const [resourceFile, setResourceFile] = useState<File | null>(null)
+  const [resourceFileError, setResourceFileError] = useState<string | null>(null)
   const [isResourceSubmitting, setIsResourceSubmitting] = useState(false)
   const [drawerMode, setDrawerMode] = useState<MissionDrawerMode>(null)
   const [selectedDeliverable, setSelectedDeliverable] = useState<SupervisorDeliverable | null>(null)
@@ -201,14 +212,39 @@ export function MissionTab({ missionId }: MissionTabProps) {
   const tasks = useMemo(() => getLinkedTasks(deliverables), [deliverables])
 
   const handleResourceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setResourceFile(event.target.files?.[0] ?? null)
+    const file = event.target.files?.[0] ?? null
+    setResourceFileError(null)
+
+    if (file) {
+      const extension = (file.name.split('.').pop() ?? '').toLowerCase()
+      if (!ALLOWED_FILE_EXTENSIONS.includes(`.${extension}`)) {
+        setResourceFileError(t('dashboard.supervisor.mission.fileTypeError'))
+        event.target.value = ''
+        return
+      }
+
+      if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
+        setResourceFileError(t('dashboard.supervisor.mission.fileTypeError'))
+        event.target.value = ''
+        return
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        setResourceFileError(t('dashboard.supervisor.mission.fileSizeError'))
+        event.target.value = ''
+        return
+      }
+    }
+
+    setResourceFile(file)
   }
 
   const handleUploadResourceFile = async () => {
-    if (!resourceFile) {
+    if (!resourceFile || resourceFileError) {
       return
     }
 
+    setResourceFileError(null)
     setIsResourceSubmitting(true)
     try {
       await uploadDocumentFile(resourceFile)
@@ -596,6 +632,7 @@ export function MissionTab({ missionId }: MissionTabProps) {
                       id="mission-resource-file"
                       type="file"
                       className="dash-input"
+                      accept={ALLOWED_FILE_EXTENSIONS.join(',')}
                       onChange={handleResourceFileChange}
                       disabled={isUploadBusy}
                     />
@@ -614,6 +651,16 @@ export function MissionTab({ missionId }: MissionTabProps) {
                         : t('dashboard.supervisor.mission.uploadFileButton')}
                     </DashboardButton>
                   </div>
+
+                  {resourceFileError && (
+                    <p className="mission-resource-error" role="alert">
+                      {resourceFileError}
+                    </p>
+                  )}
+
+                  <p className="mission-resource-hint">
+                    {t('dashboard.supervisor.mission.allowedTypes')}
+                  </p>
 
                   <div className="mission-resource-divider" aria-hidden="true">
                     <span>or</span>

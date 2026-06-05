@@ -20,6 +20,34 @@ import '../../styles/pages/SupervisorDashboard.css'
 
 const groupedMissionStatuses = ['active', 'paused', 'completed'] as const
 const excludedGroupedStatuses: MissionStatus[] = ['archived', 'cancelled']
+const ACTIVE_MISSION_STORAGE_KEY = 'supervisor-dashboard:active-mission-id'
+
+function readPersistedMissionId(): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_MISSION_STORAGE_KEY)
+    return stored && stored.trim().length > 0 ? stored : null
+  } catch {
+    return null
+  }
+}
+
+function persistMissionId(missionId: string | null) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    if (missionId) {
+      window.localStorage.setItem(ACTIVE_MISSION_STORAGE_KEY, missionId)
+    } else {
+      window.localStorage.removeItem(ACTIVE_MISSION_STORAGE_KEY)
+    }
+  } catch {
+    // Storage may be unavailable (private mode, quota); ignore silently.
+  }
+}
 
 function SupervisorDashboardLoading() {
   return (
@@ -53,7 +81,7 @@ function getMissionLabel(mission: SupervisorMission): string {
 
 function SupervisorDashboardShell() {
   const { t } = useI18n()
-  const [activeMissionId, setActiveMissionId] = useState<string | null>(null)
+  const [activeMissionId, setActiveMissionId] = useState<string | null>(() => readPersistedMissionId())
   const [activeTab, setActiveTab] = useState<string>('overview')
   const {
     missions,
@@ -63,16 +91,48 @@ function SupervisorDashboardShell() {
   const badges = useDashboardBadges(activeMissionId)
 
   useEffect(() => {
-    // The mission list is loaded asynchronously; initialize once without overriding a user selection.
+    // Only reconcile once missions have actually loaded; reconciling against the
+    // empty placeholder list would wrongly evict the persisted selection.
+    if (missionsLoading) {
+      return
+    }
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveMissionId((currentMissionId) => {
-      if (currentMissionId !== null) {
+      // Persisted selection is still valid — keep it.
+      if (currentMissionId && missions.some((mission) => mission.id === currentMissionId)) {
         return currentMissionId
       }
 
-      return missions.find((mission) => mission.status === 'active')?.id ?? missions[0]?.id ?? null
+      // No persisted selection (first visit, or storage was cleared) — pick a
+      // sensible default and remember it so subsequent refreshes stay stable.
+      if (!currentMissionId) {
+        const fallback =
+          missions.find((mission) => mission.status === 'active')?.id ??
+          missions[0]?.id ??
+          null
+        if (fallback) {
+          persistMissionId(fallback)
+        }
+        return fallback
+      }
+
+      // Persisted selection is no longer in the fetched list (e.g. the mission
+      // was archived or the supervisor temporarily lost access). Do NOT clear
+      // localStorage or substitute a different mission: the next successful
+      // fetch may bring the mission back, and we must never silently destroy
+      // the user's last explicit choice. The select will render with no
+      // matching option, prompting the user to re-pick.
+      return currentMissionId
     })
-  }, [missions])
+  }, [missions, missionsLoading])
+
+  const handleMissionChange = (missionId: string) => {
+    setActiveMissionId(missionId)
+    // Persist only on explicit user action. Auto-fallbacks must not overwrite
+    // the user's saved preference, otherwise it would be lost across refreshes.
+    persistMissionId(missionId)
+  }
 
   const activeMission = useMemo(
     () => missions.find((mission) => mission.id === activeMissionId) ?? null,
@@ -205,9 +265,9 @@ function SupervisorDashboardShell() {
       contentClassName="supervisor-dashboard__content"
       headerActions={(
         <select
-          className="dash-select supervisor-dashboard__mission-select"
+          className="supervisor-dashboard__mission-select"
           value={activeMissionId}
-          onChange={(event) => setActiveMissionId(event.target.value)}
+          onChange={(event) => handleMissionChange(event.target.value)}
           aria-label={t('dashboard.supervisor.missions')}
         >
           {renderMissionOptions()}

@@ -6,7 +6,6 @@ import { useDashboardApi } from '../../../../hooks/useDashboardApi'
 import type {
   DeliverableStatus,
   InternWithProgress,
-  MissionHistoryEntry,
   MissionStatus,
   SupervisorDeliverable,
   SupervisorIntern,
@@ -32,8 +31,6 @@ const KNOWN_DELIVERABLE_STATUSES: readonly DeliverableStatus[] = [
   'changes_requested',
   'cancelled',
 ]
-
-const ACTIVITY_FEED_LIMIT = 10
 
 interface CountResponse {
   count?: unknown
@@ -108,18 +105,6 @@ interface DeliverableApiItem {
   supervisorComment?: unknown
   createdAt?: unknown
   tasks?: unknown
-}
-
-interface HistoryApiItem {
-  id?: unknown
-  missionId?: unknown
-  action?: unknown
-  field?: unknown
-  oldValue?: unknown
-  newValue?: unknown
-  changedByUserId?: unknown
-  changedBy?: unknown
-  changedAt?: unknown
 }
 
 interface InternProgressEntry {
@@ -334,31 +319,6 @@ function mapDeliverable(item: unknown): SupervisorDeliverable | null {
   }
 }
 
-function mapHistoryEntry(item: unknown): MissionHistoryEntry | null {
-  if (!item || typeof item !== 'object') {
-    return null
-  }
-  const raw = item as HistoryApiItem
-  const id = toStringValue(raw.id)
-  if (!id) {
-    return null
-  }
-  return {
-    id,
-    missionId: toStringValue(raw.missionId),
-    action: toStringValue(raw.action) || undefined,
-    field: toStringValue(raw.field),
-    oldValue: raw.oldValue === null || raw.oldValue === undefined ? null : toStringValue(raw.oldValue) || null,
-    newValue: raw.newValue === null || raw.newValue === undefined ? null : toStringValue(raw.newValue) || null,
-    changedByUserId:
-      raw.changedByUserId === null || raw.changedByUserId === undefined
-        ? null
-        : toStringValue(raw.changedByUserId) || null,
-    changedBy: toStringValue(raw.changedBy),
-    changedAt: toStringValue(raw.changedAt),
-  }
-}
-
 function mapProgressEntries(payload: unknown): Map<string, InternProgressEntry> {
   if (!payload || typeof payload !== 'object') {
     return new Map()
@@ -417,7 +377,6 @@ function buildInternProgressRows(
  * - Upcoming meeting count   → `GET /api/meetings?from={today}&to={today+7d}&count=true` → `{ count }`
  * - Intern roster            → `GET /api/supervisor/me/interns` (paged)
  * - Mission detail           → `GET /api/missions/{missionId}`
- * - Mission history feed     → `GET /api/missions/{missionId}/history` (paged)
  * - Deliverables for timeline→ `GET /api/deliverables/mission/{missionId}` (flat list)
  * - Per-intern progress      → `GET /api/supervisor/missions/{missionId}/progress`
  *   Replaces the prior client-side fan-out over `/api/tasks/by-intern/{id}` (which
@@ -436,7 +395,6 @@ export function useOverviewData(missionId: string) {
   const [interns, setInterns] = useState<InternWithProgress[]>([])
   const [mission, setMission] = useState<SupervisorMission | null>(null)
   const [deliverables, setDeliverables] = useState<SupervisorDeliverable[]>([])
-  const [activityFeed, setActivityFeed] = useState<MissionHistoryEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -448,7 +406,6 @@ export function useOverviewData(missionId: string) {
       setInterns([])
       setMission(null)
       setDeliverables([])
-      setActivityFeed([])
       setIsLoading(false)
       setError(null)
       return
@@ -470,7 +427,6 @@ export function useOverviewData(missionId: string) {
         internsResponse,
         missionResponse,
         deliverablesResponse,
-        historyResponse,
         progressResponse,
       ] = await Promise.all([
         get<WorkloadResponse>('/api/stats/supervisor/me/workload'),
@@ -479,7 +435,6 @@ export function useOverviewData(missionId: string) {
         get<unknown>('/api/supervisor/me/interns'),
         get<MissionApiResponse>(`/api/missions/${missionId}`),
         get<unknown>(`/api/deliverables/mission/${missionId}`),
-        get<unknown>(`/api/missions/${missionId}/history`),
         get<MissionProgressResponse>(`/api/supervisor/missions/${missionId}/progress`),
       ])
 
@@ -493,7 +448,6 @@ export function useOverviewData(missionId: string) {
       setInterns(buildInternProgressRows(mappedInterns, progressEntries))
       setMission(mapMission(missionResponse))
       setDeliverables(mappedDeliverables)
-      setActivityFeed(readList(historyResponse, mapHistoryEntry).slice(0, ACTIVITY_FEED_LIMIT))
     } catch (requestError) {
       setError(toErrorMessage(requestError, t('dashboard.error.load')))
     } finally {
@@ -512,7 +466,6 @@ export function useOverviewData(missionId: string) {
     interns,
     mission,
     deliverables,
-    activityFeed,
     isLoading,
     error,
     refresh,

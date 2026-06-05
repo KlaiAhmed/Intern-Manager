@@ -208,6 +208,13 @@
   font-size: 0.8125rem;
 }
 
+.mission-resource-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--dash-text-muted);
+  line-height: 1.4;
+}
+
 /* Upload controls */
 .mission-resource-upload {
   display: grid;

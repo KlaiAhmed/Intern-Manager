@@ -66,7 +66,59 @@
 }
 
 .supervisor-dashboard__mission-select {
+  appearance: none;
   min-width: min(20rem, 100%);
+  max-width: 100%;
+  padding: var(--dash-space-sm) calc(var(--dash-space-lg) + 20px) var(--dash-space-sm) var(--dash-space-md);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius-md);
+  background-color: var(--dash-bg-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2352525b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--dash-space-md) center;
+  color: var(--dash-text);
+  font-family: var(--dash-font-body);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  color-scheme: light dark;
+  transition:
+    border-color var(--dash-duration-fast) var(--dash-ease),
+    background-color var(--dash-duration-fast) var(--dash-ease),
+    box-shadow var(--dash-duration-fast) var(--dash-ease);
+}
+
+.supervisor-dashboard__mission-select:hover {
+  border-color: var(--dash-border-hover);
+  background-color: var(--dash-bg-secondary);
+}
+
+.supervisor-dashboard__mission-select:focus-visible {
+  outline: none;
+  border-color: var(--dash-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dash-accent) 25%, transparent);
+}
+
+.supervisor-dashboard__mission-select:active {
+  border-color: var(--dash-accent);
+  background-color: var(--dash-accent-subtle);
+}
+
+.supervisor-dashboard__mission-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.supervisor-dashboard__mission-select option,
+.supervisor-dashboard__mission-select optgroup {
+  background-color: var(--dash-bg-primary);
+  color: var(--dash-text);
+  font-weight: 500;
+}
+
+html[data-theme='dark'] .supervisor-dashboard__mission-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
 }
 
 .supervisor-dashboard__content {
