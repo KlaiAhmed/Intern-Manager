@@ -46,9 +46,7 @@ export function DashboardLayout({
 
   useEffect(() => {
     const checkBreakpoint = () => {
-      const width = window.innerWidth
-      setIsMobile(width < 640)
-      setSidebarOpen(width >= 1024)
+      setIsMobile(window.innerWidth < 640)
     }
 
     checkBreakpoint()

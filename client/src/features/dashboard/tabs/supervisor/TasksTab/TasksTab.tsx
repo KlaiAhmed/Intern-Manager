@@ -237,19 +237,21 @@ export function TasksTab({ missionId }: TasksTabProps) {
               </select>
             </label>
 
-            <div className="supervisor-tasks-toolbar__status" aria-label={t('dashboard.supervisor.tasks.statusFilter')}>
-              {statusFilterOrder.map((status) => (
-                <DashboardButton
-                  key={status}
-                  type="button"
-                  variant={filterStatus === status ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setFilterStatus(status)}
-                >
-                  {getTaskStatusFilterLabel(status, t)}
-                </DashboardButton>
-              ))}
-            </div>
+            <label className="supervisor-tasks-toolbar__select">
+              <span>{t('dashboard.form.status')}</span>
+              <select
+                className="dash-input dash-select"
+                value={filterStatus}
+                onChange={(event) => setFilterStatus(event.target.value as TaskFilterStatus)}
+                aria-label={t('dashboard.supervisor.tasks.statusFilter')}
+              >
+                {statusFilterOrder.map((status) => (
+                  <option key={status} value={status}>
+                    {getTaskStatusFilterLabel(status, t)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <Input
               value={searchText}

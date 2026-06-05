@@ -13,6 +13,14 @@ interface DeliverableGroupProps {
   intern: SupervisorIntern | undefined
   onApprove: () => void
   onReject: () => void
+  /**
+   * Controlled open state. When provided alongside `onToggle`, the parent
+   * owns the expand/collapse state (e.g. for a "Collapse all" toolbar
+   * action). When omitted, the group manages its own state and defaults
+   * to expanded — preserving the original uncontrolled behavior.
+   */
+  isOpen?: boolean
+  onToggle?: () => void
 }
 
 export function DeliverableGroup({
@@ -20,11 +28,23 @@ export function DeliverableGroup({
   intern,
   onApprove,
   onReject,
+  isOpen: controlledIsOpen,
+  onToggle,
 }: DeliverableGroupProps) {
   const { t } = useI18n()
-  const [isOpen, setIsOpen] = useState(true)
+  const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(true)
   const bodyId = useId()
   const statusLabel = getStatusLabel(deliverable.status, t)
+  const isControlled = controlledIsOpen !== undefined
+  const isOpen = isControlled ? controlledIsOpen : uncontrolledIsOpen
+
+  const handleToggle = () => {
+    if (isControlled) {
+      onToggle?.()
+    } else {
+      setUncontrolledIsOpen((current) => !current)
+    }
+  }
 
   return (
     <section className="supervisor-deliverable-group">
@@ -40,7 +60,7 @@ export function DeliverableGroup({
           aria-expanded={isOpen}
           aria-controls={bodyId}
           aria-label={isOpen ? t('dashboard.supervisor.deliverables.collapse') : t('dashboard.supervisor.deliverables.expand')}
-          onClick={() => setIsOpen((current) => !current)}
+          onClick={handleToggle}
         >
           <span className={isOpen ? 'is-open' : ''} aria-hidden="true">
             <ChevronDown />

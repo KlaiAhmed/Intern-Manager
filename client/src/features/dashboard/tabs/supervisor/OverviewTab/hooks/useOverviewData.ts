@@ -16,7 +16,7 @@ import type {
 import { clampProgress, toErrorMessage, toNumber, toStringValue } from '../../../../hooks/supervisor/utils'
 
 const KNOWN_MISSION_STATUSES: readonly MissionStatus[] = [
-  'draft',
+  'template',
   'active',
   'paused',
   'completed',
@@ -144,11 +144,12 @@ interface MissionProgressResponse {
 }
 
 function toMissionStatus(value: unknown): MissionStatus {
-  const candidate = toStringValue(value, 'draft')
+  const normalized = toStringValue(value, 'template').trim().toLowerCase()
+  const candidate = normalized === 'draft' ? 'template' : normalized
   if ((KNOWN_MISSION_STATUSES as readonly string[]).includes(candidate)) {
     return candidate as MissionStatus
   }
-  return 'draft'
+  return 'template'
 }
 
 function toDeliverableStatus(value: unknown): DeliverableStatus {

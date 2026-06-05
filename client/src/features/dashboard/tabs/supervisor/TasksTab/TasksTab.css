@@ -41,7 +41,11 @@
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: minmax(12rem, 16rem) 1fr minmax(14rem, 18rem) auto;
+  grid-template-columns:
+    minmax(12rem, 16rem)
+    minmax(11rem, 14rem)
+    minmax(14rem, 1fr)
+    auto;
   align-items: end;
   gap: var(--dash-space-md);
   padding: var(--dash-space-md);
@@ -62,14 +66,15 @@
   font-weight: 500;
 }
 
-.supervisor-tasks-toolbar__status,
+.supervisor-tasks-toolbar__select .dash-select {
+  width: 100%;
+  min-width: 0;
+}
+
 .supervisor-tasks-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--dash-space-xs);
-}
-
-.supervisor-tasks-toolbar__actions {
   justify-content: flex-end;
 }
 
@@ -301,16 +306,21 @@
 
 @media (max-width: 1100px) {
   .supervisor-tasks-toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
   }
 
   .supervisor-tasks-toolbar__actions {
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 640px) {
+  .supervisor-tasks-toolbar {
+    grid-template-columns: 1fr;
+  }
+
   .supervisor-tasks-overdue,
   .supervisor-task-row {
     align-items: stretch;

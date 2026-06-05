@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import { format } from 'date-fns'
 
 import { DashboardButton } from '@/features/dashboard/components/DashboardButton'
 import { ErrorState } from '@/features/dashboard/components/ErrorState'
-import { Edit, Plus, Trash2 } from '@/features/dashboard/components/IconComponents'
+import { Download, Edit, FolderOpen, Plus, Trash2 } from '@/features/dashboard/components/IconComponents'
 import { Panel } from '@/features/dashboard/components/Panel'
 import { Skeleton } from '@/features/dashboard/components/Skeleton'
 import { StatusBadge } from '@/features/dashboard/components/StatusBadge'
@@ -39,7 +39,7 @@ type MissionDrawerMode = 'deliverable-create' | 'deliverable-edit' | 'task-creat
 type TaskPriority = ReturnType<typeof getTaskPriority>
 
 const missionStatusToneMap: Record<MissionStatus, StatusTone> = {
-  draft: 'neutral',
+  template: 'neutral',
   active: 'success',
   paused: 'warning',
   completed: 'neutral',
@@ -59,7 +59,7 @@ const missionStatusToneMap: Record<MissionStatus, StatusTone> = {
  * See the integration report for the Step 2 backend follow-up.
  */
 const missionStatusTransitions: Record<MissionStatus, MissionStatus[]> = {
-  draft: [],
+  template: [],
   active: ['paused'],
   paused: ['active'],
   completed: ['archived'],
@@ -78,24 +78,6 @@ const knownDeliverableStatuses: DeliverableStatus[] = [
 
 const knownTaskStatuses: TaskStatus[] = ['todo', 'in_progress', 'done', 'reopened', 'cancelled']
 const defaultLevelOptions = ['junior', 'intermediate', 'senior']
-
-function toDateInputValue(value: string | null | undefined): string {
-  if (!value) {
-    return ''
-  }
-
-  const isoDateMatch = /^\d{4}-\d{2}-\d{2}/.exec(value)
-  if (isoDateMatch) {
-    return isoDateMatch[0]
-  }
-
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return ''
-  }
-
-  return parsedDate.toISOString().slice(0, 10)
-}
 
 function formatDate(value: string | null | undefined, fallback: string): string {
   if (!value) {
@@ -126,8 +108,6 @@ function missionToFormValues(mission: SupervisorMission): Partial<SupervisorMiss
     tools: mission.tools ?? '',
     level: mission.level ?? '',
     status: mission.status,
-    startDate: toDateInputValue(mission.startDate),
-    endDate: toDateInputValue(mission.endDate),
   }
 }
 
@@ -135,27 +115,13 @@ function buildMissionPatch(formValues: Partial<SupervisorMission>): Partial<Upda
   // NOTE: `StartDate`/`EndDate` are intentionally omitted — the backend
   // `UpdateMissionRequest` DTO does not accept them today, so the date inputs
   // remain visible for context but their values are not persisted server-side.
-  // See the Step 2 follow-up in the integration report.
   return {
     Title: formValues.title?.trim() ?? '',
     Description: formValues.description ?? '',
     Skills: formValues.skills ?? [],
+    Tools: formValues.tools ?? '',
     Level: formValues.level ?? '',
   }
-}
-
-function isValidDatePair(startDate: string | null | undefined, endDate: string | null | undefined): boolean {
-  if (!startDate || !endDate) {
-    return true
-  }
-
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return true
-  }
-
-  return end.getTime() > start.getTime()
 }
 
 function getMissionInterns(mission: SupervisorMission | null): SupervisorMissionInternAssignment[] {
@@ -259,15 +225,19 @@ export function MissionTab({ missionId }: MissionTabProps) {
     createTask,
     updateTask,
     deleteTask,
+    uploadDocumentFile,
+    uploadDocumentUrl,
   } = useMissionData(missionId)
   const { toasts, showToast, dismissToast } = useToast()
 
-  const { mission, featureFlags, deliverables } = data
+  const { mission, featureFlags, deliverables, documents, documentsError } = data
   const [editMode, setEditMode] = useState(false)
   const [formValues, setFormValues] = useState<Partial<SupervisorMission>>({})
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [skillDraft, setSkillDraft] = useState('')
   const [resourceUrl, setResourceUrl] = useState('')
+  const [resourceFile, setResourceFile] = useState<File | null>(null)
+  const [isResourceSubmitting, setIsResourceSubmitting] = useState(false)
   const [drawerMode, setDrawerMode] = useState<MissionDrawerMode>(null)
   const [selectedDeliverable, setSelectedDeliverable] = useState<SupervisorDeliverable | null>(null)
   const [selectedTask, setSelectedTask] = useState<SupervisorTask | null>(null)
@@ -291,7 +261,7 @@ export function MissionTab({ missionId }: MissionTabProps) {
   )
   const tasks = useMemo(() => getLinkedTasks(deliverables), [deliverables])
   const fallbackText = t('dashboard.noData')
-  const currentMissionStatus = formValues.status ?? mission?.status ?? 'draft'
+  const currentMissionStatus = formValues.status ?? mission?.status ?? 'template'
   const validTransitions = missionStatusTransitions[currentMissionStatus]
   const canManageFeatureFlags = Boolean(user?.id && mission?.supervisorId && mission.supervisorId === user.id)
   const levelOptions = useMemo(() => {
@@ -317,9 +287,6 @@ export function MissionTab({ missionId }: MissionTabProps) {
       clearFormError('title')
     }
 
-    if (field === 'startDate' || field === 'endDate') {
-      clearFormError('endDate')
-    }
   }
 
   const handleAddSkill = (rawSkill: string) => {
@@ -359,10 +326,6 @@ export function MissionTab({ missionId }: MissionTabProps) {
       nextErrors.title = t('dashboard.supervisor.mission.titleRequired')
     }
 
-    if (!isValidDatePair(formValues.startDate, formValues.endDate)) {
-      nextErrors.endDate = t('dashboard.supervisor.mission.dateRangeInvalid')
-    }
-
     setFormErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -400,6 +363,45 @@ export function MissionTab({ missionId }: MissionTabProps) {
       showToast(t('dashboard.supervisor.error.status'), 'error')
     } finally {
       setStatusUpdatingTo(null)
+    }
+  }
+
+  const handleResourceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setResourceFile(event.target.files?.[0] ?? null)
+  }
+
+  const handleUploadResourceFile = async () => {
+    if (!resourceFile) {
+      return
+    }
+
+    setIsResourceSubmitting(true)
+    try {
+      await uploadDocumentFile(resourceFile)
+      setResourceFile(null)
+      showToast(t('dashboard.supervisor.toast.saveSuccess'), 'success')
+    } catch {
+      showToast(t('dashboard.supervisor.mission.documentsSaveFailed'), 'error')
+    } finally {
+      setIsResourceSubmitting(false)
+    }
+  }
+
+  const handleUploadResourceUrl = async () => {
+    const nextUrl = resourceUrl.trim()
+    if (!nextUrl) {
+      return
+    }
+
+    setIsResourceSubmitting(true)
+    try {
+      await uploadDocumentUrl(nextUrl)
+      setResourceUrl('')
+      showToast(t('dashboard.supervisor.toast.saveSuccess'), 'success')
+    } catch {
+      showToast(t('dashboard.supervisor.mission.documentsSaveFailed'), 'error')
+    } finally {
+      setIsResourceSubmitting(false)
     }
   }
 

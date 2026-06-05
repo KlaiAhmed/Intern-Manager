@@ -4,6 +4,7 @@ import { useDashboardApi, isDashboardApiError } from '@/features/dashboard/hooks
 import type {
   CreateDeliverableRequest,
   CreateTaskRequest,
+  MissionDocument,
   MissionCardConfig,
   MissionStatus,
   SupervisorDeliverable,
@@ -18,27 +19,17 @@ export interface MissionData {
   mission: SupervisorMission | null
   featureFlags: MissionCardConfig | null
   deliverables: SupervisorDeliverable[]
+  documents: MissionDocument[]
+  documentsError: string | null
 }
 
 const initialMissionData: MissionData = {
   mission: null,
   featureFlags: null,
   deliverables: [],
+  documents: [],
+  documentsError: null,
 }
-
-/**
- * Step 1 wiring stub for mutations that the backend has not yet exposed.
- * Throwing immediately keeps the UI off of fake routes and surfaces a
- * deterministic error to the calling component's existing catch block.
- */
-class NotImplementedOnBackendError extends Error {
-  constructor(operation: string) {
-    super(`${operation} is not yet supported by the API.`)
-    this.name = 'NotImplementedOnBackendError'
-  }
-}
-
-export { NotImplementedOnBackendError }
 
 /**
  * Data and mutation surface for the supervisor Mission Card tab.
@@ -65,7 +56,7 @@ export { NotImplementedOnBackendError }
  */
 export function useMissionData(missionId: string) {
   const { t } = useI18n()
-  const { get, post, put, patch, del } = useDashboardApi()
+  const { get, post, put, patch, del, postFormData } = useDashboardApi()
 
   const [data, setData] = useState<MissionData>(initialMissionData)
   const [isLoading, setIsLoading] = useState(true)
@@ -82,10 +73,11 @@ export function useMissionData(missionId: string) {
     setError(null)
 
     try {
-      const [missionResult, featureFlagsResult, deliverablesResult] = await Promise.allSettled([
+      const [missionResult, featureFlagsResult, deliverablesResult, documentsResult] = await Promise.allSettled([
         get<SupervisorMission>(`/api/missions/${missionId}`),
         get<MissionCardConfig>(`/api/missions/${missionId}/feature-flags`),
         get<SupervisorDeliverable[]>(`/api/deliverables/mission/${missionId}`),
+        get<MissionDocument[]>(`/api/missions/${missionId}/documents`),
       ])
 
       // Mission detail and deliverable list are critical. Surface their errors.
@@ -112,10 +104,20 @@ export function useMissionData(missionId: string) {
         )
       }
 
+      let documents: MissionDocument[] = []
+      let documentsError: string | null = null
+      if (documentsResult.status === 'fulfilled') {
+        documents = documentsResult.value
+      } else {
+        documentsError = toErrorMessage(documentsResult.reason, t('dashboard.supervisor.mission.documentsLoadFailed'))
+      }
+
       setData({
         mission: missionResult.value,
         featureFlags,
         deliverables: deliverablesResult.value,
+        documents,
+        documentsError,
       })
     } catch (requestError) {
       setError(toErrorMessage(requestError, t('dashboard.error.load')))
@@ -141,12 +143,7 @@ export function useMissionData(missionId: string) {
       const action =
         status === 'paused' ? 'pause' :
         status === 'active' ? 'resume' :
-        status === 'archived' ? 'archive' :
-        null
-
-      if (action === null) {
-        throw new NotImplementedOnBackendError(`Mission status transition to "${status}"`)
-      }
+        'archive'
 
       await post(`/api/missions/${missionId}/${action}`, {})
       await refresh()
@@ -170,15 +167,12 @@ export function useMissionData(missionId: string) {
     [post, refresh],
   )
 
-  // Step 2: backend has no `PUT /api/deliverables/{id}` route. Throwing here
-  // keeps the call signature for future wiring while preventing 404s.
   const updateDeliverable = useCallback(
-    async (_id: string, _req: UpdateDeliverableRequest): Promise<void> => {
-      void _id
-      void _req
-      throw new NotImplementedOnBackendError('Updating a deliverable')
+    async (id: string, req: UpdateDeliverableRequest): Promise<void> => {
+      await patch(`/api/deliverables/${id}`, req)
+      await refresh()
     },
-    [],
+    [patch, refresh],
   )
 
   const deleteDeliverable = useCallback(
@@ -197,23 +191,40 @@ export function useMissionData(missionId: string) {
     [post, refresh],
   )
 
-  // Step 2: backend has no `PUT /api/tasks/{id}` route.
   const updateTask = useCallback(
-    async (_id: string, _req: UpdateTaskRequest): Promise<void> => {
-      void _id
-      void _req
-      throw new NotImplementedOnBackendError('Updating a task')
+    async (id: string, req: UpdateTaskRequest): Promise<void> => {
+      await patch(`/api/tasks/${id}`, req)
+      await refresh()
     },
-    [],
+    [patch, refresh],
   )
 
-  // Step 2: backend has no `DELETE /api/tasks/{id}` route.
   const deleteTask = useCallback(
-    async (_id: string): Promise<void> => {
-      void _id
-      throw new NotImplementedOnBackendError('Deleting a task')
+    async (id: string): Promise<void> => {
+      await del(`/api/tasks/${id}`)
+      await refresh()
     },
-    [],
+    [del, refresh],
+  )
+
+  const uploadDocumentFile = useCallback(
+    async (file: File): Promise<void> => {
+      const formData = new FormData()
+      formData.append('File', file)
+      await postFormData<MissionDocument>(`/api/missions/${missionId}/documents`, formData)
+      await refresh()
+    },
+    [missionId, postFormData, refresh],
+  )
+
+  const uploadDocumentUrl = useCallback(
+    async (url: string): Promise<void> => {
+      const formData = new FormData()
+      formData.append('Url', url)
+      await postFormData<MissionDocument>(`/api/missions/${missionId}/documents`, formData)
+      await refresh()
+    },
+    [missionId, postFormData, refresh],
   )
 
   useEffect(() => {
@@ -237,5 +248,7 @@ export function useMissionData(missionId: string) {
     createTask,
     updateTask,
     deleteTask,
+    uploadDocumentFile,
+    uploadDocumentUrl,
   }
 }

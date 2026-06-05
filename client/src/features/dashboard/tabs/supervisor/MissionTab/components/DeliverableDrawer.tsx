@@ -10,12 +10,24 @@ import type {
 } from '@/features/dashboard/types/supervisorDashboard'
 import { useI18n } from '@/locales/I18nContext'
 
+interface DeliverableDrawerMissionIntern {
+  internId: string
+  internName: string
+}
+
 interface DeliverableDrawerProps {
   isOpen: boolean
   mode: 'create' | 'edit'
   missionId: string
   defaultInternId?: string
   deliverable?: SupervisorDeliverable | null
+  /**
+   * When provided in `create` mode, the drawer renders an intern picker so
+   * supervisors can choose the assignee. When omitted (or in `edit` mode),
+   * `defaultInternId` is used as-is for the create payload — preserving the
+   * original single-mission usage from the Mission tab.
+   */
+  missionInterns?: DeliverableDrawerMissionIntern[]
   onClose: () => void
   createDeliverable: (req: CreateDeliverableRequest) => Promise<void>
   updateDeliverable: (id: string, req: UpdateDeliverableRequest) => Promise<void>
@@ -23,6 +35,7 @@ interface DeliverableDrawerProps {
 }
 
 interface FormValues {
+  internId: string
   title: string
   description: string
   dueDate: string
@@ -30,11 +43,13 @@ interface FormValues {
 }
 
 interface FormErrors {
+  internId?: string
   title?: string
   weight?: string
 }
 
 const emptyFormValues: FormValues = {
+  internId: '',
   title: '',
   description: '',
   dueDate: '',
@@ -59,12 +74,16 @@ function toDateInputValue(value: string | null | undefined): string {
   return parsedDate.toISOString().slice(0, 10)
 }
 
-function valuesFromDeliverable(deliverable: SupervisorDeliverable | null | undefined): FormValues {
+function valuesFromDeliverable(
+  deliverable: SupervisorDeliverable | null | undefined,
+  defaultInternId: string,
+): FormValues {
   if (!deliverable) {
-    return { ...emptyFormValues }
+    return { ...emptyFormValues, internId: defaultInternId }
   }
 
   return {
+    internId: deliverable.internId ?? defaultInternId,
     title: deliverable.title ?? '',
     description: deliverable.description ?? '',
     dueDate: toDateInputValue(deliverable.dueDate),
@@ -78,6 +97,7 @@ export function DeliverableDrawer({
   missionId,
   defaultInternId,
   deliverable,
+  missionInterns,
   onClose,
   createDeliverable,
   updateDeliverable,
@@ -87,6 +107,7 @@ export function DeliverableDrawer({
   const [formValues, setFormValues] = useState<FormValues>(emptyFormValues)
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const showInternPicker = mode === 'create' && Array.isArray(missionInterns) && missionInterns.length > 0
 
   useEffect(() => {
     if (!isOpen) {
@@ -94,8 +115,8 @@ export function DeliverableDrawer({
     }
 
     setFormErrors({})
-    setFormValues(valuesFromDeliverable(deliverable))
-  }, [deliverable, isOpen])
+    setFormValues(valuesFromDeliverable(deliverable, defaultInternId ?? ''))
+  }, [deliverable, defaultInternId, isOpen])
 
   const handleFieldChange = (field: keyof FormValues, value: string) => {
     setFormValues((previous) => ({ ...previous, [field]: value }))
@@ -106,6 +127,10 @@ export function DeliverableDrawer({
 
     if (field === 'weight' && formErrors.weight) {
       setFormErrors((previous) => ({ ...previous, weight: undefined }))
+    }
+
+    if (field === 'internId' && formErrors.internId) {
+      setFormErrors((previous) => ({ ...previous, internId: undefined }))
     }
   }
 
@@ -123,6 +148,10 @@ export function DeliverableDrawer({
     // backend eventually accepts it.
     if (!Number.isFinite(parsedWeight) || parsedWeight < 0 || parsedWeight > 100) {
       nextErrors.weight = t('dashboard.supervisor.deliverableDrawer.weightInvalid')
+    }
+
+    if (showInternPicker && !formValues.internId) {
+      nextErrors.internId = t('dashboard.supervisor.taskDrawer.titleRequired')
     }
 
     setFormErrors(nextErrors)
@@ -143,15 +172,17 @@ export function DeliverableDrawer({
     try {
       if (mode === 'create') {
         // Backend `AssignDeliverableRequest` requires `InternId` (non-empty Guid).
-        // When the mission has no intern assigned yet, `defaultInternId` is empty
-        // and the API will reject the request with a clear validation error,
-        // which surfaces through the existing error toast below.
+        // When the drawer renders the intern picker we use the picked value;
+        // otherwise we fall back to the parent-provided `defaultInternId`.
+        // If both are empty the API returns a validation error which surfaces
+        // through the existing error toast below.
         // `Weight` is NOT sent: the backend create endpoint ignores it today,
         // so the form value is kept local-only and the integration report
         // tracks this as a Step 2 follow-up.
+        const resolvedInternId = showInternPicker ? formValues.internId : (defaultInternId ?? '')
         const request: CreateDeliverableRequest = {
           MissionId: missionId,
-          InternId: defaultInternId ?? '',
+          InternId: resolvedInternId,
           Title: trimmedTitle,
           ...(trimmedDescription ? { Description: trimmedDescription } : {}),
           ...(formValues.dueDate ? { DueDate: formValues.dueDate } : { DueDate: null }),
@@ -216,6 +247,29 @@ export function DeliverableDrawer({
       )}
     >
       <form id="deliverable-drawer-form" className="mission-drawer-form" onSubmit={handleSubmit}>
+        {showInternPicker && (
+          <label className="mission-form-field" htmlFor="deliverable-drawer-intern">
+            <span>{t('dashboard.supervisor.taskDrawer.intern')}</span>
+            <select
+              id="deliverable-drawer-intern"
+              className="dash-input dash-select"
+              value={formValues.internId}
+              onChange={(event) => handleFieldChange('internId', event.target.value)}
+              disabled={isSubmitting}
+            >
+              <option value="" disabled>
+                {t('dashboard.supervisor.taskDrawer.selectIntern')}
+              </option>
+              {missionInterns?.map((intern) => (
+                <option key={intern.internId} value={intern.internId}>
+                  {intern.internName}
+                </option>
+              ))}
+            </select>
+            {formErrors.internId && <p className="form-error">{formErrors.internId}</p>}
+          </label>
+        )}
+
         <label className="mission-form-field" htmlFor="deliverable-drawer-title">
           <span>{t('dashboard.form.title')}</span>
           <input

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/locales/I18nContext'
 import { isDashboardApiError, useDashboardApi } from '@/features/dashboard/hooks/useDashboardApi'
 import type {
+  CreateDeliverableRequest,
   RejectDeliverableRequest,
   SupervisorDeliverable,
   SupervisorIntern,
+  UpdateDeliverableRequest,
 } from '@/features/dashboard/types/supervisorDashboard'
 import { toErrorMessage, toNumber, toStringValue } from '@/features/dashboard/hooks/supervisor/utils'
 
@@ -109,7 +111,7 @@ function mapSupervisorIntern(item: unknown): SupervisorIntern | null {
  */
 export function useDeliverablesData(missionId: string) {
   const { t } = useI18n()
-  const { get, post } = useDashboardApi()
+  const { get, patch, post } = useDashboardApi()
 
   const [data, setData] = useState<DeliverablesData>(initialDeliverablesData)
   const [isLoading, setIsLoading] = useState(true)
@@ -173,6 +175,22 @@ export function useDeliverablesData(missionId: string) {
     [post, refresh],
   )
 
+  const createDeliverable = useCallback(
+    async (req: CreateDeliverableRequest): Promise<void> => {
+      await post('/api/deliverables', req)
+      await refresh()
+    },
+    [post, refresh],
+  )
+
+  const updateDeliverable = useCallback(
+    async (id: string, req: UpdateDeliverableRequest): Promise<void> => {
+      await patch(`/api/deliverables/${id}`, req)
+      await refresh()
+    },
+    [patch, refresh],
+  )
+
   useEffect(() => {
     void refresh()
     // missionId is the re-fetch trigger; refresh captures it via closure
@@ -187,5 +205,7 @@ export function useDeliverablesData(missionId: string) {
     refresh,
     approveDeliverable,
     rejectDeliverable,
+    createDeliverable,
+    updateDeliverable,
   }
 }

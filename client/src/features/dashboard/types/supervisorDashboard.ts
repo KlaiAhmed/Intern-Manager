@@ -8,9 +8,8 @@ export type DeliverableStatus =
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'reopened' | 'cancelled'
 
-// TODO: confirm enum values with backend
 export type MissionStatus =
-  | 'draft'
+  | 'template'
   | 'active'
   | 'paused'
   | 'completed'
@@ -67,6 +66,15 @@ export interface SupervisorMission {
   rowVersion?: number
   cardConfig?: MissionCardConfig
   history?: MissionHistoryEntry[]
+}
+
+export interface MissionDocument {
+  id: string
+  missionId: string
+  fileName: string
+  fileUrl: string
+  uploadedAt: string
+  sourceType: 'file' | 'url' | string
 }
 
 /**

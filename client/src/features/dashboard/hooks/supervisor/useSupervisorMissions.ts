@@ -27,6 +27,22 @@ interface MissionApiItem {
 }
 
 const PAST_STATUSES: readonly MissionStatus[] = ['archived', 'cancelled']
+const KNOWN_MISSION_STATUSES: readonly MissionStatus[] = [
+  'template',
+  'active',
+  'paused',
+  'completed',
+  'cancelled',
+  'archived',
+]
+
+function toMissionStatus(value: unknown): MissionStatus {
+  const normalized = toStringValue(value, 'template').trim().toLowerCase()
+  const candidate = normalized === 'draft' ? 'template' : normalized
+  return (KNOWN_MISSION_STATUSES as readonly string[]).includes(candidate)
+    ? (candidate as MissionStatus)
+    : 'template'
+}
 
 function mapMission(item: MissionApiItem): SupervisorMission | null {
   const id = toStringValue(item.id)
@@ -45,7 +61,7 @@ function mapMission(item: MissionApiItem): SupervisorMission | null {
     id,
     title: toStringValue(item.title),
     description: toStringValue(item.description),
-    status: (toStringValue(item.status, 'active') as MissionStatus),
+    status: toMissionStatus(item.status),
     internId: toStringValue(item.internId),
     supervisorId: toStringValue(item.supervisorId),
     coSupervisorId: coSupervisorIdValue.length > 0 ? coSupervisorIdValue : null,

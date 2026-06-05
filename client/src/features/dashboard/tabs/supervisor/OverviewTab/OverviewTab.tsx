@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { format } from 'date-fns'
 
 import { useI18n } from '../../../../../locales/I18nContext'
@@ -11,6 +11,8 @@ import { Skeleton } from '../../../components/Skeleton'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { Toast } from '../../../components/Toast/Toast'
 import { useToast } from '../../../components/Toast/useToast'
+import { useDashboardApi } from '../../../hooks/useDashboardApi'
+import { toErrorMessage, toStringValue } from '../../../hooks/supervisor/utils'
 import type {
   DeliverableStatus,
   InternWithProgress,
@@ -26,6 +28,20 @@ interface OverviewTabProps {
   onTabChange: (tabId: string) => void
 }
 
+interface SupervisorNote {
+  id: string
+  missionId: string
+  content: string
+  createdAt: string
+}
+
+interface NoteApiItem {
+  id?: unknown
+  missionId?: unknown
+  content?: unknown
+  createdAt?: unknown
+}
+
 type KpiTone = 'neutral' | 'success' | 'warning'
 
 const DESCRIPTION_LIMIT = 150
@@ -35,7 +51,7 @@ const missionStatusToneMap: Record<MissionStatus, StatusTone> = {
   active: 'success',
   paused: 'warning',
   completed: 'neutral',
-  draft: 'neutral',
+  template: 'neutral',
   cancelled: 'danger',
   archived: 'neutral',
 }
@@ -111,6 +127,110 @@ function formatRelativeTime(value: string, locale: string, fallback: string): st
   }
 
   return formatter.format(Math.round(diffInMonths / 12), 'year')
+}
+
+function mapNote(item: unknown): SupervisorNote | null {
+  if (!item || typeof item !== 'object') {
+    return null
+  }
+
+  const raw = item as NoteApiItem
+  const id = toStringValue(raw.id)
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    missionId: toStringValue(raw.missionId),
+    content: toStringValue(raw.content),
+    createdAt: toStringValue(raw.createdAt),
+  }
+}
+
+function useMissionNotes(missionId: string) {
+  const { t } = useI18n()
+  const { get, post, del } = useDashboardApi()
+  const [notes, setNotes] = useState<SupervisorNote[]>([])
+  const [draft, setDraft] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    if (!missionId) {
+      setNotes([])
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await get<unknown[]>(`/api/supervisor/missions/${missionId}/notes`)
+      setNotes(response.map((item) => mapNote(item)).filter((item): item is SupervisorNote => item !== null))
+    } catch (requestError) {
+      setError(toErrorMessage(requestError, t('dashboard.supervisor.notes.loadFailed')))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [get, missionId, t])
+
+  const createNote = useCallback(async () => {
+    const content = draft.trim()
+    if (!content) {
+      return
+    }
+
+    setIsSaving(true)
+    setError(null)
+    try {
+      const note = await post<NoteApiItem>(`/api/supervisor/missions/${missionId}/notes`, { Content: content })
+      const mappedNote = mapNote(note)
+      if (mappedNote) {
+        setNotes((currentNotes) => [mappedNote, ...currentNotes])
+      } else {
+        await refresh()
+      }
+      setDraft('')
+    } catch (requestError) {
+      setError(toErrorMessage(requestError, t('dashboard.supervisor.notes.saveFailed')))
+    } finally {
+      setIsSaving(false)
+    }
+  }, [draft, missionId, post, refresh, t])
+
+  const deleteNote = useCallback(async (noteId: string) => {
+    setDeletingNoteId(noteId)
+    setError(null)
+    try {
+      await del(`/api/supervisor/missions/${missionId}/notes/${noteId}`)
+      setNotes((currentNotes) => currentNotes.filter((note) => note.id !== noteId))
+    } catch (requestError) {
+      setError(toErrorMessage(requestError, t('dashboard.supervisor.notes.deleteFailed')))
+    } finally {
+      setDeletingNoteId(null)
+    }
+  }, [del, missionId, t])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  return {
+    notes,
+    draft,
+    setDraft,
+    isLoading,
+    isSaving,
+    deletingNoteId,
+    error,
+    refresh,
+    createNote,
+    deleteNote,
+  }
 }
 
 function getMissionStatusLabel(status: MissionStatus, t: (key: string) => string): string {
@@ -261,10 +381,118 @@ function MissionTimeline({
   )
 }
 
+function NotesSection({
+  notes,
+  draft,
+  setDraft,
+  isLoading,
+  isSaving,
+  deletingNoteId,
+  error,
+  fallbackDate,
+  locale,
+  onRetry,
+  onCreate,
+  onDelete,
+}: {
+  notes: SupervisorNote[]
+  draft: string
+  setDraft: (value: string) => void
+  isLoading: boolean
+  isSaving: boolean
+  deletingNoteId: string | null
+  error: string | null
+  fallbackDate: string
+  locale: string
+  onRetry: () => void
+  onCreate: () => void
+  onDelete: (noteId: string) => void
+}) {
+  const { t } = useI18n()
+  const trimmedDraft = draft.trim()
+
+  return (
+    <div className="overview-notes">
+      <form
+        className="overview-notes-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          onCreate()
+        }}
+      >
+        <label htmlFor="overview-note-content">{t('dashboard.supervisor.notes.addLabel')}</label>
+        <div className="overview-notes-composer">
+          <textarea
+            id="overview-note-content"
+            className="dash-textarea"
+            rows={3}
+            value={draft}
+            maxLength={4000}
+            placeholder={t('dashboard.supervisor.notes.placeholder')}
+            disabled={isSaving}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <DashboardButton
+            type="submit"
+            variant="secondary"
+            size="sm"
+            loading={isSaving}
+            disabled={!trimmedDraft}
+          >
+            {t('dashboard.supervisor.notes.add')}
+          </DashboardButton>
+        </div>
+      </form>
+
+      {error && (
+        <div className="overview-notes-error" role="alert">
+          <span>{error}</span>
+          <DashboardButton type="button" variant="ghost" size="sm" onClick={onRetry}>
+            {t('dashboard.retry')}
+          </DashboardButton>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="overview-notes-list">
+          <Skeleton height="3.75rem" />
+          <Skeleton height="3.75rem" />
+        </div>
+      ) : notes.length === 0 ? (
+        <EmptyState text={t('dashboard.supervisor.notes.empty')} />
+      ) : (
+        <ul className="overview-notes-list">
+          {notes.map((note) => (
+            <li key={note.id} className="overview-note-item">
+              <div>
+                <time dateTime={note.createdAt}>
+                  {formatRelativeTime(note.createdAt, locale, fallbackDate)}
+                </time>
+                <p>{note.content}</p>
+              </div>
+              <DashboardButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                loading={deletingNoteId === note.id}
+                disabled={deletingNoteId !== null}
+                onClick={() => onDelete(note.id)}
+              >
+                {t('dashboard.table.delete')}
+              </DashboardButton>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function OverviewTab({ missionId, onTabChange }: OverviewTabProps) {
   const { t, locale } = useI18n()
   const { toasts, dismissToast } = useToast()
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
+  const notesState = useMissionNotes(missionId)
   const {
     pendingReviewCount,
     upcomingMeetingCount,
@@ -308,7 +536,7 @@ export function OverviewTab({ missionId, onTabChange }: OverviewTabProps) {
   const hasLongDescription = description.length > DESCRIPTION_LIMIT
   const visibleDescription =
     hasLongDescription && !isDescriptionExpanded ? `${description.slice(0, DESCRIPTION_LIMIT)}...` : description
-  const missionStatus = mission?.status ?? 'draft'
+  const missionStatus = mission?.status ?? 'template'
   const fallbackDate = t('dashboard.noData')
 
   return (
@@ -479,7 +707,20 @@ export function OverviewTab({ missionId, onTabChange }: OverviewTabProps) {
         </div>
 
         <Panel title={t('dashboard.supervisor.overview.notesTitle')} className="overview-notes-panel">
-          <EmptyState text={t('dashboard.supervisor.empty.notesComingSoon')} />
+          <NotesSection
+            notes={notesState.notes}
+            draft={notesState.draft}
+            setDraft={notesState.setDraft}
+            isLoading={notesState.isLoading}
+            isSaving={notesState.isSaving}
+            deletingNoteId={notesState.deletingNoteId}
+            error={notesState.error}
+            fallbackDate={fallbackDate}
+            locale={locale}
+            onRetry={() => { void notesState.refresh() }}
+            onCreate={() => { void notesState.createNote() }}
+            onDelete={(noteId) => { void notesState.deleteNote(noteId) }}
+          />
         </Panel>
       </div>
       <Toast toasts={toasts} onDismiss={dismissToast} />

@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Input } from '@/components/ui/Input'
 import { DashboardButton } from '@/features/dashboard/components/DashboardButton'
 import { ErrorState } from '@/features/dashboard/components/ErrorState'
 import { Panel } from '@/features/dashboard/components/Panel'
-import { Search } from '@/features/dashboard/components/IconComponents'
+import { Plus, Search } from '@/features/dashboard/components/IconComponents'
 import { Skeleton } from '@/features/dashboard/components/Skeleton'
 import { Toast } from '@/features/dashboard/components/Toast/Toast'
 import { useToast } from '@/features/dashboard/components/Toast/useToast'
+import { DeliverableDrawer } from '@/features/dashboard/tabs/supervisor/MissionTab/components/DeliverableDrawer'
 import type {
   DeliverableStatus,
   SupervisorDeliverable,
@@ -27,7 +28,7 @@ interface DeliverablesTabProps {
 }
 
 type DeliverableFilterStatus = DeliverableStatus | 'all'
-type DrawerMode = 'approve' | 'reject' | null
+type DrawerMode = 'approve' | 'reject' | 'create' | null
 
 const statusFilterOrder: DeliverableFilterStatus[] = [
   'all',
@@ -56,6 +57,8 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
     refresh,
     approveDeliverable,
     rejectDeliverable,
+    createDeliverable,
+    updateDeliverable,
   } = useDeliverablesData(missionId)
   const { toasts, showToast, dismissToast } = useToast()
   const [filterInternId, setFilterInternId] = useState<string | 'all'>('all')
@@ -63,6 +66,23 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
   const [searchText, setSearchText] = useState('')
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null)
   const [selectedDeliverable, setSelectedDeliverable] = useState<SupervisorDeliverable | null>(null)
+  const [expandedDeliverableIds, setExpandedDeliverableIds] = useState<Set<string>>(new Set())
+  const initializedExpandedDeliverablesRef = useRef(false)
+
+  useEffect(() => {
+    if (initializedExpandedDeliverablesRef.current || data.deliverables.length === 0) {
+      return
+    }
+
+    setExpandedDeliverableIds((currentIds) => {
+      if (currentIds.size !== 0) {
+        return currentIds
+      }
+
+      initializedExpandedDeliverablesRef.current = true
+      return new Set(data.deliverables.map((deliverable) => deliverable.id))
+    })
+  }, [data.deliverables])
 
   const filteredDeliverables = useMemo(() => {
     let nextDeliverables = data.deliverables
@@ -86,8 +106,35 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
   }, [data.deliverables, filterInternId, filterStatus, searchText])
 
   const linkedTasks = useMemo(() => collectLinkedTasks(data.deliverables), [data.deliverables])
+  const allDeliverableIds = useMemo(
+    () => data.deliverables.map((deliverable) => deliverable.id),
+    [data.deliverables],
+  )
+  const isEveryDeliverableExpanded =
+    allDeliverableIds.length > 0 &&
+    allDeliverableIds.every((deliverableId) => expandedDeliverableIds.has(deliverableId))
 
-  const openDrawer = (mode: Exclude<DrawerMode, null>, deliverable: SupervisorDeliverable) => {
+  const toggleDeliverable = (deliverableId: string) => {
+    setExpandedDeliverableIds((currentIds) => {
+      const nextIds = new Set(currentIds)
+
+      if (nextIds.has(deliverableId)) {
+        nextIds.delete(deliverableId)
+      } else {
+        nextIds.add(deliverableId)
+      }
+
+      return nextIds
+    })
+  }
+
+  const toggleAllDeliverables = () => {
+    setExpandedDeliverableIds(
+      isEveryDeliverableExpanded ? new Set() : new Set(allDeliverableIds),
+    )
+  }
+
+  const openReviewDrawer = (mode: 'approve' | 'reject', deliverable: SupervisorDeliverable) => {
     setSelectedDeliverable(deliverable)
     setDrawerMode(mode)
   }
@@ -134,19 +181,21 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
               </select>
             </label>
 
-            <div className="supervisor-deliverables-toolbar__status" aria-label={t('dashboard.supervisor.deliverables.statusFilter')}>
-              {statusFilterOrder.map((status) => (
-                <DashboardButton
-                  key={status}
-                  type="button"
-                  variant={filterStatus === status ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setFilterStatus(status)}
-                >
-                  {status === 'all' ? t('dashboard.supervisor.deliverables.status.all') : getStatusLabel(status, t)}
-                </DashboardButton>
-              ))}
-            </div>
+            <label className="supervisor-deliverables-toolbar__select">
+              <span>{t('dashboard.form.status')}</span>
+              <select
+                className="dash-input dash-select"
+                value={filterStatus}
+                onChange={(event) => setFilterStatus(event.target.value as DeliverableFilterStatus)}
+                aria-label={t('dashboard.supervisor.deliverables.statusFilter')}
+              >
+                {statusFilterOrder.map((status) => (
+                  <option key={status} value={status}>
+                    {status === 'all' ? t('dashboard.supervisor.deliverables.status.all') : getStatusLabel(status, t)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <Input
               value={searchText}
@@ -156,12 +205,28 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
               aria-label={t('dashboard.supervisor.deliverables.searchLabel')}
             />
 
-            <p className="supervisor-deliverables-toolbar__count">
-              {t('dashboard.supervisor.deliverables.showingCount', {
-                filteredCount: filteredDeliverables.length,
-                totalCount: data.deliverables.length,
-              })}
-            </p>
+            <div className="supervisor-deliverables-toolbar__actions">
+              <DashboardButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={toggleAllDeliverables}
+                disabled={allDeliverableIds.length === 0}
+              >
+                {isEveryDeliverableExpanded
+                  ? t('dashboard.supervisor.deliverables.collapseAll')
+                  : t('dashboard.supervisor.deliverables.expandAll')}
+              </DashboardButton>
+              <DashboardButton
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setDrawerMode('create')}
+              >
+                <Plus />
+                {t('dashboard.supervisor.deliverables.addDeliverable')}
+              </DashboardButton>
+            </div>
           </div>
 
           {filteredDeliverables.length > 0 ? (
@@ -171,8 +236,10 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
                   key={deliverable.id}
                   deliverable={deliverable}
                   intern={findIntern(data.interns, deliverable)}
-                  onApprove={() => openDrawer('approve', deliverable)}
-                  onReject={() => openDrawer('reject', deliverable)}
+                  isOpen={expandedDeliverableIds.has(deliverable.id)}
+                  onToggle={() => toggleDeliverable(deliverable.id)}
+                  onApprove={() => openReviewDrawer('approve', deliverable)}
+                  onReject={() => openReviewDrawer('reject', deliverable)}
                 />
               ))}
             </div>
@@ -184,6 +251,21 @@ export function DeliverablesTab({ missionId }: DeliverablesTabProps) {
           )}
         </div>
       </Panel>
+
+      <DeliverableDrawer
+        isOpen={drawerMode === 'create'}
+        mode="create"
+        missionId={missionId}
+        defaultInternId={filterInternId === 'all' ? '' : filterInternId}
+        missionInterns={data.interns.map((intern) => ({
+          internId: intern.id,
+          internName: intern.fullName,
+        }))}
+        onClose={closeDrawer}
+        createDeliverable={createDeliverable}
+        updateDeliverable={updateDeliverable}
+        showToast={showToast}
+      />
 
       {selectedDeliverable && drawerMode === 'approve' && (
         <ApproveDrawer
