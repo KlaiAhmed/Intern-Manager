@@ -364,8 +364,7 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .overview-date-row strong,
-  .overview-roster-item .dash-status-chip {
+  .overview-date-row strong {
     grid-column: 2;
     justify-self: start;
     text-align: start;

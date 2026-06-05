@@ -50,7 +50,6 @@ export function InternDashboard() {
     statusError,
     loadInternLifecycleStatus,
     loadInternship,
-    getFirstName,
   } = useInternDashboard()
 
 
@@ -196,7 +195,6 @@ export function InternDashboard() {
   return (
     <DashboardLayout
       title={t('dashboard.intern.redesign.header.title')}
-      subtitle={t('dashboard.intern.redesign.header.subtitle', { name: getFirstName() || '' })}
       navItems={navItems}
       activeTab={activeTab}
       onTabChange={handleTabChange}

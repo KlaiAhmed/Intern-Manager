@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { matchPath, useLocation } from 'react-router-dom'
 
 import { DashboardLayout } from '../../components/DashboardLayout'
@@ -134,11 +134,6 @@ function SupervisorDashboardShell() {
     persistMissionId(missionId)
   }
 
-  const activeMission = useMemo(
-    () => missions.find((mission) => mission.id === activeMissionId) ?? null,
-    [activeMissionId, missions],
-  )
-
   const navItems = [
     { id: 'overview', label: t('dashboard.supervisor.tabs.overview'), icon: <Overview /> },
     { id: 'mission', label: t('dashboard.supervisor.tabs.mission'), icon: <Briefcase /> },
@@ -252,7 +247,6 @@ function SupervisorDashboardShell() {
   return (
     <DashboardLayout
       title={t('dashboard.supervisor.title')}
-      subtitle={activeMission ? getMissionLabel(activeMission) : undefined}
       navItems={navItems}
       activeTab={activeTab}
       onTabChange={setActiveTab}

@@ -12,7 +12,6 @@ interface NavItem {
 
 interface DashboardLayoutProps {
   title: string
-  subtitle?: string
   navItems: NavItem[]
   activeTab: string
   onTabChange: (tabId: string) => void
@@ -27,7 +26,6 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({
   title,
-  subtitle,
   navItems,
   activeTab,
   onTabChange,
@@ -197,7 +195,6 @@ export function DashboardLayout({
             <div className="dash-header-content">
               <div className="dash-header-text">
                 <h1 className="dash-header-title">{title}</h1>
-                {subtitle && <p className="dash-header-subtitle">{subtitle}</p>}
               </div>
               {headerActions && (
                 <div className="dash-header-actions">

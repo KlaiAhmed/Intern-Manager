@@ -1,9 +1,6 @@
-import { useState, type ReactNode } from 'react'
-
 import { DashboardButton } from '../DashboardButton'
 import { Modal } from '../Modal'
 import { useI18n } from '../../../../locales/I18nContext'
-import './SupervisorMeetingForm.css'
 
 interface InternOption {
   id: string
@@ -32,14 +29,8 @@ interface SupervisorMeetingFormProps {
   meetingFormError: string | null
   submitError: string | null
   isSubmitting: boolean
-  /**
-   * If provided, the form renders only the modal and the caller is
-   * responsible for controlling its open state. If omitted, the form
-   * renders a default full-width trigger button + internal modal.
-   */
-  trigger?: ReactNode
-  isOpen?: boolean
-  onOpenChange?: (nextOpen: boolean) => void
+  isOpen: boolean
+  onOpenChange: (nextOpen: boolean) => void
   onFieldChange: (field: keyof MeetingFormValues, value: string) => void
   onSubmit: () => Promise<void>
 }
@@ -50,29 +41,18 @@ export function SupervisorMeetingForm({
   meetingFormError,
   submitError,
   isSubmitting,
-  trigger,
-  isOpen: controlledIsOpen,
+  isOpen,
   onOpenChange,
   onFieldChange,
   onSubmit,
 }: SupervisorMeetingFormProps) {
   const { t } = useI18n()
-  const [internalIsOpen, setInternalIsOpen] = useState(false)
-  const isControlled = controlledIsOpen !== undefined
-  const isOpen = isControlled ? controlledIsOpen : internalIsOpen
-  const setIsOpen = (next: boolean) => {
-    if (isControlled) {
-      onOpenChange?.(next)
-    } else {
-      setInternalIsOpen(next)
-    }
-  }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     try {
       await onSubmit()
-      setIsOpen(false)
+      onOpenChange(false)
     } catch {
       // Error is handled by parent component
     }
@@ -80,7 +60,7 @@ export function SupervisorMeetingForm({
 
   const handleClose = () => {
     if (!isSubmitting) {
-      setIsOpen(false)
+      onOpenChange(false)
     }
   }
 
@@ -253,43 +233,5 @@ export function SupervisorMeetingForm({
     </Modal>
   )
 
-  if (trigger === undefined) {
-    return (
-      <div className="meeting-form-trigger-wrapper">
-        <button
-          type="button"
-          className="meeting-form-trigger"
-          onClick={() => setIsOpen(true)}
-          disabled={internOptions.length === 0}
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M12 5V19M5 12H19"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>{t('dashboard.supervisor.meetings.quickAdd')}</span>
-        </button>
-
-        {internOptions.length === 0 && (
-          <p className="meeting-form-trigger-helper">
-            {t('dashboard.supervisor.meetings.noInterns')}
-          </p>
-        )}
-
-        {modal}
-      </div>
-    )
-  }
-
-  return <>{trigger}{modal}</>
+  return <>{modal}</>
 }

@@ -327,14 +327,6 @@ html[dir='rtl'] .dash-layout[data-sidebar-open="true"] .dash-nav-label {
   line-height: 1.2;
 }
 
-.dash-header-subtitle {
-  font-family: var(--dash-font-body);
-  font-weight: 400;
-  font-size: 0.9375rem;
-  color: var(--dash-text-muted);
-  margin: 0;
-}
-
 .dash-header-actions {
   display: flex;
   gap: var(--dash-space-sm);

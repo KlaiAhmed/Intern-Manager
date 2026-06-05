@@ -8,14 +8,11 @@ import { ErrorState } from '../../../components/ErrorState'
 import { Calendar } from '../../../components/IconComponents'
 import { Panel } from '../../../components/Panel'
 import { Skeleton } from '../../../components/Skeleton'
-import { StatusBadge } from '../../../components/StatusBadge'
 import { Toast } from '../../../components/Toast/Toast'
 import { useToast } from '../../../components/Toast/useToast'
 import type {
   DeliverableStatus,
   InternWithProgress,
-  MissionStatus,
-  StatusTone,
   SupervisorDeliverable,
 } from '../../../types/supervisorDashboard'
 import { useOverviewData } from './hooks/useOverviewData'
@@ -28,15 +25,6 @@ interface OverviewTabProps {
 type KpiTone = 'neutral' | 'success' | 'warning'
 
 const DESCRIPTION_LIMIT = 150
-
-const missionStatusToneMap: Record<MissionStatus, StatusTone> = {
-  active: 'success',
-  paused: 'warning',
-  completed: 'neutral',
-  template: 'neutral',
-  cancelled: 'danger',
-  archived: 'neutral',
-}
 
 const deliverableStatusColorMap: Record<DeliverableStatus, string> = {
   approved: 'var(--dash-success)',
@@ -57,10 +45,6 @@ function clampPercent(value: number): number {
   return Math.round(value)
 }
 
-function normalizeStatus(value: string | undefined): string {
-  return (value ?? '').trim().toLowerCase()
-}
-
 function formatDate(value: string | null | undefined, fallback: string): string {
   if (!value) {
     return fallback
@@ -72,10 +56,6 @@ function formatDate(value: string | null | undefined, fallback: string): string 
   }
 
   return format(parsedDate, 'PP')
-}
-
-function getMissionStatusLabel(status: MissionStatus, t: (key: string) => string): string {
-  return t(`dashboard.supervisor.status.${status}`)
 }
 
 function OverviewKpiCard({
@@ -243,7 +223,6 @@ export function OverviewTab({ missionId, onTabChange }: OverviewTabProps) {
   const hasLongDescription = description.length > DESCRIPTION_LIMIT
   const visibleDescription =
     hasLongDescription && !isDescriptionExpanded ? `${description.slice(0, DESCRIPTION_LIMIT)}...` : description
-  const missionStatus = mission?.status ?? 'template'
   const fallbackDate = t('dashboard.noData')
 
   return (
@@ -294,13 +273,6 @@ export function OverviewTab({ missionId, onTabChange }: OverviewTabProps) {
           <div className="overview-stack">
             <Panel
               title={mission?.title || t('dashboard.supervisor.overview.missionSummary')}
-              actions={
-                <StatusBadge
-                  label={getMissionStatusLabel(missionStatus, t)}
-                  tone={missionStatusToneMap[missionStatus]}
-                  size="sm"
-                />
-              }
             >
               {mission ? (
                 <div className="overview-mission-summary">
@@ -360,36 +332,24 @@ export function OverviewTab({ missionId, onTabChange }: OverviewTabProps) {
                 <EmptyState text={t('dashboard.supervisor.empty.noInterns')} />
               ) : (
                 <ul className="overview-roster-list">
-                  {interns.map((intern) => {
-                    const isActive = normalizeStatus(intern.status) === 'active'
-                    return (
-                      <li key={intern.id} className="overview-roster-item">
-                        <Avatar name={intern.fullName} size="sm" />
-                        <div className="overview-roster-main">
-                          <span className="overview-roster-name">{intern.fullName}</span>
-                          <div
-                            className="dash-progress"
-                            role="progressbar"
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={clampPercent(intern.progressPercent)}
-                            aria-label={t('dashboard.supervisor.overview.internProgress', { name: intern.fullName })}
-                          >
-                            <div className="dash-progress-fill" style={{ width: `${clampPercent(intern.progressPercent)}%` }} />
-                          </div>
+                  {interns.map((intern) => (
+                    <li key={intern.id} className="overview-roster-item">
+                      <Avatar name={intern.fullName} size="sm" />
+                      <div className="overview-roster-main">
+                        <span className="overview-roster-name">{intern.fullName}</span>
+                        <div
+                          className="dash-progress"
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={clampPercent(intern.progressPercent)}
+                          aria-label={t('dashboard.supervisor.overview.internProgress', { name: intern.fullName })}
+                        >
+                          <div className="dash-progress-fill" style={{ width: `${clampPercent(intern.progressPercent)}%` }} />
                         </div>
-                        <StatusBadge
-                          label={
-                            isActive
-                              ? t('dashboard.supervisor.status.active')
-                              : t('dashboard.supervisor.status.inactive')
-                          }
-                          tone={isActive ? 'success' : 'neutral'}
-                          size="sm"
-                        />
-                      </li>
-                    )
-                  })}
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               )}
             </Panel>
