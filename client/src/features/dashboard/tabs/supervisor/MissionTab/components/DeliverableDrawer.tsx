@@ -39,12 +39,14 @@ interface FormValues {
   title: string
   description: string
   dueDate: string
+  // TODO: weight field removed from UI — backend + DTO cleanup tracked separately (Task 2)
   weight: string
 }
 
 interface FormErrors {
   internId?: string
   title?: string
+  // TODO: weight field removed from UI — backend + DTO cleanup tracked separately (Task 2)
   weight?: string
 }
 
@@ -224,7 +226,7 @@ export function DeliverableDrawer({
       title={drawerTitle}
       width="md"
       footer={(
-        <div className="mission-drawer-footer">
+        <div className="deliverable-form-footer">
           <DashboardButton
             type="button"
             variant="secondary"
@@ -246,84 +248,80 @@ export function DeliverableDrawer({
         </div>
       )}
     >
-      <form id="deliverable-drawer-form" className="mission-drawer-form" onSubmit={handleSubmit}>
-        {showInternPicker && (
-          <label className="mission-form-field" htmlFor="deliverable-drawer-intern">
-            <span>{t('dashboard.supervisor.taskDrawer.intern')}</span>
-            <select
-              id="deliverable-drawer-intern"
-              className="dash-input dash-select"
-              value={formValues.internId}
-              onChange={(event) => handleFieldChange('internId', event.target.value)}
-              disabled={isSubmitting}
-            >
-              <option value="" disabled>
-                {t('dashboard.supervisor.taskDrawer.selectIntern')}
-              </option>
-              {missionInterns?.map((intern) => (
-                <option key={intern.internId} value={intern.internId}>
-                  {intern.internName}
-                </option>
-              ))}
-            </select>
-            {formErrors.internId && <p className="form-error">{formErrors.internId}</p>}
-          </label>
-        )}
+      <form id="deliverable-drawer-form" className="deliverable-form-modal" onSubmit={handleSubmit}>
+        <div className="deliverable-form-body">
+          {showInternPicker && (
+            <div className="deliverable-form-field">
+              <label htmlFor="deliverable-drawer-intern" className="deliverable-form-label">
+                {t('dashboard.supervisor.taskDrawer.intern')}
+              </label>
+              <div className="deliverable-form-select-wrapper">
+                <select
+                  id="deliverable-drawer-intern"
+                  className="deliverable-form-select"
+                  value={formValues.internId}
+                  onChange={(event) => handleFieldChange('internId', event.target.value)}
+                  disabled={isSubmitting}
+                >
+                  <option value="" disabled>
+                    {t('dashboard.supervisor.taskDrawer.selectIntern')}
+                  </option>
+                  {missionInterns?.map((intern) => (
+                    <option key={intern.internId} value={intern.internId}>
+                      {intern.internName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {formErrors.internId && <p className="form-error">{formErrors.internId}</p>}
+            </div>
+          )}
 
-        <label className="mission-form-field" htmlFor="deliverable-drawer-title">
-          <span>{t('dashboard.form.title')}</span>
-          <input
-            id="deliverable-drawer-title"
-            type="text"
-            className="dash-input"
-            value={formValues.title}
-            onChange={(event) => handleFieldChange('title', event.target.value)}
-            disabled={isSubmitting}
-          />
-          {formErrors.title && <p className="form-error">{formErrors.title}</p>}
-        </label>
-
-        <label className="mission-form-field" htmlFor="deliverable-drawer-description">
-          <span>{t('dashboard.form.description')}</span>
-          <textarea
-            id="deliverable-drawer-description"
-            className="dash-textarea"
-            rows={4}
-            value={formValues.description}
-            onChange={(event) => handleFieldChange('description', event.target.value)}
-            disabled={isSubmitting}
-          />
-        </label>
-
-        <label className="mission-form-field" htmlFor="deliverable-drawer-due-date">
-          <span>{t('dashboard.form.dueDate')}</span>
-          <input
-            id="deliverable-drawer-due-date"
-            type="date"
-            className="dash-input"
-            value={formValues.dueDate}
-            onChange={(event) => handleFieldChange('dueDate', event.target.value)}
-            disabled={isSubmitting}
-          />
-        </label>
-
-        <label className="mission-form-field" htmlFor="deliverable-drawer-weight">
-          <span>{t('dashboard.supervisor.deliverableDrawer.weight')}</span>
-          <span className="mission-percent-input">
+          <div className="deliverable-form-field">
+            <label htmlFor="deliverable-drawer-title" className="deliverable-form-label">
+              {t('dashboard.form.title')}
+            </label>
             <input
-              id="deliverable-drawer-weight"
-              type="number"
-              className="dash-input"
-              min={0}
-              max={100}
-              value={formValues.weight}
-              onChange={(event) => handleFieldChange('weight', event.target.value)}
+              id="deliverable-drawer-title"
+              type="text"
+              className="deliverable-form-input"
+              value={formValues.title}
+              onChange={(event) => handleFieldChange('title', event.target.value)}
               disabled={isSubmitting}
             />
-            <span aria-hidden="true">%</span>
-          </span>
-          {formErrors.weight && <p className="form-error">{formErrors.weight}</p>}
-        </label>
+            {formErrors.title && <p className="form-error">{formErrors.title}</p>}
+          </div>
+
+          <div className="deliverable-form-field">
+            <label htmlFor="deliverable-drawer-description" className="deliverable-form-label">
+              {t('dashboard.form.description')}
+              <span className="deliverable-form-optional">optional</span>
+            </label>
+            <textarea
+              id="deliverable-drawer-description"
+              className="deliverable-form-textarea"
+              rows={3}
+              value={formValues.description}
+              onChange={(event) => handleFieldChange('description', event.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="deliverable-form-field">
+            <label htmlFor="deliverable-drawer-due-date" className="deliverable-form-label">
+              {t('dashboard.form.dueDate')}
+              <span className="deliverable-form-optional">optional</span>
+            </label>
+            <input
+              id="deliverable-drawer-due-date"
+              type="date"
+              className="deliverable-form-input"
+              value={formValues.dueDate}
+              onChange={(event) => handleFieldChange('dueDate', event.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
       </form>
     </Drawer>
   )

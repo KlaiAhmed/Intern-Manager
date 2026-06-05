@@ -51,7 +51,6 @@ export function DeliverableGroup({
       <header className="supervisor-deliverable-group__header">
         <div className="supervisor-deliverable-group__title">
           <h2>{deliverable.title}</h2>
-          <span>{t('dashboard.supervisor.deliverables.weight', { weight: deliverable.weight })}</span>
           <StatusBadge label={statusLabel} tone={getDeliverableStatusTone(deliverable.status)} size="sm" />
         </div>
         <button

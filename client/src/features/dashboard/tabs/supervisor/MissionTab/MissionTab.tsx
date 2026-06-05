@@ -728,7 +728,6 @@ export function MissionTab({ missionId }: MissionTabProps) {
                     <tr>
                       <th>{t('dashboard.table.name')}</th>
                       <th>{t('dashboard.table.dueDate')}</th>
-                      <th>{t('dashboard.supervisor.mission.weight')}</th>
                       <th>{t('dashboard.table.status')}</th>
                       <th>{t('dashboard.table.actions')}</th>
                     </tr>
@@ -738,7 +737,6 @@ export function MissionTab({ missionId }: MissionTabProps) {
                       <tr key={deliverable.id}>
                         <td data-label={t('dashboard.table.name')}>{deliverable.title}</td>
                         <td data-label={t('dashboard.table.dueDate')}>{formatDate(deliverable.dueDate, fallbackText)}</td>
-                        <td data-label={t('dashboard.supervisor.mission.weight')}>{deliverable.weight}%</td>
                         <td data-label={t('dashboard.table.status')}>
                           <StatusBadge
                             label={
