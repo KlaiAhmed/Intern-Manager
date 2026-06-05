@@ -6,6 +6,7 @@ import { useDashboardApi } from '../../../../hooks/useDashboardApi'
 import { parseMeetingNotes } from '../../../../shared/utils/supervisorUtils'
 import type {
   CreateMeetingRequest,
+  SupervisorIntern,
   SupervisorMeeting,
   UpdateMeetingRequest,
 } from '../../../../types/supervisorDashboard'
@@ -21,6 +22,14 @@ interface MeetingApiItem {
   meetingUrl?: unknown
   notes?: unknown
   createdAt?: unknown
+}
+
+interface SupervisorInternRow {
+  id?: unknown
+  name?: unknown
+  fullName?: unknown
+  firstName?: unknown
+  lastName?: unknown
 }
 
 function readListItems(payload: unknown): unknown[] {
@@ -71,6 +80,27 @@ function mapMeeting(item: unknown): SupervisorMeeting | null {
   }
 }
 
+function mapSupervisorIntern(item: unknown): SupervisorIntern | null {
+  if (!item || typeof item !== 'object') {
+    return null
+  }
+  const raw = item as SupervisorInternRow
+  const id = toStringValue(raw.id)
+  if (!id) {
+    return null
+  }
+  const firstName = toStringValue(raw.firstName)
+  const lastName = toStringValue(raw.lastName)
+  const composedName = `${firstName} ${lastName}`.trim()
+  const fullName = toStringValue(raw.fullName) || toStringValue(raw.name) || composedName
+  return {
+    id,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+    fullName,
+  }
+}
+
 /**
  * Calendar-month meeting data and CRUD for the supervisor Meetings tab.
  *
@@ -79,6 +109,9 @@ function mapMeeting(item: unknown): SupervisorMeeting | null {
  *   paged `{ data, total, page, limit }` of meeting rows that include the
  *   first-class `title` and `meetingUrl` columns. The hook reads `.data`
  *   automatically; the previous code only handled flat arrays.
+ * - Intern roster   → `GET /api/supervisor/me/interns` (paged). Fetched in
+ *   parallel with the meetings list so the create-meeting form has intern
+ *   options without a second round-trip.
  * - Create meeting  → `POST /api/meetings` with `{ InternId, Date, Title?,
  *   MeetingUrl?, Notes }`. The backend reads `SupervisorId` from the JWT, so
  *   it is no longer included in the payload (sending it caused validation
@@ -96,6 +129,7 @@ export function useMeetingsData(viewYear: number, viewMonth: number) {
   const { get, post, patch, del } = useDashboardApi()
 
   const [meetings, setMeetings] = useState<SupervisorMeeting[]>([])
+  const [interns, setInterns] = useState<SupervisorIntern[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -107,11 +141,20 @@ export function useMeetingsData(viewYear: number, viewMonth: number) {
       const monthStart = format(startOfMonth(new Date(viewYear, viewMonth)), 'yyyy-MM-dd')
       const monthEnd = format(endOfMonth(new Date(viewYear, viewMonth)), 'yyyy-MM-dd')
 
-      const response = await get<unknown>(`/api/meetings?from=${monthStart}&to=${monthEnd}`)
-      const parsed = readListItems(response)
+      const [meetingsResponse, internsResponse] = await Promise.all([
+        get<unknown>(`/api/meetings?from=${monthStart}&to=${monthEnd}`),
+        get<unknown>('/api/supervisor/me/interns'),
+      ])
+
+      const parsedMeetings = readListItems(meetingsResponse)
         .map((item) => mapMeeting(item))
         .filter((item): item is SupervisorMeeting => item !== null)
-      setMeetings(parsed)
+      const parsedInterns = readListItems(internsResponse)
+        .map((item) => mapSupervisorIntern(item))
+        .filter((item): item is SupervisorIntern => item !== null)
+
+      setMeetings(parsedMeetings)
+      setInterns(parsedInterns)
     } catch (requestError) {
       setError(toErrorMessage(requestError, t('dashboard.error.load')))
     } finally {
@@ -149,6 +192,7 @@ export function useMeetingsData(viewYear: number, viewMonth: number) {
 
   return {
     meetings,
+    interns,
     isLoading,
     error,
     refresh,
