@@ -27,7 +27,6 @@ public static class EfMigrationBootstrapper
         new MigrationSentinel("20260526180251_AddMissionCoSupervisor", "Missions", "CoSupervisorId", false),
         new MigrationSentinel("20260526180646_AddDeliverableVersionSubmissionMetadata", "DeliverableVersions", "SubmittedByUserId", false),
         new MigrationSentinel("20260529114918_DropUnusedReferenceTables", "UserAccountStatusReferences", null, true),
-        new MigrationSentinel("20260530120550_AddDeliverableWeight", "Deliverables", "Weight", false),
         new MigrationSentinel("20260530131821_DropDeliverableProgressInt", "Deliverables", "Progress", true),
         new MigrationSentinel("20260530132718_DropInternTaskIsComplete", "InternTasks", "IsComplete", true),
         new MigrationSentinel("20260531102134_AddMissingModelColumns", "InternTasks", "Status", false),

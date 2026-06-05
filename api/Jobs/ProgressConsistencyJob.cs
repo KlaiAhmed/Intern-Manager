@@ -219,11 +219,10 @@ public sealed class ProgressConsistencyJob(
             .AsNoTracking()
             .Where(deliverable => deliverable.MissionId == missionId &&
                                   deliverable.Status != DomainStatuses.Deliverable.Cancelled)
-            .Select(deliverable => new { deliverable.RawProgress, deliverable.Weight })
+            .Select(deliverable => deliverable.RawProgress)
             .ToListAsync(cancellationToken);
 
-        var computedRawProgress = CalculateMissionRawProgress(
-            deliverables.Select(deliverable => (deliverable.RawProgress, deliverable.Weight)));
+        var computedRawProgress = CalculateMissionRawProgress(deliverables);
 
         if (Math.Round(mission.RawProgress, 2, MidpointRounding.AwayFromZero) == computedRawProgress)
         {
@@ -257,23 +256,14 @@ public sealed class ProgressConsistencyJob(
         return Math.Round((decimal)doneCount / taskStatuses.Count * 100m, 2, MidpointRounding.AwayFromZero);
     }
 
-    private static decimal CalculateMissionRawProgress(IEnumerable<(decimal RawProgress, decimal Weight)> deliverables)
+    private static decimal CalculateMissionRawProgress(IEnumerable<decimal> deliverableProgresses)
     {
-        var deliverableList = deliverables.ToList();
-        if (deliverableList.Count == 0)
+        var progressList = deliverableProgresses.ToList();
+        if (progressList.Count == 0)
         {
             return 0m;
         }
 
-        var totalWeight = deliverableList.Sum(deliverable => deliverable.Weight);
-        if (totalWeight == 0m)
-        {
-            totalWeight = 1m;
-        }
-
-        return Math.Round(
-            deliverableList.Sum(deliverable => deliverable.RawProgress * deliverable.Weight) / totalWeight,
-            2,
-            MidpointRounding.AwayFromZero);
+        return Math.Round(progressList.Sum() / progressList.Count, 2, MidpointRounding.AwayFromZero);
     }
 }

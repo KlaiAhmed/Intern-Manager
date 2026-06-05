@@ -16,8 +16,6 @@ public sealed class InternDeliverableResponse
 
     public int Progress { get; init; }
 
-    public decimal Weight { get; init; }
-
     public int RowVersion { get; init; }
 
     public DateTime? DueDate { get; init; }

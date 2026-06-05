@@ -30,8 +30,6 @@ public sealed class DeliverableQueueItemResponse
 
     public decimal RawProgress { get; init; }
 
-    public decimal Weight { get; init; }
-
     public string? SupervisorComment { get; init; }
 
     public DateTime CreatedAt { get; init; }

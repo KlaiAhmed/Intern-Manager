@@ -18,30 +18,24 @@ public sealed class MissionProgressService : IMissionProgressService
         var deliverables = await db.Deliverables
             .Where(deliverable => deliverable.MissionId == missionId &&
                                   deliverable.Status != DomainStatuses.Deliverable.Cancelled)
-            .Select(deliverable => new { deliverable.RawProgress, deliverable.Weight })
+            .Select(deliverable => deliverable.RawProgress)
             .ToListAsync();
 
-        var rawProgress = CalculateRawProgress(deliverables.Select(item => (item.RawProgress, item.Weight)));
+        var rawProgress = CalculateRawProgress(deliverables);
 
         mission.RawProgress = rawProgress;
         mission.RowVersion += 1;
     }
 
-    private static decimal CalculateRawProgress(IEnumerable<(decimal RawProgress, decimal Weight)> deliverables)
+    private static decimal CalculateRawProgress(IEnumerable<decimal> deliverableProgresses)
     {
-        var deliverableList = deliverables.ToList();
-        if (deliverableList.Count == 0)
+        var progressList = deliverableProgresses.ToList();
+        if (progressList.Count == 0)
         {
             return 0m;
         }
 
-        var totalWeight = deliverableList.Sum(deliverable => deliverable.Weight);
-        if (totalWeight == 0m)
-        {
-            totalWeight = 1m;
-        }
-
-        var rawProgress = deliverableList.Sum(deliverable => deliverable.RawProgress * deliverable.Weight) / totalWeight;
+        var rawProgress = progressList.Sum() / progressList.Count;
         return Math.Round(rawProgress, 2, MidpointRounding.AwayFromZero);
     }
 }

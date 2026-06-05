@@ -464,10 +464,6 @@ entity.Property(mission => mission.Title)
                 .HasDefaultValue(1)
                 .IsConcurrencyToken();
 
-            entity.Property(deliverable => deliverable.Weight)
-                .HasColumnType("decimal(5,2)")
-                .HasDefaultValue(1m);
-
             entity.Property(deliverable => deliverable.FileUrl)
                 .HasMaxLength(2048);
 

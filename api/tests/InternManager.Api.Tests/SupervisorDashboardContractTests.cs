@@ -321,7 +321,6 @@ public sealed class SupervisorDashboardContractTests
             Title = "Final report",
             Description = "Long description",
             Status = DomainStatuses.Deliverable.AwaitingReview,
-            Weight = 25m,
             SupervisorComment = "Looks good",
             FileUrl = "/uploads/final.pdf",
             DueDate = now.AddDays(3),
@@ -361,7 +360,6 @@ public sealed class SupervisorDashboardContractTests
         Assert.Equal(missionId, data.MissionId);
         Assert.Equal(supervisorId, data.SupervisorId);
         Assert.Equal("Long description", data.Description);
-        Assert.Equal(25m, data.Weight);
         Assert.Equal("Looks good", data.SupervisorComment);
         Assert.Single(data.Tasks);
         Assert.Equal("Sub task", data.Tasks[0].Title);

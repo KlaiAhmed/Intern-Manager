@@ -191,7 +191,6 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
                 deliverable.Version,
                 deliverable.SupervisorComment,
                 deliverable.RawProgress,
-                deliverable.Weight,
                 deliverable.RowVersion
             })
             .ToListAsync(cancellationToken);
@@ -207,7 +206,6 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
                 Version = deliverable.Version,
                 SupervisorComment = deliverable.SupervisorComment,
                 Progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status),
-                Weight = deliverable.Weight,
                 RowVersion = deliverable.RowVersion
             })
             .ToList();
@@ -907,7 +905,6 @@ private static readonly HashSet<string> AllowedExtensions = new(StringComparer.O
                     Version = deliverable.Version,
                     SupervisorComment = deliverable.SupervisorComment,
                     Progress = DisplayProgressHelper.ComputeDisplayProgress(deliverable.RawProgress, deliverable.Status),
-                    Weight = deliverable.Weight,
                     RowVersion = deliverable.RowVersion
                 };
 
@@ -1330,7 +1327,6 @@ var deliverable = new Deliverable
                     : deliverable.FileUrl,
                 RowVersion = deliverable.RowVersion,
                 RawProgress = deliverable.RawProgress,
-                Weight = deliverable.Weight,
                 SupervisorComment = deliverable.SupervisorComment,
                 CreatedAt = deliverable.CreatedAt,
                 Tasks = deliverable.Tasks
@@ -1612,7 +1608,6 @@ var deliverable = new Deliverable
             FileUrl = string.IsNullOrWhiteSpace(deliverable.FileUrl) ? "#" : deliverable.FileUrl,
             RowVersion = deliverable.RowVersion,
             RawProgress = deliverable.RawProgress,
-            Weight = deliverable.Weight,
             SupervisorComment = deliverable.SupervisorComment,
             CreatedAt = deliverable.CreatedAt,
             Tasks = tasks

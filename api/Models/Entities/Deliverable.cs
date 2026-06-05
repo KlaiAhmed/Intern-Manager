@@ -30,8 +30,6 @@ public sealed class Deliverable
 
     public int RowVersion { get; set; } = 1;
 
-    public decimal Weight { get; set; } = 1m;
-
     public DateTime? OverdueNotifiedAt { get; set; }
 
     public DateTime? DueDate { get; set; }
