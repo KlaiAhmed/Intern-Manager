@@ -162,8 +162,6 @@ export const dashboardAr = {
   'dashboard.intern.tabs.overview': 'نظرة عامة',
   'dashboard.intern.tabs.deliverables': 'المخرجات',
   'dashboard.intern.tabs.mission': 'المهمة',
-  'dashboard.intern.tabs.journal': 'اليوميات',
-  'dashboard.intern.tabs.evaluations': 'التقييمات',
   'dashboard.intern.tabs.meetings': 'الاجتماعات',
   'dashboard.intern.tabs.profile': 'الملف الشخصي',
   'dashboard.intern.tabs.tasks': 'المهام',

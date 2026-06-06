@@ -162,8 +162,6 @@ export const dashboardFr = {
   'dashboard.intern.tabs.overview': 'Aperçu',
   'dashboard.intern.tabs.deliverables': 'Livrables',
   'dashboard.intern.tabs.mission': 'Mission',
-  'dashboard.intern.tabs.journal': 'Journal',
-  'dashboard.intern.tabs.evaluations': 'Évaluations',
   'dashboard.intern.tabs.meetings': 'Réunions',
   'dashboard.intern.tabs.profile': 'Profil',
   'dashboard.intern.tabs.tasks': 'Tâches',

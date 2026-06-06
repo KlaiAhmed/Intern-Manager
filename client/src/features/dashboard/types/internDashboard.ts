@@ -6,8 +6,6 @@ export type InternDashboardTabId =
   | 'overview'
   | 'deliverables'
   | 'mission'
-  | 'journal'
-  | 'evaluations'
   | 'meetings'
   | 'profile'
 

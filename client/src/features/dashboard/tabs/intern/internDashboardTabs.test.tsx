@@ -16,7 +16,8 @@ describe('internDashboardTabs', () => {
     expect(visibility.overview).toBe(true)
     expect(visibility.profile).toBe(true)
     expect(visibility.mission).toBe(false)
-    expect(visibility.journal).toBe(false)
+    expect(visibility.deliverables).toBe(false)
+    expect(visibility.meetings).toBe(false)
   })
 
   it('shows the combined deliverables tab when tasks or deliverables are visible', () => {

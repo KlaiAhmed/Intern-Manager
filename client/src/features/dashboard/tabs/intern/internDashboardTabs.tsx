@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
 import {
-  BookOpen,
   Briefcase,
-  ClipboardCheck,
   FileCheck,
   Overview,
   User,
@@ -21,8 +19,6 @@ export const internDashboardTabDefinitions: InternDashboardTabDefinition[] = [
   { id: 'overview', labelKey: 'dashboard.intern.tabs.overview', icon: <Overview /> },
   { id: 'deliverables', labelKey: 'dashboard.intern.tabs.deliverables', icon: <FileCheck /> },
   { id: 'mission', labelKey: 'dashboard.intern.tabs.mission', icon: <Briefcase /> },
-  { id: 'journal', labelKey: 'dashboard.intern.tabs.journal', icon: <BookOpen /> },
-  { id: 'evaluations', labelKey: 'dashboard.intern.tabs.evaluations', icon: <ClipboardCheck /> },
   { id: 'meetings', labelKey: 'dashboard.intern.tabs.meetings', icon: <Users size={20} /> },
   { id: 'profile', labelKey: 'dashboard.intern.tabs.profile', icon: <User size={20} /> },
 ]
@@ -36,8 +32,6 @@ export function getInternTabVisibility(flags: MissionCardConfig | null): InternD
     overview: true,
     deliverables: isCardVisible(flags, 'tasks') || isCardVisible(flags, 'deliverables'),
     mission: isCardVisible(flags, 'missionOverview'),
-    journal: isCardVisible(flags, 'journal'),
-    evaluations: isCardVisible(flags, 'evaluation'),
     meetings: isCardVisible(flags, 'meeting'),
     profile: true,
   }

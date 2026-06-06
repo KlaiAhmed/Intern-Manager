@@ -14,8 +14,6 @@ import { useMissionFeatureFlags } from '../hooks/intern/useMissionFeatureFlags'
 import type { InternDashboardTabId } from '../types/internDashboard'
 import type { DashboardCard } from '../types/missionFeatureFlags'
 import { DeliverablesTab } from '../tabs/intern/DeliverablesTab'
-import { EvaluationsTab } from '../tabs/intern/EvaluationsTab'
-import { JournalTab } from '../tabs/intern/JournalTab'
 import { MeetingsTab } from '../tabs/intern/MeetingsTab'
 import { MissionTab } from '../tabs/intern/MissionTab'
 import { OverviewTab } from '../tabs/intern/OverviewTab'
@@ -130,10 +128,6 @@ export function InternDashboard() {
             t={t}
           />
         )
-      case 'journal':
-        return <JournalTab isReadOnly={isCardReadOnly('journal')} t={t} />
-      case 'evaluations':
-        return <EvaluationsTab t={t} />
       case 'meetings':
         return <MeetingsTab t={t} />
       case 'profile':

@@ -17,8 +17,6 @@ const featureCards: Array<{ card: DashboardCard; labelKey: string }> = [
   { card: 'missionOverview', labelKey: 'dashboard.intern.tabs.mission' },
   { card: 'tasks', labelKey: 'dashboard.intern.tabs.tasks' },
   { card: 'deliverables', labelKey: 'dashboard.intern.tabs.deliverables' },
-  { card: 'journal', labelKey: 'dashboard.intern.tabs.journal' },
-  { card: 'evaluation', labelKey: 'dashboard.intern.tabs.evaluations' },
   { card: 'meeting', labelKey: 'dashboard.intern.tabs.meetings' },
 ]
 

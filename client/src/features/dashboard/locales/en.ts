@@ -184,8 +184,6 @@ export const dashboardEn = {
   'dashboard.intern.tabs.mission': 'Mission',
   'dashboard.intern.tabs.tasks': 'Tasks',
   'dashboard.intern.tabs.deliverables': 'Deliverables',
-  'dashboard.intern.tabs.journal': 'Journal',
-  'dashboard.intern.tabs.evaluations': 'Evaluations',
   'dashboard.intern.tabs.meetings': 'Meetings',
   'dashboard.intern.tabs.profile': 'Profile',
 
