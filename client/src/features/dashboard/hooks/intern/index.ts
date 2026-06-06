@@ -1,6 +1,6 @@
 export { useInternDashboard } from './useInternDashboard'
 export { useInternLifecycleStatus } from './useInternLifecycleStatus'
-export { useInternMission, useInternMissionFeatureFlags } from './useInternMission'
+export { useInternMission, useInternMissionFeatureFlags, useInternMissionDocuments } from './useInternMission'
 export { useInternTasks } from './useInternTasks'
 export { useInternDeliverables, useInternDeliverableVersions } from './useInternDeliverables'
 export { useInternJournal } from './useInternJournal'

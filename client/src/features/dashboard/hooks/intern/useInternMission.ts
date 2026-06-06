@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { internDashboardApi } from '../../api/internDashboardApi'
+import type { Guid, InternMissionDocumentResponse } from '../../types/intern.types'
 import { parseMissionCardConfig } from '../../types/missionFeatureFlags'
 import { internDashboardQueryKeys } from './internDashboardQueryKeys'
 import { internDashboardStaleTimeMs, type InternQueryHookOptions } from './internHookOptions'
@@ -58,5 +59,33 @@ export function useInternMissionFeatureFlags(options: InternQueryHookOptions = {
   return {
     ...query,
     flags: enabled ? query.data ?? null : null,
+  }
+}
+
+interface UseInternMissionDocumentsOptions {
+  enabled?: boolean
+}
+
+export function useInternMissionDocuments(
+  missionId: Guid | string | null | undefined,
+  options: UseInternMissionDocumentsOptions = {},
+) {
+  const normalizedMissionId = (missionId ?? '').toString().trim()
+  const externalEnabled = options.enabled ?? true
+  const enabled = externalEnabled && normalizedMissionId.length > 0
+
+  const query = useQuery<InternMissionDocumentResponse[]>({
+    queryKey: internDashboardQueryKeys.missionDocuments(normalizedMissionId || null),
+    queryFn: () => internDashboardApi.getMissionDocuments(normalizedMissionId),
+    enabled,
+    staleTime: internDashboardStaleTimeMs,
+  })
+
+  return {
+    documents: enabled ? query.data ?? [] : [],
+    isLoading: enabled ? query.isLoading : false,
+    isFetching: enabled ? query.isFetching : false,
+    error: enabled ? query.error ?? null : null,
+    refetch: query.refetch,
   }
 }

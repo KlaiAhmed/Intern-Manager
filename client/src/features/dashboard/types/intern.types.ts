@@ -123,6 +123,19 @@ export interface InternMissionFeatureFlagsResponse {
   data: MissionCardConfig | null
 }
 
+export type InternMissionDocumentSourceType = 'file' | 'url' | string
+
+export interface InternMissionDocumentResponse {
+  id: Guid
+  missionId: Guid
+  fileName: string
+  fileUrl: string
+  uploadedAt: IsoDateTimeString
+  sourceType: InternMissionDocumentSourceType
+}
+
+export type InternMissionDocumentsResponse = InternMissionDocumentResponse[]
+
 export interface InternTaskResponse {
   id: Guid
   title: string

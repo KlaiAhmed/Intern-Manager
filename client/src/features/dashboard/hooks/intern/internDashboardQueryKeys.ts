@@ -9,6 +9,8 @@ export const internDashboardQueryKeys = {
   missionSummary: () => [...internDashboardQueryKeys.mission(), 'summary'] as const,
   missionHistory: () => [...internDashboardQueryKeys.mission(), 'history'] as const,
   missionFeatureFlags: () => [...internDashboardQueryKeys.mission(), 'featureFlags'] as const,
+  missionDocuments: (missionId: Guid | null | undefined) =>
+    [...internDashboardQueryKeys.mission(), 'documents', missionId ?? 'none'] as const,
   tasks: () => [...internDashboardQueryKeys.all, 'tasks'] as const,
   deliverables: () => [...internDashboardQueryKeys.all, 'deliverables'] as const,
   deliverableVersions: (deliverableId: Guid | null | undefined) =>

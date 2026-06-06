@@ -54,8 +54,6 @@ export function InternDashboard() {
   const missionIdForFlags = internLifecycleStatus === 'ACTIVE' ? internship?.id ?? null : null
   const {
     flags: missionFlags,
-    isLoading: flagsLoading,
-    error: flagsError,
   } = useMissionFeatureFlags(missionIdForFlags)
 
   const tabVisibility = useMemo(() => getInternTabVisibility(missionFlags), [missionFlags])
@@ -121,9 +119,6 @@ export function InternDashboard() {
             internship={internship}
             loading={loadingInternship}
             error={internshipError}
-            missionFlags={missionFlags}
-            flagsLoading={flagsLoading}
-            flagsError={flagsError}
             onRetry={() => { void loadInternship() }}
             t={t}
           />

@@ -1,24 +1,19 @@
+import { useMemo } from 'react'
+
+import { buildApiUrl } from '../../../../lib/apiClient'
+import { internDashboardApi } from '../../api/internDashboardApi'
+import { useInternMissionDocuments } from '../../hooks/intern/useInternMission'
+import type { InternMissionDocumentResponse } from '../../types/intern.types'
 import type { Internship, TranslateFn } from '../../types/internDashboard'
-import type { DashboardCard, MissionCardConfig } from '../../types/missionFeatureFlags'
 import { InternTabEmpty, InternTabError, InternTabLoading } from './InternTabStates'
 
 interface MissionTabProps {
   internship: Internship | null
   loading: boolean
   error: string | null
-  missionFlags: MissionCardConfig | null
-  flagsLoading: boolean
-  flagsError: string | null
   onRetry: () => void
   t: TranslateFn
 }
-
-const featureCards: Array<{ card: DashboardCard; labelKey: string }> = [
-  { card: 'missionOverview', labelKey: 'dashboard.intern.tabs.mission' },
-  { card: 'tasks', labelKey: 'dashboard.intern.tabs.tasks' },
-  { card: 'deliverables', labelKey: 'dashboard.intern.tabs.deliverables' },
-  { card: 'meeting', labelKey: 'dashboard.intern.tabs.meetings' },
-]
 
 function formatDate(value: string | null | undefined): string {
   if (!value) {
@@ -28,17 +23,45 @@ function formatDate(value: string | null | undefined): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
 }
 
+function isSafeExternalUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function resolveSourceType(sourceType: string | undefined): 'file' | 'url' {
+  return sourceType === 'url' ? 'url' : 'file'
+}
+
+function resolveFallbackText(t: TranslateFn, value: string | null | undefined): string {
+  if (value && value.trim().length > 0) {
+    return value
+  }
+  return t('dashboard.noData')
+}
+
 export function MissionTab({
   internship,
   loading,
   error,
-  missionFlags,
-  flagsLoading,
-  flagsError,
   onRetry,
   t,
 }: MissionTabProps) {
-  if (loading || flagsLoading) {
+  const missionId = internship?.id ?? null
+  const resourcesQuery = useInternMissionDocuments(missionId, {
+    enabled: !loading && !error && Boolean(missionId),
+  })
+
+  const sortedDocuments = useMemo(() => {
+    return [...resourcesQuery.documents].sort((left, right) =>
+      right.uploadedAt.localeCompare(left.uploadedAt),
+    )
+  }, [resourcesQuery.documents])
+
+  if (loading) {
     return <InternTabLoading label={t('dashboard.intern.tabs.loading')} />
   }
 
@@ -103,36 +126,128 @@ export function MissionTab({
         </dl>
       </section>
 
-      <section className="intern-panel">
+      <section className="intern-panel" aria-labelledby="intern-mission-resources-heading">
         <div className="intern-section-header">
           <div>
-            <p className="intern-eyebrow">{t('dashboard.intern.mission.featureFlags')}</p>
-            <h3>{t('dashboard.intern.mission.availableSections')}</h3>
+            <p className="intern-eyebrow">{t('dashboard.intern.mission.resources')}</p>
+            <h3 id="intern-mission-resources-heading">{t('dashboard.intern.mission.resourcesTitle')}</h3>
           </div>
         </div>
 
-        {flagsError && <p className="intern-inline-error">{flagsError}</p>}
+        {resourcesQuery.error && (
+          <div className="intern-resource-error" role="alert">
+            <p className="intern-resource-error-message">
+              {resourcesQuery.error instanceof Error
+                ? resourcesQuery.error.message
+                : t('dashboard.intern.mission.resourcesLoadFailed')}
+            </p>
+            <button
+              type="button"
+              className="intern-resource-retry"
+              onClick={() => { void resourcesQuery.refetch() }}
+            >
+              {t('dashboard.intern.error.retry')}
+            </button>
+          </div>
+        )}
 
-        <div className="intern-feature-grid">
-          {featureCards.map(({ card, labelKey }) => {
-            const config = missionFlags?.[card]
-            const isVisible = config?.isVisible ?? true
-            const isInteractive = config?.isInteractive ?? true
-
-            return (
-              <article key={card} className="intern-feature-row">
-                <div>
-                  <strong>{t(labelKey)}</strong>
-                  <span>{isVisible ? t('dashboard.intern.mission.visible') : t('dashboard.intern.mission.hidden')}</span>
-                </div>
-                <span className={`intern-status-pill ${isInteractive ? '' : 'is-muted'}`.trim()}>
-                  {isInteractive ? t('dashboard.intern.mission.interactive') : t('dashboard.intern.mission.readOnly')}
-                </span>
-              </article>
-            )
-          })}
-        </div>
+        {resourcesQuery.isLoading ? (
+          <div className="intern-resource-loading" role="status" aria-live="polite">
+            <div className="intern-resource-spinner" aria-hidden="true" />
+            <span>{t('dashboard.intern.mission.resourcesLoading')}</span>
+          </div>
+        ) : resourcesQuery.error ? null : sortedDocuments.length === 0 ? (
+          <p className="intern-resource-empty">{t('dashboard.intern.mission.resourcesEmpty')}</p>
+        ) : (
+          <ul className="intern-resource-list">
+            {sortedDocuments.map((document) => (
+              <ResourceRow
+                key={document.id}
+                document={document}
+                missionId={missionId ?? ''}
+                t={t}
+              />
+            ))}
+          </ul>
+        )}
       </section>
     </div>
+  )
+}
+
+interface ResourceRowProps {
+  document: InternMissionDocumentResponse
+  missionId: string
+  t: TranslateFn
+}
+
+function ResourceRow({ document, missionId, t }: ResourceRowProps) {
+  const source = resolveSourceType(document.sourceType)
+  const isFile = source === 'file'
+  const displayName = resolveFallbackText(t, document.fileName)
+  const uploadedAtLabel = formatDate(document.uploadedAt)
+
+  const sourceLabel = isFile
+    ? t('dashboard.intern.mission.resourceSource.file')
+    : t('dashboard.intern.mission.resourceSource.url')
+
+  const actionLabel = isFile
+    ? t('dashboard.intern.mission.resourceDownload')
+    : t('dashboard.intern.mission.resourceOpen')
+
+  const href = isFile
+    ? buildApiUrl(internDashboardApi.buildMissionDocumentDownloadUrl(missionId, document.id))
+    : isSafeExternalUrl(document.fileUrl ?? '')
+      ? (document.fileUrl as string)
+      : ''
+
+  if (!href) {
+    return (
+      <li className="intern-resource-row">
+        <div className="intern-resource-row-main">
+          <span className="intern-resource-name" title={displayName}>
+            {displayName}
+          </span>
+          <span className="intern-resource-meta">
+            <span className={`intern-resource-source intern-resource-source-${source}`}>
+              {sourceLabel}
+            </span>
+            <span>{uploadedAtLabel}</span>
+          </span>
+        </div>
+        <div className="intern-resource-actions">
+          <span className="intern-resource-unavailable">
+            {t('dashboard.intern.mission.resourceUnavailable')}
+          </span>
+        </div>
+      </li>
+    )
+  }
+
+  return (
+    <li className="intern-resource-row">
+      <div className="intern-resource-row-main">
+        <span className="intern-resource-name" title={displayName}>
+          {displayName}
+        </span>
+        <span className="intern-resource-meta">
+          <span className={`intern-resource-source intern-resource-source-${source}`}>
+            {sourceLabel}
+          </span>
+          <span>{uploadedAtLabel}</span>
+        </span>
+      </div>
+      <div className="intern-resource-actions">
+        <a
+          className="intern-resource-link"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          download={isFile ? document.fileName : undefined}
+        >
+          {actionLabel}
+        </a>
+      </div>
+    </li>
   )
 }

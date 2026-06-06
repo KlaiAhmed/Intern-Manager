@@ -17,6 +17,7 @@ import type {
   InternMeetingDetailResponse,
   InternMeetingsCountResponse,
   InternMeetingsResponse,
+  InternMissionDocumentsResponse,
   InternMissionFeatureFlagsResponse,
   InternMissionHistoryResponse,
   InternNotificationPageResponse,
@@ -223,6 +224,16 @@ export const internDashboardApi = {
 
   getMissionFeatureFlags(): Promise<InternMissionFeatureFlagsResponse> {
     return requestJson<InternMissionFeatureFlagsResponse>('/api/intern/me/feature-flags')
+  },
+
+  getMissionDocuments(missionId: string): Promise<InternMissionDocumentsResponse> {
+    return requestJson<InternMissionDocumentsResponse>(
+      `/api/intern/me/missions/${encodeURIComponent(missionId)}/documents`,
+    )
+  },
+
+  buildMissionDocumentDownloadUrl(missionId: string, documentId: string): string {
+    return `/api/intern/me/missions/${encodeURIComponent(missionId)}/documents/${encodeURIComponent(documentId)}/download`
   },
 
   getTasks(params?: ListParams): Promise<InternDashboardPagedResponse<InternTaskResponse>> {
