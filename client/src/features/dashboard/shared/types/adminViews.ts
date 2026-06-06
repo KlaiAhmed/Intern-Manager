@@ -6,7 +6,6 @@ export type AdminView =
   | 'interns'
   | 'internships'
   | 'missionFeatureFlags'
-  | 'evaluations'
   | 'settings'
   | 'audit'
 
@@ -15,7 +14,6 @@ export const sectionPathMap: Record<SuperAdminSection, string> = {
   users: '/dashboard/admin/users',
   internships: '/dashboard/admin/internships',
   missions: '/dashboard/admin/interns',
-  evaluations: '/dashboard/admin/evaluations',
   settings: '/dashboard/admin/settings',
   audit: '/dashboard/admin/audit',
 }
@@ -26,7 +24,6 @@ export const sectionByView: Record<AdminView, SuperAdminSection> = {
   interns: 'missions',
   internships: 'internships',
   missionFeatureFlags: 'internships',
-  evaluations: 'evaluations',
   settings: 'settings',
   audit: 'audit',
 }
@@ -50,10 +47,6 @@ export function resolveAdminView(pathname: string): AdminView {
 
   if (pathname.startsWith('/dashboard/admin/interns')) {
     return 'interns'
-  }
-
-  if (pathname.startsWith('/dashboard/admin/evaluations')) {
-    return 'evaluations'
   }
 
   if (pathname.startsWith('/dashboard/admin/audit')) {

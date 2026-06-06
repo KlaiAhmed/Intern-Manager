@@ -5,7 +5,6 @@ import {
   Users,
   Briefcase,
   BookOpen,
-  ClipboardCheck,
   Settings,
   ShieldCheck,
   ChevronRight,
@@ -18,7 +17,6 @@ export type SuperAdminSection =
   | 'users'
   | 'internships'
   | 'missions'
-  | 'evaluations'
   | 'settings'
   | 'audit'
 
@@ -55,7 +53,6 @@ export function SuperAdminSidebar({
     { id: 'users', label: t('dashboard.superAdmin.nav.userManagement'), icon: <Users /> },
     { id: 'internships', label: t('dashboard.superAdmin.nav.internships'), icon: <Briefcase /> },
     { id: 'missions', label: t('dashboard.superAdmin.nav.internsManagement'), icon: <BookOpen /> },
-    { id: 'evaluations', label: t('dashboard.superAdmin.nav.evaluations'), icon: <ClipboardCheck /> },
   ]
 
   useEffect(() => {

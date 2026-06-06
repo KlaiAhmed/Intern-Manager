@@ -9,7 +9,6 @@ import { MissionFeatureFlagsSection } from './AdminDashboard/MissionFeatureFlags
 import {
   BiDashboardSection,
   DashboardShell,
-  OperationalEvaluationsSection,
   OperationalInternshipsSection,
   OperationalInternsSection,
 } from '../shared/components'
@@ -20,7 +19,6 @@ const superAdminSections: SuperAdminSection[] = [
   'users',
   'internships',
   'missions',
-  'evaluations',
   'settings',
   'audit',
 ]
@@ -95,8 +93,6 @@ export function SuperAdminDashboard() {
         return <OperationalInternshipsSection />
       case 'missions':
         return <OperationalInternsSection />
-      case 'evaluations':
-        return <OperationalEvaluationsSection />
       case 'settings':
         return (
           <SettingsPanel

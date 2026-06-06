@@ -27,7 +27,6 @@ export const appRoutes: RouteDefinition[] = [
   { path: '/dashboard/admin/interns', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin intern access.
   { path: '/dashboard/admin/internships', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin internship access.
   { path: '/dashboard/admin/missions/:missionId/feature-flags', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] },
-  { path: '/dashboard/admin/evaluations', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin evaluation access.
   { path: '/dashboard/admin/settings', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin settings access.
   { path: '/dashboard/admin/audit', component: DashboardPage, isProtected: true, allowedRoles: ['admin', 'super_admin'] }, // super_admin inherits admin audit access.
   { path: '/dashboard/supervisor/interns/:internId/journal', component: DashboardPage, isProtected: true, allowedRoles: ['supervisor'] },

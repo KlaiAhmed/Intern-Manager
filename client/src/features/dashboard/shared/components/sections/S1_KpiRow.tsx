@@ -8,14 +8,14 @@ import styles from '../BiDashboardSection.module.css'
 
 interface Props { data: BiSectionData<BiKpiResponse>; }
 
-const skeletonItems = Array.from({ length: 6 }, (_, index) => index)
+const skeletonItems = Array.from({ length: 5 }, (_, index) => index)
 
 export function S1_KpiRow({ data }: Props) {
   const { t } = useI18n()
 
   if (data.loading) {
     return (
-      <div className={`${styles.kpiGrid} ${styles.grid6}`} aria-busy="true">
+      <div className={`${styles.kpiGrid} ${styles.grid5}`} aria-busy="true">
         {skeletonItems.map((item) => (
           <Skeleton key={item} height="100px" />
         ))}
@@ -61,12 +61,6 @@ export function S1_KpiRow({ data }: Props) {
       accent: '#D4537E',
     },
     {
-      label: t('dashboard.bi.kpi.supervisorUtil'),
-      value: `${data.data.supervisorUtilization.toFixed(1)}%`,
-      trend: t('dashboard.bi.kpi.avgCapacity'),
-      accent: '#7F77DD',
-    },
-    {
       label: t('dashboard.bi.kpi.onboarding'),
       value: `${data.data.onboardingCompletionRate.toFixed(1)}%`,
       trend: t('dashboard.bi.kpi.ofRegistered'),
@@ -75,7 +69,7 @@ export function S1_KpiRow({ data }: Props) {
   ]
 
   return (
-    <div className={`${styles.kpiGrid} ${styles.grid6}`}>
+    <div className={`${styles.kpiGrid} ${styles.grid5}`}>
       {cards.map((card) => {
         const attentionTextStyle: CSSProperties | undefined = card.attention
           ? { color: card.accent }

@@ -7,7 +7,6 @@ import type { SuperAdminSection } from '../components/SuperAdminSidebar'
 import {
   BiDashboardSection,
   DashboardShell,
-  OperationalEvaluationsSection,
   OperationalInternshipsSection,
   OperationalInternsSection,
 } from '../shared/components'
@@ -77,8 +76,6 @@ export function AdminDashboard() {
             }}
           />
         )
-      case 'evaluations':
-        return <OperationalEvaluationsSection />
       case 'settings':
         return (
           <SettingsPanel

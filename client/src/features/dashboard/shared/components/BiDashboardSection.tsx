@@ -12,7 +12,6 @@ import { S2_InternFunnel } from './sections/S2_InternFunnel'
 import { S3_MissionStats } from './sections/S3_MissionStats'
 import { S4_EvaluationsSection } from './sections/S4_EvaluationsSection'
 import { S5_Demographics } from './sections/S5_Demographics'
-import { S6_SupervisorWorkload } from './sections/S6_SupervisorWorkload'
 import { S7_Deliverables } from './sections/S7_Deliverables'
 import { S8_SystemHealth } from './sections/S8_SystemHealth'
 import { S9_ActionQueue } from './sections/S9_ActionQueue'
@@ -115,11 +114,10 @@ export function BiDashboardSection() {
       {renderSection(3, t('dashboard.bi.section.missions'), dashboardData.missionStats, <S3_MissionStats data={dashboardData.missionStats} />, { handlesState: true })}
       {renderSection(4, t('dashboard.bi.section.evaluations'), dashboardData.evaluationStats, <S4_EvaluationsSection data={dashboardData.evaluationStats} />, { handlesState: true })}
       {renderSection(5, t('dashboard.bi.section.demographics'), dashboardData.demographics, <S5_Demographics data={dashboardData.demographics} />, { handlesState: true })}
-      {renderSection(6, t('dashboard.bi.section.supervisors'), dashboardData.supervisorWorkload, <S6_SupervisorWorkload data={dashboardData.supervisorWorkload} />, { handlesState: true })}
-      {renderSection(7, t('dashboard.bi.section.deliverables'), dashboardData.deliverableStats, <S7_Deliverables data={dashboardData.deliverableStats} />, { handlesState: true })}
-      {renderSection(8, t('dashboard.bi.section.system'), dashboardData.systemHealth, <S8_SystemHealth data={dashboardData.systemHealth} />, { handlesState: true })}
+      {renderSection(6, t('dashboard.bi.section.deliverables'), dashboardData.deliverableStats, <S7_Deliverables data={dashboardData.deliverableStats} />, { handlesState: true })}
+      {renderSection(7, t('dashboard.bi.section.system'), dashboardData.systemHealth, <S8_SystemHealth data={dashboardData.systemHealth} />, { handlesState: true })}
       {renderSection(
-        9,
+        8,
         t('dashboard.bi.section.actions'),
         dashboardData.actionQueue,
         <S9_ActionQueue data={dashboardData.actionQueue} />,
